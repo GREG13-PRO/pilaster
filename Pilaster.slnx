@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Pilaster.App/Pilaster.App.csproj" />
+    <Project Path="src/Pilaster.Core/Pilaster.Core.csproj" />
+    <Project Path="src/Pilaster.Providers/Pilaster.Providers.csproj" />
+    <Project Path="src/Pilaster.Shell/Pilaster.Shell.csproj" />
+  </Folder>
+</Solution>

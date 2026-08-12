@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="App_Name" xml:space="preserve">
+    <value>Pilaster</value>
+  </data>
+
+  <data name="Nav_QuickAccess" xml:space="preserve">
+    <value>Gyors elérés</value>
+  </data>
+  <data name="Nav_Drives" xml:space="preserve">
+    <value>Meghajtók</value>
+  </data>
+  <data name="Nav_Desktop" xml:space="preserve">
+    <value>Asztal</value>
+  </data>
+  <data name="Nav_Documents" xml:space="preserve">
+    <value>Dokumentumok</value>
+  </data>
+  <data name="Nav_Downloads" xml:space="preserve">
+    <value>Letöltések</value>
+  </data>
+  <data name="Nav_Pictures" xml:space="preserve">
+    <value>Képek</value>
+  </data>
+  <data name="Nav_Music" xml:space="preserve">
+    <value>Zene</value>
+  </data>
+  <data name="Nav_Videos" xml:space="preserve">
+    <value>Videók</value>
+  </data>
+  <data name="Nav_Home" xml:space="preserve">
+    <value>Kezdőlap</value>
+  </data>
+
+  <data name="Cmd_Back" xml:space="preserve">
+    <value>Vissza</value>
+  </data>
+  <data name="Cmd_Forward" xml:space="preserve">
+    <value>Előre</value>
+  </data>
+  <data name="Cmd_Up" xml:space="preserve">
+    <value>Egy szinttel feljebb</value>
+  </data>
+  <data name="Cmd_Refresh" xml:space="preserve">
+    <value>Frissítés</value>
+  </data>
+  <data name="Cmd_NewTab" xml:space="preserve">
+    <value>Új fül</value>
+  </data>
+  <data name="Cmd_CloseTab" xml:space="preserve">
+    <value>Fül bezárása</value>
+  </data>
+  <data name="Cmd_Settings" xml:space="preserve">
+    <value>Beállítások</value>
+  </data>
+  <data name="Cmd_ToggleHidden" xml:space="preserve">
+    <value>Rejtett elemek mutatása</value>
+  </data>
+
+  <data name="View_Mode" xml:space="preserve">
+    <value>Nézet</value>
+  </data>
+  <data name="View_Details" xml:space="preserve">
+    <value>Részletek</value>
+  </data>
+  <data name="View_Grid" xml:space="preserve">
+    <value>Ikonok</value>
+  </data>
+  <data name="View_Tiles" xml:space="preserve">
+    <value>Csempék</value>
+  </data>
+  <data name="View_Columns" xml:space="preserve">
+    <value>Oszlopok</value>
+  </data>
+  <data name="View_Gallery" xml:space="preserve">
+    <value>Galéria</value>
+  </data>
+  <data name="View_Tree" xml:space="preserve">
+    <value>Fa</value>
+  </data>
+
+  <data name="Col_Name" xml:space="preserve">
+    <value>Név</value>
+  </data>
+  <data name="Col_Size" xml:space="preserve">
+    <value>Méret</value>
+  </data>
+  <data name="Col_Type" xml:space="preserve">
+    <value>Típus</value>
+  </data>
+  <data name="Col_Modified" xml:space="preserve">
+    <value>Módosítva</value>
+  </data>
+  <data name="Col_Created" xml:space="preserve">
+    <value>Létrehozva</value>
+  </data>
+
+  <data name="Type_Folder" xml:space="preserve">
+    <value>Mappa</value>
+  </data>
+  <data name="Type_Drive" xml:space="preserve">
+    <value>Meghajtó</value>
+  </data>
+  <data name="Type_File" xml:space="preserve">
+    <value>Fájl</value>
+  </data>
+  <data name="Type_FileFormat" xml:space="preserve">
+    <value>{0}-fájl</value>
+    <comment>{0} = nagybetűs kiterjesztés, pl. „PDF-fájl”</comment>
+  </data>
+
+  <data name="Search_Placeholder" xml:space="preserve">
+    <value>Keresés ebben a mappában…</value>
+  </data>
+
+  <data name="Status_Items" xml:space="preserve">
+    <value>{0} elem</value>
+  </data>
+  <data name="Status_Selected" xml:space="preserve">
+    <value>{0} kijelölve</value>
+  </data>
+  <data name="Status_SelectedSize" xml:space="preserve">
+    <value>{0} kijelölve · {1}</value>
+    <comment>{0} = darabszám, {1} = formázott összméret</comment>
+  </data>
+  <data name="Status_Loading" xml:space="preserve">
+    <value>Betöltés…</value>
+  </data>
+
+  <data name="Folder_Empty" xml:space="preserve">
+    <value>Ez a mappa üres</value>
+  </data>
+  <data name="Folder_AccessDenied" xml:space="preserve">
+    <value>A mappa megnyitása megtagadva</value>
+  </data>
+  <data name="Folder_NotFound" xml:space="preserve">
+    <value>Ez a mappa már nem létezik</value>
+  </data>
+
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Nyelv</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Téma</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>Világos</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>Sötét</value>
+  </data>
+  <data name="Theme_System" xml:space="preserve">
+    <value>Rendszerbeállítás szerint</value>
+  </data>
+
+  <data name="Drive_FreeOfTotal" xml:space="preserve">
+    <value>{0} szabad / {1}</value>
+  </data>
+</root>

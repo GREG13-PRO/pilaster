@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # A Pilaster WPF-re épül és Win32/COM interopot használ,
+    # ezért csak Windows futtatón fordítható.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # A NuGet-csomagok gyorsítótárazása a lock-fájlok helyett a csproj-ok
+      # tartalmára kulcsolódik, mert a projekt nem használ lock-fájlokat.
+      - name: NuGet gyorsítótár
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore Pilaster.slnx
+
+      - name: Build
+        run: dotnet build Pilaster.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test Pilaster.slnx -c Release --no-build --verbosity normal
+        # Amíg nincs tesztprojekt, a dotnet test nem talál semmit és
+        # hibával térne vissza; ez a mérföldkő után kerül be élesbe.
+        continue-on-error: true

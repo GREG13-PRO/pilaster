@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="App_Name" xml:space="preserve">
+    <value>Pilaster</value>
+  </data>
+
+  <data name="Nav_QuickAccess" xml:space="preserve">
+    <value>Quick access</value>
+  </data>
+  <data name="Nav_Drives" xml:space="preserve">
+    <value>Drives</value>
+  </data>
+  <data name="Nav_Desktop" xml:space="preserve">
+    <value>Desktop</value>
+  </data>
+  <data name="Nav_Documents" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="Nav_Downloads" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="Nav_Pictures" xml:space="preserve">
+    <value>Pictures</value>
+  </data>
+  <data name="Nav_Music" xml:space="preserve">
+    <value>Music</value>
+  </data>
+  <data name="Nav_Videos" xml:space="preserve">
+    <value>Videos</value>
+  </data>
+  <data name="Nav_Home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+
+  <data name="Cmd_Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Cmd_Forward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Cmd_Up" xml:space="preserve">
+    <value>Up one level</value>
+  </data>
+  <data name="Cmd_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Cmd_NewTab" xml:space="preserve">
+    <value>New tab</value>
+  </data>
+  <data name="Cmd_CloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="Cmd_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Cmd_ToggleHidden" xml:space="preserve">
+    <value>Show hidden items</value>
+  </data>
+
+  <data name="View_Mode" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="View_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="View_Grid" xml:space="preserve">
+    <value>Icons</value>
+  </data>
+  <data name="View_Tiles" xml:space="preserve">
+    <value>Tiles</value>
+  </data>
+  <data name="View_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="View_Gallery" xml:space="preserve">
+    <value>Gallery</value>
+  </data>
+  <data name="View_Tree" xml:space="preserve">
+    <value>Tree</value>
+  </data>
+
+  <data name="Col_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Col_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Col_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Col_Modified" xml:space="preserve">
+    <value>Date modified</value>
+  </data>
+  <data name="Col_Created" xml:space="preserve">
+    <value>Date created</value>
+  </data>
+
+  <data name="Type_Folder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="Type_Drive" xml:space="preserve">
+    <value>Drive</value>
+  </data>
+  <data name="Type_File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Type_FileFormat" xml:space="preserve">
+    <value>{0} file</value>
+    <comment>{0} = uppercase extension, e.g. "PDF file"</comment>
+  </data>
+
+  <data name="Search_Placeholder" xml:space="preserve">
+    <value>Search in this folder…</value>
+  </data>
+
+  <data name="Status_Items" xml:space="preserve">
+    <value>{0} items</value>
+  </data>
+  <data name="Status_Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="Status_SelectedSize" xml:space="preserve">
+    <value>{0} selected · {1}</value>
+    <comment>{0} = count, {1} = formatted total size</comment>
+  </data>
+  <data name="Status_Loading" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+
+  <data name="Folder_Empty" xml:space="preserve">
+    <value>This folder is empty</value>
+  </data>
+  <data name="Folder_AccessDenied" xml:space="preserve">
+    <value>Access to this folder was denied</value>
+  </data>
+  <data name="Folder_NotFound" xml:space="preserve">
+    <value>This folder no longer exists</value>
+  </data>
+
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="Theme_System" xml:space="preserve">
+    <value>Use system setting</value>
+  </data>
+
+  <data name="Drive_FreeOfTotal" xml:space="preserve">
+    <value>{0} free of {1}</value>
+  </data>
+</root>

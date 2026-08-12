@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pilaster.Shell</RootNamespace>
+    <AssemblyName>Pilaster.Shell</AssemblyName>
+
+    <!--
+      A shell ikon- és bélyegkép-kinyerés közvetlenül WPF ImageSource-t ad
+      vissza, ezért ez az assembly WPF-típusokra hivatkozik. Nem tartalmaz
+      XAML-t és nem hoz be UI-t — csak a PresentationCore képtípusait.
+    -->
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pilaster.Core\Pilaster.Core.csproj" />
+  </ItemGroup>
+
+</Project>

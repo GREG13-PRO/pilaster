@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pilaster.Providers</RootNamespace>
+    <AssemblyName>Pilaster.Providers</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pilaster.Core\Pilaster.Core.csproj" />
+  </ItemGroup>
+
+</Project>

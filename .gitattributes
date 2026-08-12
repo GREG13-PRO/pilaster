@@ -1,0 +1,38 @@
+# Alapértelmezés: a Git normalizálja a sorvégeket a repóban LF-re,
+# a munkakönyvtárban pedig a platform szerint állítja vissza.
+* text=auto
+
+# Windows-specifikus szkriptek CRLF-fel működnek megbízhatóan.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Shell szkriptek soha ne kapjanak CRLF-et.
+*.sh text eol=lf
+
+# Forrás- és projektfájlok
+*.cs      text diff=csharp
+*.csproj  text
+*.props   text
+*.targets text
+*.slnx    text
+*.xaml    text
+*.resx    text
+*.json    text
+*.yml     text
+*.md      text
+
+# Bináris állományok — a Git ne próbálja átalakítani vagy diffelni őket.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.icns binary
+*.pdf  binary
+*.zip  binary
+*.exe  binary
+*.dll  binary
+*.ttf  binary
+*.woff binary
+*.woff2 binary

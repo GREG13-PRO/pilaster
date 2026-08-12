@@ -1,0 +1,37 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+  </PropertyGroup>
+
+  <!-- Közös termékadatok / shared product metadata -->
+  <PropertyGroup>
+    <Product>Pilaster</Product>
+    <Company>Pilaster</Company>
+    <Authors>Pilaster contributors</Authors>
+    <Copyright>Copyright © Pilaster contributors</Copyright>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <RepositoryUrl>https://github.com/GREG13-PRO/pilaster</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!-- Központi csomagverziók / central package versions -->
+  <PropertyGroup>
+    <WpfUiVersion>4.3.0</WpfUiVersion>
+    <MvvmToolkitVersion>8.4.2</MvvmToolkitVersion>
+    <ExtensionsVersion>10.0.11</ExtensionsVersion>
+    <SerilogVersion>4.4.0</SerilogVersion>
+    <SerilogFileSinkVersion>7.0.0</SerilogFileSinkVersion>
+    <SqliteVersion>10.0.11</SqliteVersion>
+    <VanaraVersion>5.0.5</VanaraVersion>
+  </PropertyGroup>
+
+</Project>

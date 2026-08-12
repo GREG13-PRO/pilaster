@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Pilaster.App</RootNamespace>
+    <AssemblyName>Pilaster</AssemblyName>
+    <ApplicationIcon>..\..\assets\brand\app.ico</ApplicationIcon>
+
+    <!-- A magyar az alapértelmezett felület, de minden nyelv szállítva van. -->
+    <NeutralLanguage>en</NeutralLanguage>
+    <SatelliteResourceLanguages>en;hu</SatelliteResourceLanguages>
+
+    <!--
+      Hidegindítás: a ReadyToRun előre lefordítja az IL-t, így nincs JIT-tüske
+      az első ablak megjelenítésekor. Csak publish-kor él, a fejlesztői
+      buildet nem lassítja.
+    -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="$(WpfUiVersion)" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="$(MvvmToolkitVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(ExtensionsVersion)" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="$(SerilogFileSinkVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pilaster.Core\Pilaster.Core.csproj" />
+    <ProjectReference Include="..\Pilaster.Providers\Pilaster.Providers.csproj" />
+    <ProjectReference Include="..\Pilaster.Shell\Pilaster.Shell.csproj" />
+  </ItemGroup>
+
+  <!--
+    A feliratokat kizárólag a TranslationSource olvassa, ResourceManager-en
+    keresztül. Ezért nincs szükség generált Designer.cs-re: az minden új
+    nyelvnél és kulcsnál újragenerálást kívánna, és Visual Studio nélkül nem
+    is készül el. Egy kézzel írt, néhány soros Strings osztály elég.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\Strings.resx">
+      <Generator></Generator>
+    </EmbeddedResource>
+
+    <!-- A képek nem kerülnek be automatikusan; a pack:// URI ehhez kell. -->
+    <Resource Include="Assets\**\*.png" />
+  </ItemGroup>
+
+</Project>
