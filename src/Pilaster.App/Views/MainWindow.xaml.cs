@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using Pilaster.App.Controls;
 using Pilaster.App.ViewModels;
 using Pilaster.Core.FileSystem;
 using Wpf.Ui.Controls;
@@ -8,6 +9,7 @@ using Wpf.Ui.Controls;
 // A WPF-UI saját ListView/ListBox típusokat is szállít ugyanezekkel a nevekkel.
 // A XAML a WPF beépített vezérlőit példányosítja, ezért a kódban is azokra
 // hivatkozunk — az álnév egyértelműsíti, melyikről van szó.
+using GridViewColumnHeader = System.Windows.Controls.GridViewColumnHeader;
 using ListBox = System.Windows.Controls.ListBox;
 using ListView = System.Windows.Controls.ListView;
 using SelectionChangedEventArgs = System.Windows.Controls.SelectionChangedEventArgs;
@@ -17,6 +19,9 @@ namespace Pilaster.App.Views;
 public partial class MainWindow : FluentWindow
 {
     private readonly MainWindowViewModel _viewModel;
+
+    /// <summary>Az az oszlopfejléc, amelyik jelenleg nyilat mutat.</summary>
+    private GridViewColumnHeader? _sortedHeader;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -107,6 +112,45 @@ public partial class MainWindow : FluentWindow
         // A kijelölés elengedése, hogy ugyanarra a helyre ismét lehessen lépni,
         // és hogy ne maradjon két szekcióban egyszerre kiemelt sor.
         ((ListBox)sender).SelectedItem = null;
+    }
+
+    /// <summary>
+    /// Oszlopfejléc-kattintás: rendezés az oszlop szempontja szerint.
+    /// </summary>
+    /// <remarks>
+    /// Ugyanarra az oszlopra kattintva az irány fordul, más oszlopra kattintva
+    /// növekvővel indul — ez a Windows és a macOS közös viselkedése, és a
+    /// felhasználó ezt várja anélkül, hogy meg kellene tanulnia.
+    /// </remarks>
+    private void OnColumnHeaderClick(object sender, RoutedEventArgs e)
+    {
+        // A GridView jobb szélén ül egy „töltelék" fejléc, aminek nincs oszlopa.
+        if (e.OriginalSource is not GridViewColumnHeader { Column: { } column } header)
+        {
+            return;
+        }
+
+        if (_viewModel.SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        var key = GridViewSort.GetSortKey(column);
+        var descending = key == tab.SortKey && !tab.SortDescending;
+
+        tab.ApplySort(key, descending);
+
+        // Egyszerre csak egy oszlop mutathat nyilat.
+        if (_sortedHeader is not null && !ReferenceEquals(_sortedHeader, header))
+        {
+            GridViewSort.SetIndicator(_sortedHeader, SortIndicator.None);
+        }
+
+        GridViewSort.SetIndicator(
+            header,
+            descending ? SortIndicator.Descending : SortIndicator.Ascending);
+
+        _sortedHeader = header;
     }
 
     private void OnSetViewDetails(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Details);

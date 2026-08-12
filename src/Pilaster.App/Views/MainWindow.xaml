@@ -73,13 +73,33 @@
                             BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                             BorderThickness="0,0,0,1"
                             CornerRadius="0">
-                            <ContentPresenter
+                            <StackPanel
                                 HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                                <ContentPresenter VerticalAlignment="Center" />
+                                <TextBlock
+                                    x:Name="Arrow"
+                                    Margin="6,1,0,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="9"
+                                    Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                    Text="" />
+                            </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+
+                            <!--  A rendezés iránya nyíllal, ahogy az Explorerben  -->
+                            <Trigger Property="controls:GridViewSort.Indicator" Value="Ascending">
+                                <Setter TargetName="Arrow" Property="Text" Value="&#x25B2;" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="controls:GridViewSort.Indicator" Value="Descending">
+                                <Setter TargetName="Arrow" Property="Text" Value="&#x25BC;" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -443,6 +463,7 @@
                         x:Name="DetailsView"
                         Background="Transparent"
                         BorderThickness="0"
+                        GridViewColumnHeader.Click="OnColumnHeaderClick"
                         ItemContainerStyle="{StaticResource FileRowStyle}"
                         ItemsSource="{Binding SelectedTab.Items}"
                         MouseDoubleClick="OnItemDoubleClick"
@@ -453,7 +474,10 @@
                         VirtualizingPanel.VirtualizationMode="Recycling">
                         <ListView.View>
                             <GridView ColumnHeaderContainerStyle="{StaticResource ColumnHeaderStyle}">
-                                <GridViewColumn Width="380" Header="{loc:Loc Col_Name}">
+                                <GridViewColumn
+                                    Width="380"
+                                    controls:GridViewSort.SortKey="Name"
+                                    Header="{loc:Loc Col_Name}">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type fs:FileSystemItem}">
                                             <StackPanel Orientation="Horizontal">
@@ -472,7 +496,10 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Width="150" Header="{loc:Loc Col_Modified}">
+                                <GridViewColumn
+                                    Width="150"
+                                    controls:GridViewSort.SortKey="Modified"
+                                    Header="{loc:Loc Col_Modified}">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type fs:FileSystemItem}">
                                             <TextBlock
@@ -481,7 +508,10 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Width="130" Header="{loc:Loc Col_Type}">
+                                <GridViewColumn
+                                    Width="130"
+                                    controls:GridViewSort.SortKey="Type"
+                                    Header="{loc:Loc Col_Type}">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type fs:FileSystemItem}">
                                             <TextBlock
@@ -490,7 +520,10 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Width="100" Header="{loc:Loc Col_Size}">
+                                <GridViewColumn
+                                    Width="100"
+                                    controls:GridViewSort.SortKey="Size"
+                                    Header="{loc:Loc Col_Size}">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type fs:FileSystemItem}">
                                             <TextBlock

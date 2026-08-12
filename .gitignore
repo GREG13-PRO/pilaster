@@ -10,6 +10,7 @@
 [Ll]ogs/
 artifacts/
 publish/
+dist/
 
 ## Visual Studio / Rider / VS Code
 .vs/

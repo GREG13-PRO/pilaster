@@ -45,6 +45,20 @@ A fájlkezelőnél a sebesség nem extra, hanem alapkövetelmény. Ezért:
 | Ikonok | Csak a képernyőn lévő sorokra indul COM-hívás; a típusikonok kiterjesztés szerint gyorsítótárazódnak |
 | Rendezés | A natív `StrCmpLogicalW`, hogy a sorrend pontosan egyezzen az Explorerével (`kép9` a `kép10` előtt) |
 
+## Telepítés
+
+Töltsd le a [legutóbbi kiadásból](https://github.com/GREG13-PRO/pilaster/releases/latest):
+
+- **`Pilaster-<verzió>-x64-setup.exe`** — telepítő. Nem kér rendszergazdai jogot, a felhasználói profilba telepít.
+- **`...-portable.zip`** — hordozható változat: kicsomagolod és futtatod, semmit nem ír a rendszerbe.
+
+ARM64-es gépre (Snapdragon X, Surface Pro) az `arm64` változat való.
+
+> **A víruskeresőd bejelez?** Aláíró tanúsítvány nélkül ez sajnos előfordul.
+> A [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) leírja, miért, és hogyan tudod
+> ellenőrzőösszeggel vagy saját fordítással meggyőződni róla, hogy a fájl az,
+> aminek mondja magát.
+
 ## Fordítás
 
 Kell hozzá a [.NET 10 SDK](https://dotnet.microsoft.com/download). Semmi más.

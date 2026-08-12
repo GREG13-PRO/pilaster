@@ -33,6 +33,7 @@ public sealed partial class TabViewModel : ObservableObject
 
     private readonly IFileSystemProvider _provider;
     private CancellationTokenSource? _loadCancellation;
+    private bool _suppressResort;
 
     public TabViewModel(IFileSystemProvider provider)
     {
@@ -146,6 +147,32 @@ public sealed partial class TabViewModel : ObservableObject
     partial void OnSortKeyChanged(SortKey value) => ResortInPlace();
 
     partial void OnSortDescendingChanged(bool value) => ResortInPlace();
+
+    /// <summary>
+    /// Rendezési szempont és irány beállítása egy lépésben.
+    /// </summary>
+    /// <remarks>
+    /// A két tulajdonság külön-külön is kiváltaná az újrarendezést, ami
+    /// oszlopfejléc-kattintásnál azt jelentené, hogy a lista kétszer rendeződik
+    /// át — egyszer még a régi iránnyal. A zárolás ezt fogja össze egyetlen
+    /// rendezéssé.
+    /// </remarks>
+    public void ApplySort(SortKey key, bool descending)
+    {
+        _suppressResort = true;
+
+        try
+        {
+            SortKey = key;
+            SortDescending = descending;
+        }
+        finally
+        {
+            _suppressResort = false;
+        }
+
+        ResortInPlace();
+    }
 
     /// <summary>
     /// Egy mappa betöltése.
@@ -265,7 +292,7 @@ public sealed partial class TabViewModel : ObservableObject
 
     private void ResortInPlace()
     {
-        if (IsLoading || Items.Count == 0)
+        if (_suppressResort || IsLoading || Items.Count == 0)
         {
             return;
         }

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Kiadás címkéje (pl. v0.1.0)'
+        description: 'Kiadás címkéje (pl. v0.1.1)'
         required: true
 
 permissions:
@@ -18,7 +18,11 @@ jobs:
 
     strategy:
       matrix:
-        runtime: [win-x64, win-arm64]
+        include:
+          - runtime: win-x64
+            arch: x64
+          - runtime: win-arm64
+            arch: arm64
 
     steps:
       - uses: actions/checkout@v5
@@ -41,34 +45,69 @@ jobs:
           "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      # Önálló, egyfájlos kiadás: a felhasználónak semmit nem kell telepítenie.
-      # A ReadyToRun a hidegindítást rövidíti — fájlkezelőnél ez a legfontosabb
-      # metrika, cserébe nagyobb a fájl.
+      # Szándékosan NEM PublishSingleFile. Két oka van:
+      #   1. Az egyfájlos csomag indításkor natív könyvtárakat csomagol ki,
+      #      ami mérhetően lassítja a hidegindulást (lásd #1).
+      #   2. Az önkicsomagoló viselkedés a víruskeresők heurisztikáinak
+      #      klasszikus riasztási mintája — aláírás nélkül gyakori a téves
+      #      találat. A mappás kiadás ezt érdemben csökkenti.
       - name: Publish
         run: >
           dotnet publish src/Pilaster.App
           -c Release
           -r ${{ matrix.runtime }}
           --self-contained true
-          -p:PublishSingleFile=true
           -p:PublishReadyToRun=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ steps.version.outputs.version }}
           -o publish/${{ matrix.runtime }}
 
-      - name: Csomagolás
+      - name: Inno Setup megléte
         shell: pwsh
         run: |
-          $name = "Pilaster-${{ steps.version.outputs.tag }}-${{ matrix.runtime }}"
-          Compress-Archive -Path "publish/${{ matrix.runtime }}/*" -DestinationPath "$name.zip"
-          (Get-FileHash "$name.zip" -Algorithm SHA256).Hash | Out-File "$name.zip.sha256"
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            Write-Host 'Inno Setup nincs a futtatón, telepítés Chocolatey-vel...'
+            choco install innosetup --no-progress -y
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe nem található: $iscc" }
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Telepítő fordítása
+        shell: pwsh
+        working-directory: installer
+        run: |
+          & $env:ISCC `
+            /DAppVersion=${{ steps.version.outputs.version }} `
+            /DArch=${{ matrix.arch }} `
+            "/DSourceDir=..\publish\${{ matrix.runtime }}" `
+            Pilaster.iss
+          if ($LASTEXITCODE -ne 0) { throw "A telepítő fordítása sikertelen ($LASTEXITCODE)" }
+
+      # A hordozható zip azoknak, akik nem akarnak telepíteni — kicsomagolás
+      # után azonnal futtatható, semmit nem ír a rendszerbe.
+      - name: Hordozható csomag
+        shell: pwsh
+        run: |
+          # A dist mappát az Inno Setup hozza létre, de ha a telepítő lépés
+          # valaha kimaradna, a tömörítés némán elhasalna rajta.
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $tag = '${{ steps.version.outputs.tag }}'
+          $name = "Pilaster-$tag-${{ matrix.runtime }}-portable"
+          Compress-Archive -Path "publish/${{ matrix.runtime }}/*" -DestinationPath "dist/$name.zip"
+
+      - name: Ellenőrzőösszegek
+        shell: pwsh
+        run: |
+          Get-ChildItem dist\* -Include *.zip, *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File "$($_.FullName).sha256" -Encoding ascii
+          }
+          Get-ChildItem dist | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.runtime }}
-          path: |
-            *.zip
-            *.sha256
+          path: dist/*
 
   release:
     needs: publish
@@ -85,6 +124,4 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: |
-            artifacts/*.zip
-            artifacts/*.sha256
+          files: artifacts/*
