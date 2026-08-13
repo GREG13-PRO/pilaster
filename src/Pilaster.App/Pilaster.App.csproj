@@ -35,6 +35,16 @@
   </ItemGroup>
 
   <!--
+    Az automatikus frissítő ebből olvassa ki, melyik GitHub repóból jönnek a
+    kiadások (Diagnostics/GitHubRepositoryInfo.cs) — ez az EGYETLEN hely, ahol
+    ez szerepel, hogy aki saját forkból fordítja, csak itt kelljen módosítania.
+  -->
+  <ItemGroup>
+    <AssemblyMetadata Include="RepositoryOwner" Value="GREG13-PRO" />
+    <AssemblyMetadata Include="RepositoryName" Value="pilaster" />
+  </ItemGroup>
+
+  <!--
     A feliratokat kizárólag a TranslationSource olvassa, ResourceManager-en
     keresztül. Ezért nincs szükség generált Designer.cs-re: az minden új
     nyelvnél és kulcsnál újragenerálást kívánna, és Visual Studio nélkül nem

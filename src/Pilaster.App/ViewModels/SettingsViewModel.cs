@@ -27,10 +27,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </summary>
     private readonly bool _loaded;
 
-    public SettingsViewModel(ISettingsService settings, ThemeService theme, IBugReportService bugReportService)
+    public SettingsViewModel(
+        ISettingsService settings,
+        ThemeService theme,
+        IBugReportService bugReportService,
+        UpdateViewModel updates)
     {
         _settings = settings;
         _theme = theme;
+        Updates = updates;
 
         var current = settings.Current;
 
@@ -51,6 +56,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>A „Hibabejelentés" szakasz állapota.</summary>
     public BugReportViewModel BugReport { get; }
+
+    /// <summary>A „Frissítések" szakasz állapota — ugyanaz a példány, mint a főablak sávjáé.</summary>
+    public UpdateViewModel Updates { get; }
 
     /// <summary>
     /// A választható nyelvek. A rendszernyelv-követés külön elem, mert az nem

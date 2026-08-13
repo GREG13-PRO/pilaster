@@ -41,6 +41,8 @@ public partial class App : Application
         services.AddSingleton<QuickActionService>();
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
         services.AddSingleton<IBugReportService, DiscordBugReportService>();
+        services.AddSingleton<IUpdateService, GitHubUpdateService>();
+        services.AddSingleton<UpdateViewModel>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 
@@ -66,6 +68,12 @@ public partial class App : Application
             RuntimeInformation.FrameworkDescription);
 
         _services.GetRequiredService<MainWindow>().Show();
+
+        // Csendes, nem blokkoló frissítés-ellenőrzés induláskor: a hidegindítás
+        // idejét nem szabad terhelnie, ezért az ablak megjelenítése UTÁN, meg
+        // sem várva indul — hálózati hiba vagy naprakész állapot esetén nem
+        // jelenik meg semmi, csak elérhető frissítésnél (lásd UpdateViewModel).
+        _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
     }
 
     protected override void OnExit(ExitEventArgs e)

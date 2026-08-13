@@ -20,17 +20,19 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 
 ## Állapot
 
-**v0.4 — korai fejlesztés.** Ami már működik:
+**v0.5 — korai fejlesztés.** Ami már működik:
 
-- Fluent felület Mica háttérrel, lekerekített sarkokkal, egységes eszköztár-gombokkal
+- Fluent felület Mica háttérrel, lekerekített sarkokkal, **keretek/háttér nélküli eszköztár-gombokkal** (csak hoverre finom kiemelés, a téma szövegszínét követve)
+- **Automatikus frissítés** a GitHub Release-ekből: induláskor csendben ellenőriz, nem tolakodó sávban jelzi, egy kattintásra letölti, ellenőrzőösszeggel hitelesíti és — újraindítás megerősítése után — telepíti
 - **Téma**: világos / sötét / rendszerkövető, egykattintásos kapcsolóval, átúsztatva, **mentve**
 - Oldalsáv gyorseléréssel és meghajtókkal (kihasználtság-sáv, szabad hely) — a mappalánc **minden szintje** kiemelve, nem csak a pontos találat
 - Fülek, útvonalsáv (breadcrumb), vissza/előre/fel/frissítés, csúszó átmenet mappaváltáskor
-- Részletes lista és ikonrács — mindkettő **teljesen virtualizálva**, kijelöléssel és jobbklikk-menüvel (Megnyitás, útvonal másolása, Intézőben megjelenítés, Tulajdonságok)
+- Részletes lista és ikonrács — mindkettő **teljesen virtualizálva**, kijelöléssel, jobbklikk-menüvel (elemen ÉS üres területen egyaránt: új mappa/fájl, beillesztés, frissítés, rendezés) és **húzásos (marquee) kijelöléssel**
+- Fájlok **beillesztése a vágólapról** — az Intézővel kompatibilis formátumban, másolással és kivágással is
 - **Oszlopfejléces rendezés** iránynyíllal, az Explorer természetes sorrendjével
 - Natív Windows ikonok és bélyegképek, lemezre gyorsítótárazva
 - **Két testreszabható gyorsgomb** — mappa vagy fájl, saját névsablonnal (`{date}`, `{time}`, `{n}`) és célmappával
-- **Beállítások panel**: téma, animációk, nyelv, gyorsgombok — minden azonnal mentődik
+- **Beállítások panel**: téma, animációk, nyelv, gyorsgombok, frissítések — minden azonnal mentődik
 - **Hibabejelentő** Discord webhookkal, hiba/ötlet megkülönböztetéssel, opcionális képernyőkép- és naplócsatolással
 - Magyar és angol felület, **futásidejű nyelvváltással**, a rendszernyelv automatikus felismerésével
 
@@ -102,12 +104,13 @@ A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak
 | **v0.2** ✅ | Témaváltás perzisztenciával, animációk, Beállítások, két testreszabható gyorsgomb |
 | **v0.3** ✅ | Hibabejelentő (Discord webhook), aktív mappa kiemelése, tisztább eszköztár |
 | **v0.4** ✅ | Fájlkijelölés/jobbklikk javítás, ős-lánc kiemelés, egységes gombstílus, csúszó átmenet, ötlet/hiba megkülönböztetés |
-| v0.5 | **Oszlopos (Miller) nézet**, előnézeti panel, Quick Look — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
-| v0.6 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
-| v0.7 | Azonnali keresés (NTFS MFT-index), parancspaletta |
-| v0.8 | Osztott panelek, munkaterek, címkék, polc, tömeges átnevezés |
-| v0.9 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
-| v1.0 | Csiszolás, dokumentáció, 30+ nyelv |
+| **v0.5** ✅ | Automatikus frissítés, keretek nélküli gombok, jobbklikk üres területen, húzásos kijelölés, vágólap-beillesztés |
+| v0.6 | **Oszlopos (Miller) nézet**, előnézeti panel, Quick Look — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
+| v0.7 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
+| v0.8 | Azonnali keresés (NTFS MFT-index), parancspaletta |
+| v0.9 | Osztott panelek, munkaterek, címkék, polc, tömeges átnevezés |
+| v1.0 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
+| v1.1 | Csiszolás, dokumentáció, 30+ nyelv |
 
 ## Fordítás más nyelvre
 

@@ -24,12 +24,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IFileSystemProvider provider,
         ISettingsService settings,
         ThemeService theme,
-        QuickActionService quickActions)
+        QuickActionService quickActions,
+        UpdateViewModel updates)
     {
         _provider = provider;
         _settings = settings;
         _theme = theme;
         _quickActions = quickActions;
+        Updates = updates;
 
         Tabs = [];
         Sections = [];
@@ -55,6 +57,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<TabViewModel> Tabs { get; }
 
     public ObservableCollection<SidebarSection> Sections { get; }
+
+    /// <summary>Frissítés-ellenőrzés és -telepítés állapota — a sáv és a Beállítások közösen használja.</summary>
+    public UpdateViewModel Updates { get; }
 
     [ObservableProperty]
     public partial TabViewModel? SelectedTab { get; set; }
@@ -165,6 +170,87 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (SelectedTab is not null)
         {
             await SelectedTab.RefreshCommand.ExecuteAsync(null);
+        }
+    }
+
+    /// <summary>Az üres terület helyi menüjének „Új mappa" pontja.</summary>
+    /// <remarks>
+    /// Szándékosan NEM a testreszabható gyorsgombokat futtatja: azokat a
+    /// felhasználó bármi másra átállíthatja, míg ez a menüpont — ahogy az
+    /// Explorerben is — mindig egyszerű, üres mappát/fájlt hoz létre.
+    /// </remarks>
+    [RelayCommand]
+    private async Task CreateNewFolderAsync() => await CreateNewItemAsync(QuickActionKind.Folder);
+
+    [RelayCommand]
+    private async Task CreateNewFileAsync() => await CreateNewItemAsync(QuickActionKind.File);
+
+    private async Task CreateNewItemAsync(QuickActionKind kind)
+    {
+        if (SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        var action = new QuickActionSettings
+        {
+            Kind = kind,
+            Extension = "txt",
+            NameTemplate = TranslationSource.Instance[kind == QuickActionKind.Folder ? "Cmd_NewFolder" : "Cmd_NewFile"],
+            Target = QuickActionTarget.CurrentFolder,
+        };
+
+        var result = _quickActions.Execute(action, tab.CurrentPath);
+
+        if (!result.Succeeded)
+        {
+            if (result.ErrorMessage is { } key)
+            {
+                tab.EmptyMessage = TranslationSource.Instance[key];
+            }
+
+            return;
+        }
+
+        await tab.RefreshCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>
+    /// Fájlok beillesztése a vágólapról az üres terület helyi menüjéből.
+    /// </summary>
+    /// <remarks>
+    /// Lásd <see cref="ClipboardFileService"/>: az Intéző saját
+    /// másolás/kivágás-formátumát olvassa, tehát onnan másolt vagy kivágott
+    /// elemek közvetlenül beilleszthetők.
+    /// </remarks>
+    [RelayCommand]
+    private async Task PasteAsync()
+    {
+        if (SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        var result = ClipboardFileService.Paste(tab.CurrentPath);
+
+        if (result.Outcome is ClipboardPasteOutcome.TargetInvalid)
+        {
+            return;
+        }
+
+        if (result.Outcome is ClipboardPasteOutcome.NoFilesOnClipboard)
+        {
+            tab.EmptyMessage = TranslationSource.Instance["Paste_NoFiles"];
+            return;
+        }
+
+        // A frissítés törli az EmptyMessage-et, ezért a részleges hibát csak
+        // utána állítjuk be, különben a felhasználó sosem látná.
+        await tab.RefreshCommand.ExecuteAsync(null);
+
+        if (result.Outcome is ClipboardPasteOutcome.PartiallyFailed)
+        {
+            tab.EmptyMessage = TranslationSource.Instance["Paste_Failed"];
         }
     }
 

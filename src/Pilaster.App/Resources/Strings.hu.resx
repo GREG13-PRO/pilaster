@@ -337,4 +337,63 @@
   <data name="Cmd_Properties" xml:space="preserve">
     <value>Tulajdonságok</value>
   </data>
+  <data name="Cmd_Paste" xml:space="preserve">
+    <value>Beillesztés</value>
+  </data>
+  <data name="Cmd_SortBy" xml:space="preserve">
+    <value>Rendezés</value>
+  </data>
+  <data name="Cmd_Dismiss" xml:space="preserve">
+    <value>Elvetés</value>
+  </data>
+
+  <data name="Paste_NoFiles" xml:space="preserve">
+    <value>A vágólapon nincsenek fájlok.</value>
+  </data>
+  <data name="Paste_Failed" xml:space="preserve">
+    <value>Néhány elem beillesztése nem sikerült.</value>
+  </data>
+
+  <data name="Settings_Updates" xml:space="preserve">
+    <value>Frissítések</value>
+  </data>
+  <data name="Settings_UpdatesHint" xml:space="preserve">
+    <value>Induláskor automatikusan ellenőrizzük. Itt kézzel is megteheted.</value>
+  </data>
+  <data name="Settings_CurrentVersion" xml:space="preserve">
+    <value>Jelenlegi verzió:</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>Elérhető új verzió: v{0}</value>
+  </data>
+  <data name="Update_Action" xml:space="preserve">
+    <value>Frissítés</value>
+  </data>
+  <data name="Update_CheckNow" xml:space="preserve">
+    <value>Frissítés keresése</value>
+  </data>
+  <data name="Update_UpToDate" xml:space="preserve">
+    <value>A legfrissebb verziót használod.</value>
+  </data>
+  <data name="Update_ErrorNetwork" xml:space="preserve">
+    <value>Nincs internetkapcsolat, vagy a GitHub nem érhető el.</value>
+  </data>
+  <data name="Update_ErrorRateLimit" xml:space="preserve">
+    <value>A GitHub kéréskorlátja elfogyott — próbáld később.</value>
+  </data>
+  <data name="Update_ErrorGeneric" xml:space="preserve">
+    <value>A frissítés-ellenőrzés nem sikerült.</value>
+  </data>
+  <data name="Update_DownloadFailed" xml:space="preserve">
+    <value>A frissítés letöltése nem sikerült.</value>
+  </data>
+  <data name="Update_ChecksumMismatch" xml:space="preserve">
+    <value>A letöltött fájl ellenőrzőösszege nem egyezik — a telepítés megszakítva.</value>
+  </data>
+  <data name="Update_NoAssetForPlatform" xml:space="preserve">
+    <value>Ehhez a rendszerhez még nincs telepítő.</value>
+  </data>
+  <data name="Update_ConfirmRestartMessage" xml:space="preserve">
+    <value>A v{0} frissítés letöltve, telepítésre kész. A Pilasternek újra kell indulnia — folytatod?</value>
+  </data>
 </root>

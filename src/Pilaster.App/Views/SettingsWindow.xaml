@@ -55,6 +55,7 @@
             ShowMaximize="False" />
 
         <ScrollViewer
+            x:Name="ContentScroll"
             Grid.Row="1"
             Padding="22,4,22,22"
             VerticalScrollBarVisibility="Auto">
@@ -219,6 +220,46 @@
                     Margin="2,10,0,0"
                     Style="{StaticResource CaptionStyle}"
                     Text="{loc:Loc Settings_AutoSaved}" />
+
+                <!--  ===== Frissítések =====  -->
+                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_Updates}" />
+
+                <Border Style="{StaticResource CardStyle}" DataContext="{Binding Updates}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{loc:Loc Settings_CurrentVersion}" />
+                                    <TextBlock
+                                        Margin="6,0,0,0"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding CurrentVersion, StringFormat=v{0}}" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_UpdatesHint}" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                <ui:ProgressRing
+                                    Width="18"
+                                    Height="18"
+                                    IsIndeterminate="True"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                                <ui:Button
+                                    Command="{Binding CheckNowCommand}"
+                                    Content="{loc:Loc Update_CheckNow}"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                            </Grid>
+                        </Grid>
+                        <TextBlock
+                            Margin="0,10,0,0"
+                            Style="{StaticResource CaptionStyle}"
+                            Text="{Binding StatusMessage}"
+                            Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsed}}" />
+                    </StackPanel>
+                </Border>
 
                 <!--  ===== Hibabejelentés =====  -->
                 <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_BugReport}" />

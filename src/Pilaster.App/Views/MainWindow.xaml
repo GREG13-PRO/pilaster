@@ -85,16 +85,61 @@
             képernyőn, sem RenderTargetBitmap-es önrenderelésnél nem jelenik
             meg semmi, miközben az önálló SymbolIcon megbízhatóan működik.
             Több elszigetelt próbaalkalmazással megerősítve.
+
+            A háttér SAJÁT ControlTemplate-tel van kikényszerítve, nem a
+            beépített Appearance="Transparent" tulajdonsággal: az utóbbi ezen
+            a WPF-UI verzión alapállapotban is egy világos/szürke dobozt
+            hagyott a gomb mögött (különösen feltűnő sötét témában), holott
+            névleg átlátszót kellene adnia — feltehetően ugyanaz a fajta
+            sablon-feloldási megbízhatatlanság, ami a Button.Icon hibáját is
+            okozta. A saját sablon teljes kontrollt ad: nyugalmi állapotban
+            garantáltan nincs háttér, az ikon a téma szövegszínét követi
+            (nem hardcode-olt fehér), és csak rámutatáskor/lenyomáskor jelenik
+            meg egy finom kiemelés.
         -->
         <Style x:Key="ToolbarButtonStyle" TargetType="ui:Button">
             <Setter Property="Width" Value="34" />
             <Setter Property="Height" Value="34" />
             <Setter Property="Margin" Value="1,0" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Appearance" Value="Transparent" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ui:Button">
+                        <Grid Background="Transparent">
+                            <Border
+                                x:Name="Hover"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="8"
+                                Opacity="0" />
+                            <Border
+                                x:Name="Pressed"
+                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                CornerRadius="8"
+                                Opacity="0" />
+                            <ContentPresenter
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Pressed" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!--
@@ -127,6 +172,49 @@
                 <MenuItem.Icon>
                     <ui:SymbolIcon Symbol="Info24" />
                 </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!--
+            Az üres terület helyi menüje. A DetailsView/GridViewList
+            KONTÉNERÉRE van kötve (nem csak a sorokra/csempékre), hogy jobb
+            klikk a listán belüli üres felületen is megnyíljon — korábban ez
+            hiányzott, mert csak az elem-stílusok kaptak ContextMenu-t. A WPF
+            a találati pont alapján dönti el, melyik nyílik: elemen a
+            FileItemContextMenu, üres helyen ez.
+        -->
+        <ContextMenu x:Key="EmptyAreaContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding CreateNewFolderCommand}" Header="{loc:Loc Cmd_NewFolder}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="FolderAdd24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CreateNewFileCommand}" Header="{loc:Loc Cmd_NewFile}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="DocumentAdd24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding PasteCommand}" Header="{loc:Loc Cmd_Paste}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="ClipboardPaste24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding SelectedTab.RefreshCommand}" Header="{loc:Loc Cmd_Refresh}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="{loc:Loc Cmd_SortBy}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="ArrowSort24" />
+                </MenuItem.Icon>
+                <MenuItem Click="OnSortByClick" Header="{loc:Loc Col_Name}" Tag="{x:Static fs:SortKey.Name}" />
+                <MenuItem Click="OnSortByClick" Header="{loc:Loc Col_Size}" Tag="{x:Static fs:SortKey.Size}" />
+                <MenuItem Click="OnSortByClick" Header="{loc:Loc Col_Type}" Tag="{x:Static fs:SortKey.Type}" />
+                <MenuItem Click="OnSortByClick" Header="{loc:Loc Col_Modified}" Tag="{x:Static fs:SortKey.Modified}" />
             </MenuItem>
         </ContextMenu>
 
@@ -554,8 +642,72 @@
             </StackPanel>
         </Grid>
 
-        <!--  Tartalom: oldalsáv + fájllista  -->
+        <!--  Tartalom: frissítés-sáv + oldalsáv + fájllista  -->
         <Grid Grid.Row="3" Margin="10,0,10,6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!--
+                Frissítés-sáv. Nem tolakodó: csak akkor jelenik meg, ha van
+                elérhető új verzió, és bármikor elvethető — lásd
+                UpdateViewModel és Diagnostics/GitHubUpdateService.
+            -->
+            <Border
+                Grid.Row="0"
+                Margin="0,0,0,8"
+                Padding="14,9"
+                Background="{DynamicResource SystemFillColorAttentionBackgroundBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="{Binding Updates.IsBannerVisible, Converter={StaticResource BoolToVisibility}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ui:SymbolIcon
+                        Grid.Column="0"
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        Symbol="ArrowDownload24" />
+
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Text="{Binding Updates.BannerText}" />
+
+                    <ui:ProgressRing
+                        Grid.Column="2"
+                        Width="16"
+                        Height="16"
+                        Margin="0,0,10,0"
+                        IsIndeterminate="True"
+                        Visibility="{Binding Updates.IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                    <ui:Button
+                        Grid.Column="2"
+                        Margin="0,0,6,0"
+                        Appearance="Primary"
+                        Command="{Binding Updates.InstallUpdateCommand}"
+                        Content="{loc:Loc Update_Action}"
+                        Visibility="{Binding Updates.IsBusy, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+
+                    <ui:Button
+                        Grid.Column="3"
+                        Command="{Binding Updates.DismissBannerCommand}"
+                        Style="{StaticResource ToolbarButtonStyle}"
+                        ToolTip="{loc:Loc Cmd_Dismiss}">
+                        <ui:SymbolIcon Symbol="Dismiss24" />
+                    </ui:Button>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250" MinWidth="180" />
                 <ColumnDefinition Width="Auto" />
@@ -649,13 +801,14 @@
                 <Border.RenderTransform>
                     <TranslateTransform X="0" />
                 </Border.RenderTransform>
-                <Grid>
+                <Grid x:Name="FileListHost">
 
                     <!--  Részletes nézet  -->
                     <ListView
                         x:Name="DetailsView"
                         Background="Transparent"
                         BorderThickness="0"
+                        ContextMenu="{StaticResource EmptyAreaContextMenu}"
                         GridViewColumnHeader.Click="OnColumnHeaderClick"
                         ItemContainerStyle="{StaticResource FileRowStyle}"
                         ItemsSource="{Binding SelectedTab.Items}"
@@ -735,6 +888,7 @@
                         x:Name="GridViewList"
                         Background="Transparent"
                         BorderThickness="0"
+                        ContextMenu="{StaticResource EmptyAreaContextMenu}"
                         ItemContainerStyle="{StaticResource FileTileStyle}"
                         ItemsSource="{Binding SelectedTab.Items}"
                         MouseDoubleClick="OnItemDoubleClick"
@@ -787,8 +941,27 @@
                         VerticalAlignment="Center"
                         IsIndeterminate="True"
                         Visibility="{Binding SelectedTab.IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+                    <!--
+                        Húzásos (marquee) kijelölő téglalap. Nyugalomban
+                        összecsukva; a MarqueeSelector (Controls/MarqueeSelector.cs)
+                        húzás közben állítja a Margin/Width/Height-jét a
+                        FileListHosthoz viszonyítva — lásd MainWindow.xaml.cs
+                        konstruktorát, ahol a DetailsView-hoz és a
+                        GridViewList-hez is hozzá van kötve.
+                    -->
+                    <Border
+                        x:Name="MarqueeRectangle"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Background="#3D60CDFF"
+                        BorderBrush="#8060CDFF"
+                        BorderThickness="1"
+                        IsHitTestVisible="False"
+                        Visibility="Collapsed" />
                 </Grid>
             </Border>
+            </Grid>
         </Grid>
 
         <!--  Állapotsor  -->

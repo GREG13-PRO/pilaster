@@ -2,21 +2,25 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
+using Pilaster.App.Diagnostics;
+using Pilaster.App.Localization;
 using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
 using Pilaster.Core.FileSystem;
 using Wpf.Ui.Controls;
 
-// A WPF-UI saját ListView/ListBox típusokat is szállít ugyanezekkel a nevekkel.
-// A XAML a WPF beépített vezérlőit példányosítja, ezért a kódban is azokra
-// hivatkozunk — az álnév egyértelműsíti, melyikről van szó.
+// A WPF-UI saját ListView/ListBox/Panel típusokat is szállít ugyanezekkel a
+// nevekkel. A XAML a WPF beépített vezérlőit példányosítja, ezért a kódban is
+// azokra hivatkozunk — az álnév egyértelműsíti, melyikről van szó.
 using GridViewColumnHeader = System.Windows.Controls.GridViewColumnHeader;
 using ItemsControl = System.Windows.Controls.ItemsControl;
 using ListBox = System.Windows.Controls.ListBox;
 using ListView = System.Windows.Controls.ListView;
+using Panel = System.Windows.Controls.Panel;
 using SelectionChangedEventArgs = System.Windows.Controls.SelectionChangedEventArgs;
 
 namespace Pilaster.App.Views;
@@ -26,9 +30,6 @@ public partial class MainWindow : FluentWindow
     private readonly MainWindowViewModel _viewModel;
     private readonly IServiceProvider _services;
     private readonly ThemeService _theme;
-
-    /// <summary>Az az oszlopfejléc, amelyik jelenleg nyilat mutat.</summary>
-    private GridViewColumnHeader? _sortedHeader;
 
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
@@ -48,12 +49,21 @@ public partial class MainWindow : FluentWindow
 
         viewModel.SettingsRequested += OnSettingsRequested;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.Updates.RestartRequested += OnUpdateRestartRequested;
 
         InitializeComponent();
 
         // A rendszertéma figyelése: „rendszerkövető" módban a Windows
         // világos/sötét váltása menet közben is átszínezi a felületet.
         Loaded += (_, _) => _theme.WatchSystemTheme(this);
+
+        // Húzásos kijelölés: a WPF ListView/ListBox natívan nem támogatja,
+        // lásd Controls/MarqueeSelector.cs. Mindkét nézet (részletes + rács)
+        // ugyanazt a viselkedést és átfedő téglalapot osztja meg, mivel
+        // egyszerre csak az egyik látható.
+        var marquee = new MarqueeSelector(FileListHost, MarqueeRectangle);
+        marquee.Attach(DetailsView);
+        marquee.Attach(GridViewList);
 
         TrackTab(_viewModel.SelectedTab);
     }
@@ -335,7 +345,7 @@ public partial class MainWindow : FluentWindow
     private void OnColumnHeaderClick(object sender, RoutedEventArgs e)
     {
         // A GridView jobb szélén ül egy „töltelék" fejléc, aminek nincs oszlopa.
-        if (e.OriginalSource is not GridViewColumnHeader { Column: { } column } header)
+        if (e.OriginalSource is not GridViewColumnHeader { Column: { } column })
         {
             return;
         }
@@ -346,21 +356,104 @@ public partial class MainWindow : FluentWindow
         }
 
         var key = GridViewSort.GetSortKey(column);
-        var descending = key == tab.SortKey && !tab.SortDescending;
+        ApplySort(tab, key);
+    }
 
-        tab.ApplySort(key, descending);
-
-        // Egyszerre csak egy oszlop mutathat nyilat.
-        if (_sortedHeader is not null && !ReferenceEquals(_sortedHeader, header))
+    /// <summary>Az üres terület helyi menüjének „Rendezés" almenüje.</summary>
+    private void OnSortByClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).Tag is not SortKey key || _viewModel.SelectedTab is not { } tab)
         {
-            GridViewSort.SetIndicator(_sortedHeader, SortIndicator.None);
+            return;
         }
 
-        GridViewSort.SetIndicator(
-            header,
-            descending ? SortIndicator.Descending : SortIndicator.Ascending);
+        ApplySort(tab, key);
+    }
 
-        _sortedHeader = header;
+    private void ApplySort(TabViewModel tab, SortKey key)
+    {
+        var descending = key == tab.SortKey && !tab.SortDescending;
+        tab.ApplySort(key, descending);
+        SyncColumnHeaderIndicators();
+    }
+
+    /// <summary>
+    /// Az oszlopfejléc-nyilak összhangba hozása az aktuális rendezéssel.
+    /// </summary>
+    /// <remarks>
+    /// A rendezés nem csak oszlopfejléc-kattintásra változhat — a „Rendezés"
+    /// almenü is beállíthatja —, ezért a nyíl a jelenlegi <c>SortKey</c>/
+    /// <c>SortDescending</c> tiszta függvénye, nem egy külön kézzel
+    /// karbantartott mezőé.
+    /// </remarks>
+    private void SyncColumnHeaderIndicators()
+    {
+        if (_viewModel.SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        foreach (var header in FindVisualChildren<GridViewColumnHeader>(DetailsView))
+        {
+            if (header.Column is not { } column)
+            {
+                continue;
+            }
+
+            var key = GridViewSort.GetSortKey(column);
+
+            GridViewSort.SetIndicator(
+                header,
+                key != tab.SortKey
+                    ? SortIndicator.None
+                    : tab.SortDescending ? SortIndicator.Descending : SortIndicator.Ascending);
+        }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+
+            if (child is T typed)
+            {
+                yield return typed;
+            }
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A frissítés letöltve, telepítésre kész — megerősítés kérése az
+    /// újraindításhoz. A tényleges fájlcsere csak azután történhet, hogy a
+    /// Pilaster.exe kilépett és elengedte a saját fájljainak zárolását, ezért
+    /// előbb ezt kell megerősíteni, nem lehet csendben, azonnal újraindítani.
+    /// </summary>
+    private void OnUpdateRestartRequested(object? sender, EventArgs e)
+    {
+        var strings = TranslationSource.Instance;
+
+        // Fajlagosan a System.Windows verzió: a Wpf.Ui.Controls névtérnek
+        // (ami ebben a fájlban is be van húzva) saját MessageBox-hoz tartozó
+        // azonos nevű típusai vannak, amik enélkül ütköznének.
+        var result = System.Windows.MessageBox.Show(
+            string.Format(strings["Update_ConfirmRestartMessage"], _viewModel.Updates.PendingVersion),
+            "Pilaster",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (result != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _viewModel.Updates.BeginInstallAndExit();
+        System.Windows.Application.Current.Shutdown();
     }
 
     private void OnSetViewDetails(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Details);

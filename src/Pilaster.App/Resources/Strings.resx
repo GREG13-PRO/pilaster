@@ -337,4 +337,63 @@
   <data name="Cmd_Properties" xml:space="preserve">
     <value>Properties</value>
   </data>
+  <data name="Cmd_Paste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="Cmd_SortBy" xml:space="preserve">
+    <value>Sort by</value>
+  </data>
+  <data name="Cmd_Dismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
+
+  <data name="Paste_NoFiles" xml:space="preserve">
+    <value>The clipboard doesn't contain any files.</value>
+  </data>
+  <data name="Paste_Failed" xml:space="preserve">
+    <value>Some items couldn't be pasted here.</value>
+  </data>
+
+  <data name="Settings_Updates" xml:space="preserve">
+    <value>Updates</value>
+  </data>
+  <data name="Settings_UpdatesHint" xml:space="preserve">
+    <value>Checked automatically on startup. You can also check manually here.</value>
+  </data>
+  <data name="Settings_CurrentVersion" xml:space="preserve">
+    <value>Current version:</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>New version available: v{0}</value>
+  </data>
+  <data name="Update_Action" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Update_CheckNow" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="Update_UpToDate" xml:space="preserve">
+    <value>You're using the latest version.</value>
+  </data>
+  <data name="Update_ErrorNetwork" xml:space="preserve">
+    <value>No internet connection, or GitHub couldn't be reached.</value>
+  </data>
+  <data name="Update_ErrorRateLimit" xml:space="preserve">
+    <value>GitHub's request limit was reached — try again later.</value>
+  </data>
+  <data name="Update_ErrorGeneric" xml:space="preserve">
+    <value>Couldn't check for updates.</value>
+  </data>
+  <data name="Update_DownloadFailed" xml:space="preserve">
+    <value>The update couldn't be downloaded.</value>
+  </data>
+  <data name="Update_ChecksumMismatch" xml:space="preserve">
+    <value>The downloaded file's checksum didn't match — installation cancelled.</value>
+  </data>
+  <data name="Update_NoAssetForPlatform" xml:space="preserve">
+    <value>No installer is available yet for this system.</value>
+  </data>
+  <data name="Update_ConfirmRestartMessage" xml:space="preserve">
+    <value>Update v{0} is downloaded and ready to install. Pilaster needs to restart — continue?</value>
+  </data>
 </root>
