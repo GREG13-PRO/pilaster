@@ -293,6 +293,9 @@
   <data name="Settings_BugReportHint" xml:space="preserve">
     <value>Send feedback straight to the development team.</value>
   </data>
+  <data name="Settings_BugReportSimpleMessage" xml:space="preserve">
+    <value>Found a bug, or have an idea? Email us:</value>
+  </data>
   <data name="BugReport_DescriptionLabel" xml:space="preserve">
     <value>What happened?</value>
   </data>

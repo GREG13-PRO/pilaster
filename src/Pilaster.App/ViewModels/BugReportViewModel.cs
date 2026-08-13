@@ -11,6 +11,7 @@ public sealed partial class BugReportViewModel : ObservableObject
 {
     private readonly IBugReportService _service;
     private int _statusGeneration;
+    private int _secretClickCount;
 
     public BugReportViewModel(IBugReportService service)
     {
@@ -32,6 +33,38 @@ public sealed partial class BugReportViewModel : ObservableObject
 
     /// <summary>Igaz, ha van beállított Discord webhook.</summary>
     public bool IsConfigured { get; }
+
+    /// <summary>A végfelhasználóknak mutatott, publikus visszajelzési cím.</summary>
+    public string SupportEmail => ContactInfo.SupportEmail;
+
+    /// <summary>
+    /// Igaz, ha a fejlesztői (Discord-integrációs) hibabejelentő panel fel
+    /// van oldva.
+    /// </summary>
+    /// <remarks>
+    /// Alapból rejtve: a hétköznapi felhasználó csak az egyszerű e-mail-
+    /// címet látja, a Discord-specifikus beállítás (webhook/bot-állapot,
+    /// képernyőkép-/napló-csatolás) nem rá tartozik. A szekció fejlécének
+    /// 10-szeri kattintása nyitja fel — lásd <see cref="RegisterSecretClick"/>.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsAdminPanelUnlocked { get; set; }
+
+    /// <summary>A Beállítások „Hibabejelentés" szekciófejlécére kattintva hívva.</summary>
+    public void RegisterSecretClick()
+    {
+        if (IsAdminPanelUnlocked)
+        {
+            return;
+        }
+
+        _secretClickCount++;
+
+        if (_secretClickCount >= 10)
+        {
+            IsAdminPanelUnlocked = true;
+        }
+    }
 
     [ObservableProperty]
     public partial string Description { get; set; } = string.Empty;

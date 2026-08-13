@@ -262,13 +262,50 @@
                 </Border>
 
                 <!--  ===== Hibabejelentés =====  -->
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_BugReport}" />
+                <!--
+                    A fejlécre kattintás nem véletlen: 10 kattintásra nyílik
+                    fel a lenti fejlesztői (Discord-integrációs) panel — lásd
+                    OnBugReportHeaderClick és BugReportViewModel.RegisterSecretClick.
+                    Szándékosan nincs vizuális jelzés (kurzor, aláhúzás), hogy a
+                    hétköznapi felhasználó ne is sejtse.
+                -->
+                <TextBlock
+                    MouseLeftButtonDown="OnBugReportHeaderClick"
+                    Style="{StaticResource SectionHeaderStyle}"
+                    Text="{loc:Loc Settings_BugReport}" />
                 <TextBlock
                     Margin="2,0,0,10"
                     Style="{StaticResource CaptionStyle}"
                     Text="{loc:Loc Settings_BugReportHint}" />
 
-                <Border Style="{StaticResource CardStyle}" Padding="16" DataContext="{Binding BugReport}">
+                <!--
+                    Alapállapot: csak egy egyszerű, publikus e-mail-cím — a
+                    végfelhasználót nem kell terhelni a Discord-integráció
+                    részleteivel (webhook/bot-állapot, csatolások stb.).
+                -->
+                <Border
+                    Style="{StaticResource CardStyle}"
+                    Padding="16"
+                    DataContext="{Binding BugReport}"
+                    Visibility="{Binding IsAdminPanelUnlocked, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                    <TextBlock TextWrapping="Wrap">
+                        <Run Text="{loc:Loc Settings_BugReportSimpleMessage}" />
+                        <LineBreak />
+                        <Hyperlink NavigateUri="mailto:pilaster-explorer@proton.me" RequestNavigate="OnSupportEmailNavigate">
+                            <Run Text="pilaster-explorer@proton.me" />
+                        </Hyperlink>
+                    </TextBlock>
+                </Border>
+
+                <!--
+                    A teljes fejlesztői panel — csak feloldás után látszik,
+                    lásd fent.
+                -->
+                <Border
+                    Style="{StaticResource CardStyle}"
+                    Padding="16"
+                    DataContext="{Binding BugReport}"
+                    Visibility="{Binding IsAdminPanelUnlocked, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
 
                         <TextBlock Margin="0,0,0,4" Text="{loc:Loc BugReport_DescriptionLabel}" />

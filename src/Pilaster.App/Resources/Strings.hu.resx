@@ -293,6 +293,9 @@
   <data name="Settings_BugReportHint" xml:space="preserve">
     <value>Küldj visszajelzést közvetlenül a fejlesztői csapatnak.</value>
   </data>
+  <data name="Settings_BugReportSimpleMessage" xml:space="preserve">
+    <value>Hibát találtál, vagy van egy ötleted? Írj nekünk:</value>
+  </data>
   <data name="BugReport_DescriptionLabel" xml:space="preserve">
     <value>Mi történt?</value>
   </data>
