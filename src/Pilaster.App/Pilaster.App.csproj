@@ -24,7 +24,7 @@
     <PackageReference Include="WPF-UI" Version="$(WpfUiVersion)" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="$(MvvmToolkitVersion)" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(ExtensionsVersion)" />
-    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Serilog" Version="$(SerilogVersion)" />
     <PackageReference Include="Serilog.Sinks.File" Version="$(SerilogFileSinkVersion)" />
   </ItemGroup>
 

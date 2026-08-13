@@ -282,4 +282,43 @@
   <data name="Error_CreateFailed" xml:space="preserve">
     <value>Could not create the item</value>
   </data>
+
+  <data name="Cmd_More" xml:space="preserve">
+    <value>More</value>
+  </data>
+
+  <data name="Settings_BugReport" xml:space="preserve">
+    <value>Bug report</value>
+  </data>
+  <data name="Settings_BugReportHint" xml:space="preserve">
+    <value>Send feedback straight to the development team.</value>
+  </data>
+  <data name="BugReport_DescriptionLabel" xml:space="preserve">
+    <value>What happened?</value>
+  </data>
+  <data name="BugReport_DescriptionPlaceholder" xml:space="preserve">
+    <value>Describe the issue in detail…</value>
+  </data>
+  <data name="BugReport_AttachScreenshot" xml:space="preserve">
+    <value>Attach a screenshot</value>
+  </data>
+  <data name="BugReport_AttachLog" xml:space="preserve">
+    <value>Attach the log file</value>
+  </data>
+  <data name="BugReport_Send" xml:space="preserve">
+    <value>Send</value>
+  </data>
+  <data name="BugReport_Success" xml:space="preserve">
+    <value>Thanks! Your report was sent.</value>
+  </data>
+  <data name="BugReport_Failure" xml:space="preserve">
+    <value>Couldn't send the report. Please try again later.</value>
+  </data>
+  <data name="BugReport_ErrorNetwork" xml:space="preserve">
+    <value>No internet connection, or the server didn't respond.</value>
+  </data>
+  <data name="BugReport_NotConfigured" xml:space="preserve">
+    <value>Bug reporting isn't set up yet. Create a Discord webhook and save its URL to {0}, or set the PILASTER_BUG_REPORT_WEBHOOK environment variable.</value>
+    <comment>{0} = local file path</comment>
+  </data>
 </root>

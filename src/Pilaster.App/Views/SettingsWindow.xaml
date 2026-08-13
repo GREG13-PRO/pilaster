@@ -220,6 +220,88 @@
                     Style="{StaticResource CaptionStyle}"
                     Text="{loc:Loc Settings_AutoSaved}" />
 
+                <!--  ===== Hibabejelentés =====  -->
+                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_BugReport}" />
+                <TextBlock
+                    Margin="2,0,0,10"
+                    Style="{StaticResource CaptionStyle}"
+                    Text="{loc:Loc Settings_BugReportHint}" />
+
+                <Border Style="{StaticResource CardStyle}" Padding="16" DataContext="{Binding BugReport}">
+                    <StackPanel>
+
+                        <TextBlock Margin="0,0,0,4" Text="{loc:Loc BugReport_DescriptionLabel}" />
+                        <ui:TextBox
+                            MinHeight="90"
+                            MaxHeight="160"
+                            AcceptsReturn="True"
+                            IsEnabled="{Binding IsConfigured}"
+                            PlaceholderText="{loc:Loc BugReport_DescriptionPlaceholder}"
+                            Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            TextWrapping="Wrap"
+                            VerticalScrollBarVisibility="Auto" />
+
+                        <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                            <CheckBox
+                                Margin="0,0,20,0"
+                                Content="{loc:Loc BugReport_AttachScreenshot}"
+                                IsChecked="{Binding AttachScreenshot, Mode=TwoWay}"
+                                IsEnabled="{Binding IsConfigured}" />
+                            <CheckBox
+                                Content="{loc:Loc BugReport_AttachLog}"
+                                IsChecked="{Binding AttachLog, Mode=TwoWay}"
+                                IsEnabled="{Binding IsConfigured}" />
+                        </StackPanel>
+
+                        <!--  Visszajelzés-sáv: siker zöld pipával, hiba piros felkiáltójellel  -->
+                        <Border
+                            Margin="0,12,0,0"
+                            Padding="10,7"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="6"
+                            Visibility="{Binding StatusVisible, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Top"
+                                    Foreground="#22C55E"
+                                    Symbol="CheckmarkCircle24"
+                                    Visibility="{Binding StatusIsError, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                <ui:SymbolIcon
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Top"
+                                    Foreground="#EF4444"
+                                    Symbol="ErrorCircle24"
+                                    Visibility="{Binding StatusIsError, Converter={StaticResource BoolToVisibility}}" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="{Binding StatusMessage}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Grid Margin="0,12,0,0">
+                            <ui:ProgressRing
+                                Width="18"
+                                Height="18"
+                                HorizontalAlignment="Right"
+                                IsIndeterminate="True"
+                                Visibility="{Binding IsSending, Converter={StaticResource BoolToVisibility}}" />
+                            <ui:Button
+                                HorizontalAlignment="Right"
+                                Appearance="Primary"
+                                Command="{Binding SendCommand}"
+                                Content="{loc:Loc BugReport_Send}"
+                                Visibility="{Binding IsSending, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                                <ui:Button.Icon>
+                                    <ui:SymbolIcon Symbol="Send24" />
+                                </ui:Button.Icon>
+                            </ui:Button>
+                        </Grid>
+
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>

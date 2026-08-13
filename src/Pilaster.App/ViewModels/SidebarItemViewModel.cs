@@ -41,6 +41,19 @@ public sealed partial class SidebarItemViewModel : ObservableObject
     [ObservableProperty]
     public partial double UsedFraction { get; set; }
 
+    /// <summary>
+    /// Igaz, ha ez a sor útvonala egyezik a jelenleg megnyitott mappával.
+    /// </summary>
+    /// <remarks>
+    /// Szándékosan nem a ListBox saját <c>IsSelected</c>/<c>SelectedItem</c>
+    /// állapotára épül: az kattintás után azonnal nullázódik (hogy ugyanarra a
+    /// sorra ismét rá lehessen kattintani), és nem követné a breadcrumb-bal,
+    /// vissza/előre gombbal vagy fülváltással történő navigációt. Az
+    /// útvonal-alapú jelzés ezekre is helyesen reagál.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsActive { get; set; }
+
     /// <summary>A lefordítható feliratok újraképzése nyelvváltás után.</summary>
     public void RefreshLabel()
     {

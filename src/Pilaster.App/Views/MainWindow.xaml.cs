@@ -61,14 +61,14 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// A nézetváltó gomb bal kattintásra nyissa a menüjét.
+    /// Az overflow („több") gomb bal kattintásra nyissa a menüjét.
     /// </summary>
     /// <remarks>
     /// A <c>ContextMenu</c> alapból csak jobb gombra nyílik, itt viszont a
     /// gomb egyetlen funkciója a menü megnyitása — a felhasználó bal kattintást
     /// várna, és jobb kattintással sosem próbálkozna.
     /// </remarks>
-    private void OnViewModeClick(object sender, RoutedEventArgs e)
+    private void OnOverflowMenuClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { ContextMenu: { } menu } element)
         {

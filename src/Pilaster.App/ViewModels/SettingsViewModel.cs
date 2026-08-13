@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Pilaster.App.Diagnostics;
 using Pilaster.App.Localization;
 using Pilaster.App.Services;
 using Pilaster.Core.Settings;
@@ -26,7 +27,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </summary>
     private readonly bool _loaded;
 
-    public SettingsViewModel(ISettingsService settings, ThemeService theme)
+    public SettingsViewModel(ISettingsService settings, ThemeService theme, IBugReportService bugReportService)
     {
         _settings = settings;
         _theme = theme;
@@ -43,8 +44,13 @@ public sealed partial class SettingsViewModel : ObservableObject
             new QuickActionEditorViewModel("QuickAction_Second", current.QuickAction2, OnQuickActionChanged),
         ];
 
+        BugReport = new BugReportViewModel(bugReportService);
+
         _loaded = true;
     }
+
+    /// <summary>A „Hibabejelentés" szakasz állapota.</summary>
+    public BugReportViewModel BugReport { get; }
 
     /// <summary>
     /// A választható nyelvek. A rendszernyelv-követés külön elem, mert az nem

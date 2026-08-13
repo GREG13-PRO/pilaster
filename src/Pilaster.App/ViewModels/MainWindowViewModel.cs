@@ -50,6 +50,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         AddTab(GetStartupPath());
     }
 
+    partial void OnSelectedTabChanged(TabViewModel? value) => UpdateActiveSidebarItem();
+
     public ObservableCollection<TabViewModel> Tabs { get; }
 
     public ObservableCollection<SidebarSection> Sections { get; }
@@ -204,6 +206,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 _settings.Current.ShowHiddenItems = tab.ShowHiddenItems;
                 _settings.Save();
             }
+
+            // Csak az aktív fül útvonalváltása befolyásolja az oldalsáv
+            // kiemelését — egy háttérben navigáló fül ne rángassa el.
+            if (e.PropertyName == nameof(TabViewModel.CurrentPath) && ReferenceEquals(tab, SelectedTab))
+            {
+                UpdateActiveSidebarItem();
+            }
         };
 
         Tabs.Add(tab);
@@ -341,4 +350,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         }
     }
+
+    /// <summary>
+    /// Az oldalsáv kiemelésének frissítése az aktív fül aktuális útvonala
+    /// alapján — fülváltáskor, navigáció közben és induláskor egyaránt.
+    /// </summary>
+    private void UpdateActiveSidebarItem()
+    {
+        var currentPath = SelectedTab?.CurrentPath;
+
+        foreach (var section in Sections)
+        {
+            foreach (var item in section.Items)
+            {
+                item.IsActive = PathsEqual(item.Path, currentPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Útvonal-egyezés a záró elválasztó karakter figyelmen kívül hagyásával
+    /// (a meghajtógyökerek, pl. „C:\", ettől függetlenül helyesen egyeznek).
+    /// </summary>
+    private static bool PathsEqual(string a, string? b) =>
+        b is not null
+        && string.Equals(
+            Path.TrimEndingDirectorySeparator(a),
+            Path.TrimEndingDirectorySeparator(b),
+            StringComparison.OrdinalIgnoreCase);
 }

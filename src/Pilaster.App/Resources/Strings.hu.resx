@@ -282,4 +282,43 @@
   <data name="Error_CreateFailed" xml:space="preserve">
     <value>Az elem létrehozása nem sikerült</value>
   </data>
+
+  <data name="Cmd_More" xml:space="preserve">
+    <value>Több</value>
+  </data>
+
+  <data name="Settings_BugReport" xml:space="preserve">
+    <value>Hibabejelentés</value>
+  </data>
+  <data name="Settings_BugReportHint" xml:space="preserve">
+    <value>Küldj visszajelzést közvetlenül a fejlesztői csapatnak.</value>
+  </data>
+  <data name="BugReport_DescriptionLabel" xml:space="preserve">
+    <value>Mi történt?</value>
+  </data>
+  <data name="BugReport_DescriptionPlaceholder" xml:space="preserve">
+    <value>Írd le részletesen a hibát…</value>
+  </data>
+  <data name="BugReport_AttachScreenshot" xml:space="preserve">
+    <value>Képernyőkép csatolása</value>
+  </data>
+  <data name="BugReport_AttachLog" xml:space="preserve">
+    <value>Naplófájl csatolása</value>
+  </data>
+  <data name="BugReport_Send" xml:space="preserve">
+    <value>Küldés</value>
+  </data>
+  <data name="BugReport_Success" xml:space="preserve">
+    <value>Köszönjük! A visszajelzést elküldtük.</value>
+  </data>
+  <data name="BugReport_Failure" xml:space="preserve">
+    <value>A küldés nem sikerült. Próbáld újra később.</value>
+  </data>
+  <data name="BugReport_ErrorNetwork" xml:space="preserve">
+    <value>Nincs internetkapcsolat, vagy a szerver nem válaszol.</value>
+  </data>
+  <data name="BugReport_NotConfigured" xml:space="preserve">
+    <value>A hibabejelentés még nincs beállítva. Hozz létre egy Discord webhookot, és mentsd az URL-jét ide: {0}, vagy állítsd be a PILASTER_BUG_REPORT_WEBHOOK környezeti változót.</value>
+    <comment>{0} = helyi fájl útvonala</comment>
+  </data>
 </root>

@@ -82,6 +82,18 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Selected" Property="Opacity" Value="1" />
                             </Trigger>
+
+                            <!--
+                                Az aktuálisan megnyitott mappa kiemelése. Útvonal
+                                alapján, nem a ListBox kijelölés-állapotán keresztül —
+                                lásd SidebarItemViewModel.IsActive. (A fülsáv is ezt a
+                                stílust használja, de a TabViewModelnek nincs IsActive
+                                tulajdonsága, ezért ott a trigger ártalmatlanul soha nem
+                                talál kötést.)
+                            -->
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter TargetName="Selected" Property="Opacity" Value="1" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -408,24 +420,33 @@
                 </ui:TextBox.Icon>
             </ui:TextBox>
 
-            <!--  Nézetváltó  -->
+            <!--
+                Kevésbé gyakran használt funkciók egy helyen. A nézetmód és a
+                rejtett elemek kapcsolója korábban két külön, állandóan látható
+                vezérlő volt (az utóbbi egy teljes szöveges felirattal) — ez
+                zsúfolttá tette a sávot. Most egy tömör „több" gomb mögé
+                kerültek, a gyakran használt navigáció/létrehozás/téma/
+                beállítások gombok pedig változatlanul azonnal elérhetők.
+            -->
             <StackPanel Grid.Column="3" Orientation="Horizontal">
-                <ui:ToggleSwitch
-                    Margin="0,0,10,0"
-                    VerticalAlignment="Center"
-                    Content="{loc:Loc Cmd_ToggleHidden}"
-                    IsChecked="{Binding SelectedTab.ShowHiddenItems, Mode=TwoWay}" />
                 <ui:Button
-                    Click="OnViewModeClick"
+                    Click="OnOverflowMenuClick"
                     Appearance="Transparent"
-                    ToolTip="{loc:Loc View_Mode}">
+                    ToolTip="{loc:Loc Cmd_More}">
                     <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="Apps24" />
+                        <ui:SymbolIcon Symbol="MoreHorizontal24" />
                     </ui:Button.Icon>
                     <ui:Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
-                            <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
+                            <MenuItem Header="{loc:Loc View_Mode}">
+                                <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
+                                <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem
+                                Header="{loc:Loc Cmd_ToggleHidden}"
+                                IsCheckable="True"
+                                IsChecked="{Binding SelectedTab.ShowHiddenItems, Mode=TwoWay}" />
                         </ContextMenu>
                     </ui:Button.ContextMenu>
                 </ui:Button>

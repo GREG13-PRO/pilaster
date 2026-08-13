@@ -1,7 +1,11 @@
+using System.IO;
+using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
+using Pilaster.App.Diagnostics;
 using Pilaster.App.Localization;
 using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
@@ -10,6 +14,7 @@ using Pilaster.Core.FileSystem;
 using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
 using Pilaster.Shell.Imaging;
+using Serilog;
 
 namespace Pilaster.App;
 
@@ -20,6 +25,8 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        ConfigureLogging();
 
         // A hidegindítás a fájlkezelő legfontosabb metrikája, ezért itt
         // szándékosan nem a Generic Host indul: annak konfiguráció-, napló- és
@@ -32,6 +39,8 @@ public partial class App : Application
         services.AddSingleton<ISettingsService, JsonSettingsService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<QuickActionService>();
+        services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
+        services.AddSingleton<IBugReportService, DiscordBugReportService>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 
@@ -50,6 +59,12 @@ public partial class App : Application
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
+        Log.Information(
+            "Pilaster {Version} indul ({Os}, {Runtime})",
+            AppVersionInfo.Current,
+            RuntimeInformation.OSDescription,
+            RuntimeInformation.FrameworkDescription);
+
         _services.GetRequiredService<MainWindow>().Show();
     }
 
@@ -59,7 +74,32 @@ public partial class App : Application
         _services?.GetService<ISettingsService>()?.Flush();
         _services?.Dispose();
 
+        Log.CloseAndFlush();
+
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// A naplózás beállítása.
+    /// </summary>
+    /// <remarks>
+    /// A napló egyetlen célja jelenleg a hibabejelentés csatolmánya: ha a
+    /// felhasználó bekapcsolja a „Naplófájl csatolása" opciót, ez adja a
+    /// kontextust a fejlesztőknek. Ezért elég az Information szint és a heti
+    /// megőrzés — nem diagnosztikai teljes körű naplózás.
+    /// </remarks>
+    private static void ConfigureLogging()
+    {
+        Directory.CreateDirectory(LogFileLocator.LogDirectory);
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.File(
+                Path.Combine(LogFileLocator.LogDirectory, "pilaster-.log"),
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
     }
 
     /// <summary>
@@ -82,6 +122,8 @@ public partial class App : Application
         object sender,
         DispatcherUnhandledExceptionEventArgs e)
     {
+        Log.Error(e.Exception, "Kezeletlen kivétel");
+
         MessageBox.Show(
             e.Exception.ToString(),
             "Pilaster",
