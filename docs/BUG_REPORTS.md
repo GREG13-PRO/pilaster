@@ -31,7 +31,10 @@ a fájlt.
 Lásd részletesen [`discord-bot/README.md`](../discord-bot/README.md) — dióhéjban:
 
 1. Hozz létre egy Discord alkalmazást + botot a Developer Portalon, hívd meg a szerveredre.
-2. Töltsd fel valahova (Railway, Fly.io, saját gép) a `discord-bot/` mappát — van hozzá Dockerfile.
+2. Futtasd a botot valahol — jelenleg **a fejlesztő saját gépén, helyben** fut (lásd
+   `discord-bot/README.md` „Helyi futtatás" szakaszát, automatikus indítással bejelentkezéskor),
+   de a `Dockerfile` miatt felhős hosztra (Railway stb.) is költöztethető, ha lesznek külső
+   felhasználók.
 3. Állítsd be a bot `.env`-jét (token, két csatorna ID, egy általad kitalált API-kulcs).
 4. A Pilaster oldalán hozd létre a config fájlt:
 
@@ -39,12 +42,13 @@ Lásd részletesen [`discord-bot/README.md`](../discord-bot/README.md) — dióh
    %APPDATA%\Pilaster\bugreport-api.txt
    ```
 
-   Első sor a bot URL-je (pl. `https://pilaster-bot.up.railway.app`), második sor az API-kulcs.
+   Első sor a bot URL-je (helyi futtatásnál `http://localhost:3000`, felhős hosztnál pl.
+   `https://pilaster-bot.up.railway.app`), második sor az API-kulcs.
 
    Vagy fejlesztéskor egyszerűbb környezeti változókkal:
 
    ```powershell
-   $env:PILASTER_BUG_REPORT_API_URL = "https://pilaster-bot.up.railway.app"
+   $env:PILASTER_BUG_REPORT_API_URL = "http://localhost:3000"
    $env:PILASTER_BUG_REPORT_API_KEY = "..."
    ```
 

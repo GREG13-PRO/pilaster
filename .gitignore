@@ -62,6 +62,7 @@ secrets.json
 ## Discord bot (discord-bot/) — Node.js
 discord-bot/node_modules/
 discord-bot/.env
+discord-bot/bot.log
 discord-bot/npm-debug.log*
 .env
 .env.*
