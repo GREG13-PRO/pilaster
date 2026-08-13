@@ -47,6 +47,89 @@
                 Duration="{StaticResource HoverOutDuration}" />
         </Storyboard>
 
+        <!--
+            Csúszó átmenet a fájlterületen, valahányszor a megnyitott mappa
+            változik (gyorselérésre kattintás, breadcrumb, vissza/előre,
+            dupla kattintás egy mappára). A CubicEase.EaseOut adja a
+            "lelassuló becsapódás" érzetet, ami premium hatást kelt anélkül,
+            hogy szaggatottnak hatna — lásd MainWindow.xaml.cs PlayContentTransition.
+        -->
+        <Duration x:Key="ContentSlideDuration">0:0:0.22</Duration>
+        <Storyboard x:Key="SlideInFileArea">
+            <DoubleAnimation
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                From="14"
+                To="0"
+                Duration="{StaticResource ContentSlideDuration}">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation
+                Storyboard.TargetProperty="Opacity"
+                From="0.4"
+                To="1"
+                Duration="{StaticResource ContentSlideDuration}" />
+        </Storyboard>
+
+        <!--
+            Egységes eszköztár-gomb: minden ikon-gomb (navigáció, létrehozás,
+            overflow, téma, beállítások) azonos méretű, azonos lekerekítésű és
+            azonos térközű — korábban minden gomb a WPF-UI alapértelmezett
+            méretét kapta, ami finoman eltérő volt gombtípusonként.
+
+            FONTOS: az ikont MINDIG a gomb közvetlen tartalmaként add meg
+            (<ui:Button><ui:SymbolIcon .../></ui:Button>), NE a
+            <ui:Button.Icon> tulajdonságon keresztül. Ez utóbbi ezen a
+            WPF-UI verzión (4.3.0) néha teljesen üresen marad — sem
+            képernyőn, sem RenderTargetBitmap-es önrenderelésnél nem jelenik
+            meg semmi, miközben az önálló SymbolIcon megbízhatóan működik.
+            Több elszigetelt próbaalkalmazással megerősítve.
+        -->
+        <Style x:Key="ToolbarButtonStyle" TargetType="ui:Button">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Margin" Value="1,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Appearance" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            Fájlelemek helyi menüje. Egyetlen megosztott példány — mivel
+            egyszerre csak egy nyílhat meg, ez biztonságosan újrahasználható a
+            részletes és a rács nézet minden során/csempéjén. A DataContext
+            explicit átirányítása kell, mert a ContextMenu popupként külön
+            vizuális fában él, és nem örökli automatikusan a
+            PlacementTarget adatkontextusát.
+        -->
+        <ContextMenu x:Key="FileItemContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+            <MenuItem Click="OnOpenItemClick" Header="{loc:Loc Cmd_Open}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Open24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Click="OnCopyPathClick" Header="{loc:Loc Cmd_CopyPath}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Copy24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Click="OnShowInExplorerClick" Header="{loc:Loc Cmd_ShowInExplorer}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Folder24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Click="OnShowPropertiesClick" Header="{loc:Loc Cmd_Properties}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Info24" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
         <!--  Oldalsáv sor  -->
         <Style x:Key="SidebarItemStyle" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="10,7" />
@@ -55,7 +138,15 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Grid>
+                        <!--
+                            Background="Transparent" a gyökér Griden: null hátér
+                            mellett a WPF csak a gyerekelemek konkrét
+                            tartalmán (szöveg glyph-jei, kitöltött ikon-terület)
+                            hit-testel, a köztük lévő "üres" résekben a
+                            kattintás átesne a sorra. Transparent ecsettel az
+                            EGÉSZ sor területe kattinthatóvá válik.
+                        -->
+                        <Grid Background="Transparent">
                             <Border
                                 x:Name="Hover"
                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
@@ -84,12 +175,14 @@
                             </Trigger>
 
                             <!--
-                                Az aktuálisan megnyitott mappa kiemelése. Útvonal
-                                alapján, nem a ListBox kijelölés-állapotán keresztül —
-                                lásd SidebarItemViewModel.IsActive. (A fülsáv is ezt a
-                                stílust használja, de a TabViewModelnek nincs IsActive
-                                tulajdonsága, ezért ott a trigger ártalmatlanul soha nem
-                                talál kötést.)
+                                Az aktuálisan megnyitott mappa ÉS annak minden őse
+                                kiemelve (pl. "Dokumentumok" akkor is aktív, ha épp
+                                egy almappájában vagyunk) — útvonal alapján, nem a
+                                ListBox kijelölés-állapotán keresztül. Lásd
+                                MainWindowViewModel.IsPathOrAncestor. (A fülsáv is
+                                ezt a stílust használja, de a TabViewModelnek nincs
+                                IsActive tulajdonsága, ezért ott a trigger
+                                ártalmatlanul soha nem talál kötést.)
                             -->
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter TargetName="Selected" Property="Opacity" Value="1" />
@@ -163,10 +256,13 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
+            <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+            <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemPreviewRightButtonDown" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
-                        <Grid Margin="4,1">
+                        <!--  Background="Transparent": lásd a SidebarItemStyle megjegyzését.  -->
+                        <Grid Margin="4,1" Background="Transparent">
                             <Border
                                 x:Name="Hover"
                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
@@ -203,10 +299,13 @@
         <Style x:Key="FileTileStyle" TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
+            <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+            <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemPreviewRightButtonDown" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Grid Margin="4">
+                        <!--  Background="Transparent": lásd a SidebarItemStyle megjegyzését.  -->
+                        <Grid Margin="4" Background="Transparent">
                             <Border
                                 x:Name="Hover"
                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
@@ -312,39 +411,31 @@
                 Margin="0,0,8,0"
                 Orientation="Horizontal">
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding SelectedTab.GoBackCommand}"
                     IsEnabled="{Binding SelectedTab.CanGoBack}"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_Back}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="ArrowLeft24" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="ArrowLeft24" />
                 </ui:Button>
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding SelectedTab.GoForwardCommand}"
                     IsEnabled="{Binding SelectedTab.CanGoForward}"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_Forward}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="ArrowRight24" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="ArrowRight24" />
                 </ui:Button>
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding SelectedTab.GoUpCommand}"
                     IsEnabled="{Binding SelectedTab.CanGoUp}"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_Up}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="ArrowUp24" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="ArrowUp24" />
                 </ui:Button>
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding SelectedTab.RefreshCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_Refresh}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="ArrowClockwise24" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" />
                 </ui:Button>
 
                 <Rectangle
@@ -354,22 +445,18 @@
 
                 <!--  Két testreszabható gyorsgomb — a viselkedésük a Beállításokban állítható  -->
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding RunQuickActionCommand}"
                     CommandParameter="1"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{Binding QuickAction1Label}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="{Binding QuickAction1Icon}" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="{Binding QuickAction1Icon}" />
                 </ui:Button>
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding RunQuickActionCommand}"
                     CommandParameter="2"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{Binding QuickAction2Label}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="{Binding QuickAction2Icon}" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="{Binding QuickAction2Icon}" />
                 </ui:Button>
             </StackPanel>
 
@@ -431,11 +518,9 @@
             <StackPanel Grid.Column="3" Orientation="Horizontal">
                 <ui:Button
                     Click="OnOverflowMenuClick"
-                    Appearance="Transparent"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_More}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="MoreHorizontal24" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="MoreHorizontal24" />
                     <ui:Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="{loc:Loc View_Mode}">
@@ -453,22 +538,18 @@
 
                 <!--  Téma-kapcsoló: az ikon azt mutatja, amire váltani fog  -->
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding ToggleThemeCommand}"
                     CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_ToggleTheme}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="{Binding ThemeIcon}" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="{Binding ThemeIcon}" />
                 </ui:Button>
 
                 <ui:Button
-                    Appearance="Transparent"
                     Command="{Binding OpenSettingsCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_Settings}">
-                    <ui:Button.Icon>
-                        <ui:SymbolIcon Symbol="Settings24" />
-                    </ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="Settings24" />
                 </ui:Button>
             </StackPanel>
         </Grid>
@@ -552,13 +633,22 @@
                 HorizontalAlignment="Center"
                 Background="Transparent" />
 
-            <!--  Fájlterület  -->
+            <!--
+                Fájlterület. A RenderTransform a SlideInFileArea storyboard
+                célpontja — mappaváltáskor a MainWindow.xaml.cs
+                PlayContentTransition indítja el, lásd a TrackTab-et.
+            -->
             <Border
+                x:Name="FileAreaBorder"
                 Grid.Column="2"
                 Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="9">
+                CornerRadius="9"
+                RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform>
+                    <TranslateTransform X="0" />
+                </Border.RenderTransform>
                 <Grid>
 
                     <!--  Részletes nézet  -->

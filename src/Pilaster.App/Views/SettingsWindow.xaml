@@ -253,6 +253,17 @@
                                 IsEnabled="{Binding IsConfigured}" />
                         </StackPanel>
 
+                        <!--
+                            Ötlet vs. hiba. A Discord üzenet ez alapján kap
+                            [BUG]/[ÖTLET] címkét és eltérő színt — lásd
+                            DiscordPayloadBuilder.
+                        -->
+                        <CheckBox
+                            Margin="0,10,0,0"
+                            Content="{loc:Loc BugReport_IsFeatureIdea}"
+                            IsChecked="{Binding IsFeatureIdea, Mode=TwoWay}"
+                            IsEnabled="{Binding IsConfigured}" />
+
                         <!--  Visszajelzés-sáv: siker zöld pipával, hiba piros felkiáltójellel  -->
                         <Border
                             Margin="0,12,0,0"

@@ -86,6 +86,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ? SymbolRegular.WeatherSunny24
         : SymbolRegular.WeatherMoon24;
 
+    /// <summary>
+    /// Igaz, ha az átúsztatások engedélyezettek. A nézet ez alapján dönti el,
+    /// lejátssza-e a mappaváltáskori csúszó átmenetet.
+    /// </summary>
+    public bool AnimationsEnabled => _settings.Current.AnimationsEnabled;
+
     /// <summary>Akkor jelez, ha a nézetnek meg kell nyitnia a Beállításokat.</summary>
     public event EventHandler? SettingsRequested;
 
@@ -306,7 +312,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 DriveType.Removable => SymbolRegular.UsbStick24,
                 DriveType.Network => SymbolRegular.CloudArrowUp24,
                 DriveType.CDRom => SymbolRegular.Cd16,
-                _ => SymbolRegular.HardDrive24,
+
+                // A HardDrive24 kódpontja (U+F0386) a Segoe Fluent Icons
+                // rendszerbetűkészletben nem létezik — a rendszer helyette egy
+                // ártalmatlannak tűnő, de félrevezető apró jelet rajzol ki
+                // helyette. A Storage24-et lemérve (közvetlen glyph-teszttel)
+                // valódi, jól felismerhető meghajtó-ikont ad.
+                _ => SymbolRegular.Storage24,
             };
 
             items.Add(new SidebarItemViewModel
@@ -355,6 +367,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// Az oldalsáv kiemelésének frissítése az aktív fül aktuális útvonala
     /// alapján — fülváltáskor, navigáció közben és induláskor egyaránt.
     /// </summary>
+    /// <remarks>
+    /// Nem csak a pontosan egyező elem emelődik ki, hanem az aktuális útvonal
+    /// MINDEN őse is: ha a „Dokumentumok" gyorselérés a
+    /// <c>C:\Users\Rego\Documents</c>-re mutat, és éppen a
+    /// <c>C:\Users\Rego\Documents\asd</c> mappában vagyunk, a „Dokumentumok"
+    /// sor is aktívnak számít — így a felhasználó mélyebbre navigálva sem
+    /// veszti el a tájékozódási pontot a bal oldali fában.
+    /// </remarks>
     private void UpdateActiveSidebarItem()
     {
         var currentPath = SelectedTab?.CurrentPath;
@@ -363,19 +383,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             foreach (var item in section.Items)
             {
-                item.IsActive = PathsEqual(item.Path, currentPath);
+                item.IsActive = currentPath is not null && IsPathOrAncestor(item.Path, currentPath);
             }
         }
     }
 
     /// <summary>
-    /// Útvonal-egyezés a záró elválasztó karakter figyelmen kívül hagyásával
-    /// (a meghajtógyökerek, pl. „C:\", ettől függetlenül helyesen egyeznek).
+    /// Igaz, ha <paramref name="candidateAncestor"/> maga az aktuális útvonal,
+    /// vagy annak valódi szülője.
     /// </summary>
-    private static bool PathsEqual(string a, string? b) =>
-        b is not null
-        && string.Equals(
-            Path.TrimEndingDirectorySeparator(a),
-            Path.TrimEndingDirectorySeparator(b),
-            StringComparison.OrdinalIgnoreCase);
+    /// <remarks>
+    /// A szülő-ellenőrzés elválasztó karakterrel kiegészített előtag-egyezésre
+    /// épül, hogy a <c>C:\Users\Rego\Documents</c> ne minősüljön tévesen a
+    /// <c>C:\Users\Rego\DocumentsBackup</c> ősének — a puszta
+    /// <c>StartsWith</c> ebbe a csapdába esne.
+    /// </remarks>
+    private static bool IsPathOrAncestor(string candidateAncestor, string currentPath)
+    {
+        var normalizedAncestor = Path.TrimEndingDirectorySeparator(candidateAncestor);
+        var normalizedCurrent = Path.TrimEndingDirectorySeparator(currentPath);
+
+        if (string.Equals(normalizedAncestor, normalizedCurrent, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var prefix = normalizedAncestor + Path.DirectorySeparatorChar;
+
+        return normalizedCurrent.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
 }

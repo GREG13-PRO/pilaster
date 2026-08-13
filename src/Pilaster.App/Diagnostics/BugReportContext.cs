@@ -9,4 +9,5 @@ public sealed record BugReportContext(
     string AppVersion,
     string OsDescription,
     string RuntimeDescription,
-    DateTimeOffset TimestampUtc);
+    DateTimeOffset TimestampUtc,
+    bool IsFeatureIdea = false);

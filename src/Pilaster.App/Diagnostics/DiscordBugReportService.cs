@@ -48,7 +48,8 @@ public sealed class DiscordBugReportService : IBugReportService
             AppVersionInfo.Current,
             RuntimeInformation.OSDescription,
             RuntimeInformation.FrameworkDescription,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            request.IsFeatureIdea);
 
         var json = DiscordPayloadBuilder.BuildEmbedJson(context);
 

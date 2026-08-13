@@ -42,6 +42,13 @@ public sealed partial class BugReportViewModel : ObservableObject
     [ObservableProperty]
     public partial bool AttachLog { get; set; } = true;
 
+    /// <summary>
+    /// Igaz, ha ez nem hibajelentés, hanem fejlesztési ötlet — a Discord
+    /// üzenet ez alapján kap [BUG]/[ÖTLET] címkét és eltérő színt.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsFeatureIdea { get; set; }
+
     [ObservableProperty]
     public partial bool IsSending { get; set; }
 
@@ -68,7 +75,7 @@ public sealed partial class BugReportViewModel : ObservableObject
             var logPath = AttachLog ? LogFileLocator.FindLatest() : null;
 
             var result = await _service.SendAsync(
-                new BugReportRequest(Description.Trim(), screenshot, logPath));
+                new BugReportRequest(Description.Trim(), screenshot, logPath, IsFeatureIdea));
 
             ShowStatus(
                 success: result.Succeeded,
@@ -79,6 +86,7 @@ public sealed partial class BugReportViewModel : ObservableObject
             if (result.Succeeded)
             {
                 Description = string.Empty;
+                IsFeatureIdea = false;
             }
         }
         finally

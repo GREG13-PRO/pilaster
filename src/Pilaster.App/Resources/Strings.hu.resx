@@ -321,4 +321,20 @@
     <value>A hibabejelentés még nincs beállítva. Hozz létre egy Discord webhookot, és mentsd az URL-jét ide: {0}, vagy állítsd be a PILASTER_BUG_REPORT_WEBHOOK környezeti változót.</value>
     <comment>{0} = helyi fájl útvonala</comment>
   </data>
+  <data name="BugReport_IsFeatureIdea" xml:space="preserve">
+    <value>Ez egy fejlesztési ötlet, nem hiba</value>
+  </data>
+
+  <data name="Cmd_Open" xml:space="preserve">
+    <value>Megnyitás</value>
+  </data>
+  <data name="Cmd_CopyPath" xml:space="preserve">
+    <value>Útvonal másolása</value>
+  </data>
+  <data name="Cmd_ShowInExplorer" xml:space="preserve">
+    <value>Megjelenítés az Intézőben</value>
+  </data>
+  <data name="Cmd_Properties" xml:space="preserve">
+    <value>Tulajdonságok</value>
+  </data>
 </root>

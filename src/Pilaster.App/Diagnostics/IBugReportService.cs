@@ -1,10 +1,18 @@
 namespace Pilaster.App.Diagnostics;
 
 /// <summary>Egy elküldendő hibabejelentés.</summary>
-/// <param name="Description">A felhasználó leírása a hibáról.</param>
+/// <param name="Description">A felhasználó leírása a hibáról vagy ötletről.</param>
 /// <param name="Screenshot">PNG-kódolt képernyőkép, vagy <c>null</c>.</param>
 /// <param name="LogFilePath">A csatolandó naplófájl útvonala, vagy <c>null</c>.</param>
-public sealed record BugReportRequest(string Description, byte[]? Screenshot, string? LogFilePath);
+/// <param name="IsFeatureIdea">
+/// Igaz, ha ez nem hibajelentés, hanem fejlesztési ötlet — a Discord üzenet
+/// címkéje és színe ez alapján tér el.
+/// </param>
+public sealed record BugReportRequest(
+    string Description,
+    byte[]? Screenshot,
+    string? LogFilePath,
+    bool IsFeatureIdea = false);
 
 /// <summary>Egy hibabejelentés küldésének eredménye.</summary>
 /// <param name="Succeeded">Sikerült-e a küldés.</param>

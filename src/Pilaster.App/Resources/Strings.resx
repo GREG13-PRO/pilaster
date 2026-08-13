@@ -321,4 +321,20 @@
     <value>Bug reporting isn't set up yet. Create a Discord webhook and save its URL to {0}, or set the PILASTER_BUG_REPORT_WEBHOOK environment variable.</value>
     <comment>{0} = local file path</comment>
   </data>
+  <data name="BugReport_IsFeatureIdea" xml:space="preserve">
+    <value>This is a feature idea, not a bug</value>
+  </data>
+
+  <data name="Cmd_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Cmd_CopyPath" xml:space="preserve">
+    <value>Copy path</value>
+  </data>
+  <data name="Cmd_ShowInExplorer" xml:space="preserve">
+    <value>Show in Explorer</value>
+  </data>
+  <data name="Cmd_Properties" xml:space="preserve">
+    <value>Properties</value>
+  </data>
 </root>

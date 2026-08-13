@@ -42,14 +42,17 @@ public sealed partial class SidebarItemViewModel : ObservableObject
     public partial double UsedFraction { get; set; }
 
     /// <summary>
-    /// Igaz, ha ez a sor útvonala egyezik a jelenleg megnyitott mappával.
+    /// Igaz, ha ez a sor útvonala a jelenleg megnyitott mappa, vagy annak
+    /// valódi őse (pl. „Dokumentumok" aktívnak számít akkor is, ha épp a
+    /// Dokumentumok egy almappájában vagyunk).
     /// </summary>
     /// <remarks>
     /// Szándékosan nem a ListBox saját <c>IsSelected</c>/<c>SelectedItem</c>
     /// állapotára épül: az kattintás után azonnal nullázódik (hogy ugyanarra a
     /// sorra ismét rá lehessen kattintani), és nem követné a breadcrumb-bal,
-    /// vissza/előre gombbal vagy fülváltással történő navigációt. Az
-    /// útvonal-alapú jelzés ezekre is helyesen reagál.
+    /// vissza/előre gombbal vagy fülváltással történő navigációt, sem a
+    /// mélyebbre navigálást. Az útvonal-alapú jelzés mindegyikre helyesen
+    /// reagál — lásd <c>MainWindowViewModel.IsPathOrAncestor</c>.
     /// </remarks>
     [ObservableProperty]
     public partial bool IsActive { get; set; }

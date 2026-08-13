@@ -80,4 +80,44 @@ public class DiscordPayloadBuilderTests
 
         Assert.Equal(SampleContext.Description, description);
     }
+
+    /// <summary>
+    /// A hibajelentés alapértelmezett — a régi tesztek (és a régi hívók)
+    /// szándékosan a paraméter megadása nélkül is fordulnak.
+    /// </summary>
+    [Fact]
+    public void BuildEmbedJson_AlapbanHibajelentesCimket_Kap()
+    {
+        var json = DiscordPayloadBuilder.BuildEmbedJson(SampleContext);
+        using var document = JsonDocument.Parse(json);
+
+        var title = document.RootElement.GetProperty("embeds")[0].GetProperty("title").GetString();
+
+        Assert.Contains("[BUG]", title);
+        Assert.DoesNotContain("[ÖTLET]", title);
+    }
+
+    /// <summary>
+    /// Ötletnél a cím és a szín is eltér a hibajelentésétől — a Discord
+    /// csatornán átfutva a kettő elsőre megkülönböztethető legyen.
+    /// </summary>
+    [Fact]
+    public void BuildEmbedJson_OtletCimketEsElteroSzintKap()
+    {
+        var ideaContext = SampleContext with { IsFeatureIdea = true };
+
+        var bugJson = DiscordPayloadBuilder.BuildEmbedJson(SampleContext);
+        var ideaJson = DiscordPayloadBuilder.BuildEmbedJson(ideaContext);
+
+        using var bugDocument = JsonDocument.Parse(bugJson);
+        using var ideaDocument = JsonDocument.Parse(ideaJson);
+
+        var ideaTitle = ideaDocument.RootElement.GetProperty("embeds")[0].GetProperty("title").GetString();
+        Assert.Contains("[ÖTLET]", ideaTitle);
+        Assert.DoesNotContain("[BUG]", ideaTitle);
+
+        var bugColor = bugDocument.RootElement.GetProperty("embeds")[0].GetProperty("color").GetInt32();
+        var ideaColor = ideaDocument.RootElement.GetProperty("embeds")[0].GetProperty("color").GetInt32();
+        Assert.NotEqual(bugColor, ideaColor);
+    }
 }

@@ -17,20 +17,32 @@ public static class DiscordPayloadBuilder
     /// </summary>
     private const int MaxDescriptionLength = 3800;
 
-    /// <summary>A Pilaster amber márkaszíne, a Discord beágyazás sávjához.</summary>
-    private const int BrandColor = 0xE9B843;
+    /// <summary>A Pilaster amber márkaszíne — hibabejelentés esetén.</summary>
+    private const int BugColor = 0xE9B843;
+
+    /// <summary>
+    /// A Discord "blurple" színe — fejlesztési ötletnél, hogy a csatornán
+    /// átfutva a szín önmagában is megkülönböztesse a hibától.
+    /// </summary>
+    private const int IdeaColor = 0x5865F2;
 
     public static string BuildEmbedJson(BugReportContext context)
     {
+        var title = context.IsFeatureIdea
+            ? "💡 [ÖTLET] Fejlesztési ötlet — Pilaster"
+            : "🐛 [BUG] Hibabejelentés — Pilaster";
+
+        var color = context.IsFeatureIdea ? IdeaColor : BugColor;
+
         var payload = new
         {
             embeds = new object[]
             {
                 new
                 {
-                    title = "🐛 Hibabejelentés — Pilaster",
+                    title,
                     description = Truncate(context.Description, MaxDescriptionLength),
-                    color = BrandColor,
+                    color,
                     fields = new object[]
                     {
                         new { name = "Verzió", value = context.AppVersion, inline = true },

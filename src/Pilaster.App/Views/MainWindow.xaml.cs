@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
 using Pilaster.App.Services;
@@ -12,6 +14,7 @@ using Wpf.Ui.Controls;
 // A XAML a WPF beépített vezérlőit példányosítja, ezért a kódban is azokra
 // hivatkozunk — az álnév egyértelműsíti, melyikről van szó.
 using GridViewColumnHeader = System.Windows.Controls.GridViewColumnHeader;
+using ItemsControl = System.Windows.Controls.ItemsControl;
 using ListBox = System.Windows.Controls.ListBox;
 using ListView = System.Windows.Controls.ListView;
 using SelectionChangedEventArgs = System.Windows.Controls.SelectionChangedEventArgs;
@@ -30,6 +33,12 @@ public partial class MainWindow : FluentWindow
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
 
+    /// <summary>
+    /// A fül, amelynek <c>CurrentPath</c> változását épp figyeljük — a csúszó
+    /// átmenet ehhez van feliratkozva. Fülváltáskor át kell iratkozni.
+    /// </summary>
+    private TabViewModel? _trackedTab;
+
     public MainWindow(MainWindowViewModel viewModel, IServiceProvider services, ThemeService theme)
     {
         _viewModel = viewModel;
@@ -38,12 +47,15 @@ public partial class MainWindow : FluentWindow
         DataContext = viewModel;
 
         viewModel.SettingsRequested += OnSettingsRequested;
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         InitializeComponent();
 
         // A rendszertéma figyelése: „rendszerkövető" módban a Windows
         // világos/sötét váltása menet közben is átszínezi a felületet.
         Loaded += (_, _) => _theme.WatchSystemTheme(this);
+
+        TrackTab(_viewModel.SelectedTab);
     }
 
     private void OnSettingsRequested(object? sender, EventArgs e)
@@ -60,6 +72,58 @@ public partial class MainWindow : FluentWindow
         _settingsWindow.Show();
     }
 
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.SelectedTab))
+        {
+            TrackTab(_viewModel.SelectedTab);
+        }
+    }
+
+    /// <summary>
+    /// A csúszó átmenet forrását a mindenkori aktív fülre állítja át.
+    /// </summary>
+    private void TrackTab(TabViewModel? tab)
+    {
+        if (_trackedTab is not null)
+        {
+            _trackedTab.PropertyChanged -= OnTrackedTabPropertyChanged;
+        }
+
+        _trackedTab = tab;
+
+        if (_trackedTab is not null)
+        {
+            _trackedTab.PropertyChanged += OnTrackedTabPropertyChanged;
+        }
+    }
+
+    private void OnTrackedTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TabViewModel.CurrentPath))
+        {
+            PlayContentTransition();
+        }
+    }
+
+    /// <summary>
+    /// Csúszó-elhalványuló átmenet lejátszása a fájlterületen, valahányszor a
+    /// megnyitott mappa változik — gyorselérésre kattintás, breadcrumb,
+    /// vissza/előre, vagy dupla kattintás egy mappára.
+    /// </summary>
+    private void PlayContentTransition()
+    {
+        if (!_viewModel.AnimationsEnabled)
+        {
+            return;
+        }
+
+        if (Resources["SlideInFileArea"] is Storyboard storyboard)
+        {
+            storyboard.Begin(FileAreaBorder);
+        }
+    }
+
     /// <summary>
     /// Az overflow („több") gomb bal kattintásra nyissa a menüjét.
     /// </summary>
@@ -73,7 +137,7 @@ public partial class MainWindow : FluentWindow
         if (sender is FrameworkElement { ContextMenu: { } menu } element)
         {
             menu.PlacementTarget = element;
-            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.Placement = PlacementMode.Bottom;
             menu.IsOpen = true;
         }
     }
@@ -88,6 +152,105 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
+        await OpenItemAsync(item);
+    }
+
+    /// <summary>
+    /// Jobb kattintás fájlelemen: ha a kattintott sor még nincs kijelölve, a
+    /// helyi menü kizárólag arra vonatkozzon — ez az Explorer és a legtöbb
+    /// fájlkezelő megszokott viselkedése. Ha már a kijelölés része, a meglévő
+    /// (esetleg többelemes) kijelölés érintetlen marad.
+    /// </summary>
+    private void OnItemPreviewRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: FileSystemItem item } container)
+        {
+            return;
+        }
+
+        if (ItemsControl.ItemsControlFromItemContainer(container) is not Selector selector)
+        {
+            return;
+        }
+
+        var alreadySelected = selector switch
+        {
+            ListView view => view.SelectedItems.Contains(item),
+            ListBox box => box.SelectedItems.Contains(item),
+            _ => false,
+        };
+
+        if (!alreadySelected)
+        {
+            selector.SelectedItem = item;
+        }
+    }
+
+    private async void OnOpenItemClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is FileSystemItem item)
+        {
+            await OpenItemAsync(item);
+        }
+    }
+
+    private void OnCopyPathClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(item.FullPath);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // A vágólapot időnként egy másik folyamat zárolja — nincs jobb
+            // teendő, mint csendben kihagyni, mintsem hibaüzenettel zavarni.
+        }
+    }
+
+    private void OnShowInExplorerClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+    }
+
+    private void OnShowPropertiesClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(item.FullPath) { UseShellExecute = true, Verb = "properties" });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Egy elem megnyitása: mappánál/meghajtónál navigáció, fájlnál a
+    /// társított programmal indítás. Ezt hívja a dupla kattintás és a helyi
+    /// menü „Megnyitás" pontja is, hogy a viselkedés egy helyen éljen.
+    /// </summary>
+    private async Task OpenItemAsync(FileSystemItem item)
+    {
         if (item.IsNavigable)
         {
             if (_viewModel.SelectedTab is { } tab)
