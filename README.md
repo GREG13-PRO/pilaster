@@ -20,7 +20,7 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 
 ## Állapot
 
-**v0.6 — korai fejlesztés.** Ami már működik:
+**v0.6.1 — korai fejlesztés.** Ami már működik:
 
 - **Oszlopos (Miller) nézet** macOS Finder módra: mappára kattintva jobbra nyílik az újabb oszlop, fájlnál jobb oldalon részletek panel (típus, méret, módosítás dátuma) — a nézetmód (Lista/Rács/Oszlopok) fülenként megjegyzett
 - **Natív Windows 11 jobbklikk-menü** fájlokon és mappákon — szó szerint ugyanaz, mint az Intézőben, a telepített programok (7-Zip, Git stb.) saját bejegyzéseivel együtt
@@ -38,7 +38,7 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 - Natív Windows ikonok és bélyegképek, lemezre gyorsítótárazva
 - **Két testreszabható gyorsgomb** — mappa vagy fájl, saját névsablonnal (`{date}`, `{time}`, `{n}`) és célmappával
 - **Beállítások panel**: téma, animációk, nyelv, gyorsgombok, frissítések — minden azonnal mentődik
-- **Hibabejelentő** egy valódi Discord boton keresztül, „Kész" gombbal és automatikus archiválással, hiba/ötlet megkülönböztetéssel, opcionális képernyőkép- és naplócsatolással
+- **Hibabejelentő**: a felhasználók egy publikus e-mail-címet látnak (`pilaster-explorer@proton.me`); a fejlesztői panel (közvetlen küldés egy Discord botnak, „Kész" gombbal és automatikus archiválással, képernyőkép-/naplócsatolással) rejtve marad, amíg a szekciófejlécre 10-szer nem kattintanak
 - Magyar és angol felület, **futásidejű nyelvváltással**, a rendszernyelv automatikus felismerésével
 
 Amit a következő mérföldkövek hoznak, azt lásd az [ütemezésben](#ütemezés).
@@ -113,6 +113,7 @@ A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak
 | **v0.4** ✅ | Fájlkijelölés/jobbklikk javítás, ős-lánc kiemelés, egységes gombstílus, csúszó átmenet, ötlet/hiba megkülönböztetés |
 | **v0.5** ✅ | Automatikus frissítés, keretek nélküli gombok, jobbklikk üres területen, húzásos kijelölés, vágólap-beillesztés |
 | **v0.6** ✅ | Oszlopos (Miller) nézet, natív jobbklikk-menü, mappaméret-számítás, meghajtó-kiadás, optikai lemez ikonja, Discord bot |
+| **v0.6.1** ✅ | Publikus hibabejelentő e-mail + rejtett fejlesztői panel, bot-biztonsági frissítés (multer 2.x) |
 | v0.7 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
 | v0.8 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
 | v0.9 | Azonnali keresés (NTFS MFT-index), parancspaletta |
