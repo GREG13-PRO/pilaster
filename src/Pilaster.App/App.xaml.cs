@@ -1,23 +1,20 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
 using Pilaster.App.Localization;
+using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
 using Pilaster.App.Views;
 using Pilaster.Core.FileSystem;
+using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
 using Pilaster.Shell.Imaging;
-using Wpf.Ui.Appearance;
 
 namespace Pilaster.App;
 
 public partial class App : Application
 {
-    /// <summary>Azok a nyelvek, amikhez fordítás van szállítva.</summary>
-    private static readonly string[] SupportedLanguages = ["hu", "en"];
-
     private ServiceProvider? _services;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -32,15 +29,22 @@ public partial class App : Application
 
         services.AddSingleton<IFileSystemProvider, LocalFileSystemProvider>();
         services.AddSingleton<IShellImageService, ShellImageService>();
+        services.AddSingleton<ISettingsService, JsonSettingsService>();
+        services.AddSingleton<ThemeService>();
+        services.AddSingleton<QuickActionService>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 
+        // A Beállítások átmeneti: minden megnyitáskor a friss modellre épül.
+        services.AddTransient<SettingsViewModel>();
+        services.AddTransient<SettingsWindow>();
+
         _services = services.BuildServiceProvider();
 
-        ApplyStartupCulture();
+        var settings = _services.GetRequiredService<ISettingsService>();
 
-        // A téma kövesse a Windows beállítását, és váltson vele együtt.
-        ApplicationThemeManager.ApplySystemTheme();
+        ApplyStartupCulture(settings.Current);
+        _services.GetRequiredService<ThemeService>().ApplyInitial();
 
         ShellIconImage.Initialize(_services.GetRequiredService<IShellImageService>());
 
@@ -51,28 +55,24 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // A késleltetett mentés még sorban állhat, ezért kilépés előtt kiírjuk.
+        _services?.GetService<ISettingsService>()?.Flush();
         _services?.Dispose();
+
         base.OnExit(e);
     }
 
     /// <summary>
-    /// Az induló nyelv megválasztása.
+    /// Az induló nyelv: a mentett választás, vagy annak hiányában a rendszernyelv.
     /// </summary>
     /// <remarks>
-    /// Ha a rendszer nyelvéhez van fordításunk, azt használjuk — ez a
-    /// legkevésbé meglepő viselkedés. Egyébként magyarra esünk vissza, mert az
-    /// a projekt elsődleges nyelve.
+    /// A mentett <c>null</c> nem hiányzó adat, hanem tudatos választás: azt
+    /// jelenti, hogy a felhasználó a rendszernyelvet akarja követni, tehát a
+    /// Windows nyelvének későbbi átállítását is követnie kell.
     /// </remarks>
-    private static void ApplyStartupCulture()
-    {
-        var system = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-
-        var chosen = SupportedLanguages.Contains(system, StringComparer.OrdinalIgnoreCase)
-            ? system
-            : "hu";
-
-        TranslationSource.Instance.SetLanguage(chosen);
-    }
+    private static void ApplyStartupCulture(AppSettings settings) =>
+        TranslationSource.Instance.SetLanguage(
+            settings.Language ?? TranslationSource.ResolveSystemLanguage());
 
     /// <summary>
     /// Utolsó védvonal: egy nem kezelt kivétel ne zárja be némán az ablakot a

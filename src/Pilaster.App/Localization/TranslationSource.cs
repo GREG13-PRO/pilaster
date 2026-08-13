@@ -28,6 +28,32 @@ public sealed class TranslationSource : INotifyPropertyChanged
     /// <summary>Az alkalmazás egyetlen fordítási forrása.</summary>
     public static TranslationSource Instance => Lazy.Value;
 
+    /// <summary>
+    /// Azok a nyelvek, amikhez fordítás van szállítva.
+    /// </summary>
+    /// <remarks>
+    /// Új nyelv felvételekor ezt a listát és a csproj
+    /// <c>SatelliteResourceLanguages</c> elemét kell bővíteni — a többi
+    /// magától működik, mert minden felirat kulcs alapján oldódik fel.
+    /// </remarks>
+    public static IReadOnlyList<string> SupportedLanguages { get; } = ["hu", "en"];
+
+    /// <summary>
+    /// A rendszer nyelve, ha van hozzá fordításunk; egyébként magyar.
+    /// </summary>
+    /// <remarks>
+    /// A visszaesés szándékosan magyar és nem angol: ez a projekt elsődleges
+    /// nyelve, és a felhasználói köre is jellemzően magyar.
+    /// </remarks>
+    public static string ResolveSystemLanguage()
+    {
+        var system = CultureInfo.InstalledUICulture.TwoLetterISOLanguageName;
+
+        return SupportedLanguages.Contains(system, StringComparer.OrdinalIgnoreCase)
+            ? system
+            : "hu";
+    }
+
     private readonly ResourceManager _resources = Strings.ResourceManager;
     private CultureInfo _currentCulture = CultureInfo.CurrentUICulture;
 

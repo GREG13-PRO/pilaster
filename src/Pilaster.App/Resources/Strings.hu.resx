@@ -215,4 +215,71 @@
   <data name="Drive_FreeOfTotal" xml:space="preserve">
     <value>{0} szabad / {1}</value>
   </data>
+
+  <data name="Cmd_NewFolder" xml:space="preserve">
+    <value>Új mappa</value>
+  </data>
+  <data name="Cmd_NewFile" xml:space="preserve">
+    <value>Új szöveges fájl</value>
+  </data>
+  <data name="Cmd_ToggleTheme" xml:space="preserve">
+    <value>Váltás világos / sötét között</value>
+  </data>
+
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>Megjelenés</value>
+  </data>
+  <data name="Settings_ThemeHint" xml:space="preserve">
+    <value>A rendszerbeállítás követése esetén a Windows váltásakor magától átvált.</value>
+  </data>
+  <data name="Settings_Animations" xml:space="preserve">
+    <value>Animációk</value>
+  </data>
+  <data name="Settings_AnimationsHint" xml:space="preserve">
+    <value>Átúsztatások és egérrel érintéskori visszajelzés. Kikapcsolva a lehető leggyorsabb a válasz.</value>
+  </data>
+  <data name="Settings_LanguageHint" xml:space="preserve">
+    <value>Azonnal érvényre jut, újraindítás nélkül.</value>
+  </data>
+
+  <data name="Settings_QuickActions" xml:space="preserve">
+    <value>Gyorsgombok</value>
+  </data>
+  <data name="Settings_QuickActionsHint" xml:space="preserve">
+    <value>Két gomb az eszköztárban. Beállíthatod, mit hozzanak létre, és hova.</value>
+  </data>
+  <data name="QuickAction_First" xml:space="preserve">
+    <value>Első gomb</value>
+  </data>
+  <data name="QuickAction_Second" xml:space="preserve">
+    <value>Második gomb</value>
+  </data>
+  <data name="Settings_Extension" xml:space="preserve">
+    <value>Kiterjesztés</value>
+  </data>
+  <data name="Settings_NameTemplate" xml:space="preserve">
+    <value>Névsablon</value>
+  </data>
+  <data name="Settings_TemplateHint" xml:space="preserve">
+    <value>Helyőrzők: {date}, {time}, {datetime}, {n} a sorszámhoz. Egyedi formátum: {date:yyyy.MM.dd}</value>
+  </data>
+  <data name="Settings_Preview" xml:space="preserve">
+    <value>Eredmény:</value>
+  </data>
+  <data name="Settings_UseFixedPath" xml:space="preserve">
+    <value>Mindig egy rögzített mappába hozza létre</value>
+  </data>
+  <data name="Settings_Browse" xml:space="preserve">
+    <value>Tallózás…</value>
+  </data>
+  <data name="Settings_AutoSaved" xml:space="preserve">
+    <value>A módosítások automatikusan mentődnek.</value>
+  </data>
+
+  <data name="Error_AccessDenied" xml:space="preserve">
+    <value>Hozzáférés megtagadva — itt nem hozható létre elem</value>
+  </data>
+  <data name="Error_CreateFailed" xml:space="preserve">
+    <value>Az elem létrehozása nem sikerült</value>
+  </data>
 </root>

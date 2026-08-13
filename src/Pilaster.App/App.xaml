@@ -21,6 +21,10 @@
             <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:HiddenItemOpacityConverter x:Key="HiddenOpacity" />
+            <conv:ThemeModeConverter x:Key="ThemeMode" />
+            <conv:LocalizeKeyConverter x:Key="LocalizeKey" />
+            <conv:InvertBoolConverter x:Key="InvertBool" />
+            <conv:EnumToBoolConverter x:Key="EnumToBool" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

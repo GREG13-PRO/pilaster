@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
+using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
 using Pilaster.Core.FileSystem;
 using Wpf.Ui.Controls;
@@ -19,16 +21,61 @@ namespace Pilaster.App.Views;
 public partial class MainWindow : FluentWindow
 {
     private readonly MainWindowViewModel _viewModel;
+    private readonly IServiceProvider _services;
+    private readonly ThemeService _theme;
 
     /// <summary>Az az oszlopfejléc, amelyik jelenleg nyilat mutat.</summary>
     private GridViewColumnHeader? _sortedHeader;
 
-    public MainWindow(MainWindowViewModel viewModel)
+    /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
+    private SettingsWindow? _settingsWindow;
+
+    public MainWindow(MainWindowViewModel viewModel, IServiceProvider services, ThemeService theme)
     {
         _viewModel = viewModel;
+        _services = services;
+        _theme = theme;
         DataContext = viewModel;
 
+        viewModel.SettingsRequested += OnSettingsRequested;
+
         InitializeComponent();
+
+        // A rendszertéma figyelése: „rendszerkövető" módban a Windows
+        // világos/sötét váltása menet közben is átszínezi a felületet.
+        Loaded += (_, _) => _theme.WatchSystemTheme(this);
+    }
+
+    private void OnSettingsRequested(object? sender, EventArgs e)
+    {
+        if (_settingsWindow is { IsLoaded: true })
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = _services.GetRequiredService<SettingsWindow>();
+        _settingsWindow.Owner = this;
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
+    }
+
+    /// <summary>
+    /// A nézetváltó gomb bal kattintásra nyissa a menüjét.
+    /// </summary>
+    /// <remarks>
+    /// A <c>ContextMenu</c> alapból csak jobb gombra nyílik, itt viszont a
+    /// gomb egyetlen funkciója a menü megnyitása — a felhasználó bal kattintást
+    /// várna, és jobb kattintással sosem próbálkozna.
+    /// </remarks>
+    private void OnViewModeClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { ContextMenu: { } menu } element)
+        {
+            menu.PlacementTarget = element;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
     }
 
     /// <summary>

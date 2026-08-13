@@ -5,4 +5,7 @@
     <Project Path="src/Pilaster.Providers/Pilaster.Providers.csproj" />
     <Project Path="src/Pilaster.Shell/Pilaster.Shell.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Pilaster.Tests/Pilaster.Tests.csproj" />
+  </Folder>
 </Solution>

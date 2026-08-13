@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pilaster.Tests</RootNamespace>
+    <AssemblyName>Pilaster.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+
+    <!-- A konverterek WPF-típusokra (Binding.DoNothing) hivatkoznak. -->
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit.v3" Version="3.1.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Pilaster.Core\Pilaster.Core.csproj" />
+    <ProjectReference Include="..\..\src\Pilaster.App\Pilaster.App.csproj" />
+  </ItemGroup>
+
+  <!--
+    Globális using-ok. Az Xunit minden tesztfájlnak kell; a System.IO-t pedig
+    a WPF-es projektek implicit using-készlete NEM tartalmazza, a tesztek
+    viszont sokat dolgoznak ideiglenes fájlokkal.
+  -->
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+</Project>

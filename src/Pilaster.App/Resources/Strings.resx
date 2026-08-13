@@ -215,4 +215,71 @@
   <data name="Drive_FreeOfTotal" xml:space="preserve">
     <value>{0} free of {1}</value>
   </data>
+
+  <data name="Cmd_NewFolder" xml:space="preserve">
+    <value>New folder</value>
+  </data>
+  <data name="Cmd_NewFile" xml:space="preserve">
+    <value>New text file</value>
+  </data>
+  <data name="Cmd_ToggleTheme" xml:space="preserve">
+    <value>Switch light / dark</value>
+  </data>
+
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings_ThemeHint" xml:space="preserve">
+    <value>Following the system setting also switches automatically when Windows does.</value>
+  </data>
+  <data name="Settings_Animations" xml:space="preserve">
+    <value>Animations</value>
+  </data>
+  <data name="Settings_AnimationsHint" xml:space="preserve">
+    <value>Fades and hover feedback. Turn off for the fastest possible response.</value>
+  </data>
+  <data name="Settings_LanguageHint" xml:space="preserve">
+    <value>Applies immediately, without restarting.</value>
+  </data>
+
+  <data name="Settings_QuickActions" xml:space="preserve">
+    <value>Quick action buttons</value>
+  </data>
+  <data name="Settings_QuickActionsHint" xml:space="preserve">
+    <value>Two buttons in the toolbar. Set what each one creates and where.</value>
+  </data>
+  <data name="QuickAction_First" xml:space="preserve">
+    <value>First button</value>
+  </data>
+  <data name="QuickAction_Second" xml:space="preserve">
+    <value>Second button</value>
+  </data>
+  <data name="Settings_Extension" xml:space="preserve">
+    <value>Extension</value>
+  </data>
+  <data name="Settings_NameTemplate" xml:space="preserve">
+    <value>Name template</value>
+  </data>
+  <data name="Settings_TemplateHint" xml:space="preserve">
+    <value>Placeholders: {date}, {time}, {datetime}, {n} for a counter. Custom format: {date:yyyy.MM.dd}</value>
+  </data>
+  <data name="Settings_Preview" xml:space="preserve">
+    <value>Result:</value>
+  </data>
+  <data name="Settings_UseFixedPath" xml:space="preserve">
+    <value>Always create in a fixed folder</value>
+  </data>
+  <data name="Settings_Browse" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="Settings_AutoSaved" xml:space="preserve">
+    <value>Changes are saved automatically.</value>
+  </data>
+
+  <data name="Error_AccessDenied" xml:space="preserve">
+    <value>Access denied — cannot create the item here</value>
+  </data>
+  <data name="Error_CreateFailed" xml:space="preserve">
+    <value>Could not create the item</value>
+  </data>
 </root>

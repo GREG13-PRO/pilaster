@@ -3,26 +3,50 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pilaster.App.Localization;
+using Pilaster.App.Services;
 using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
+using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
-using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
 namespace Pilaster.App.ViewModels;
 
-/// <summary>A főablak állapota: fülek, oldalsáv, téma és nyelv.</summary>
+/// <summary>A főablak állapota: fülek, oldalsáv, téma, gyorsgombok.</summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly IFileSystemProvider _provider;
+    private readonly ISettingsService _settings;
+    private readonly ThemeService _theme;
+    private readonly QuickActionService _quickActions;
 
-    public MainWindowViewModel(IFileSystemProvider provider)
+    public MainWindowViewModel(
+        IFileSystemProvider provider,
+        ISettingsService settings,
+        ThemeService theme,
+        QuickActionService quickActions)
     {
         _provider = provider;
+        _settings = settings;
+        _theme = theme;
+        _quickActions = quickActions;
+
         Tabs = [];
         Sections = [];
 
         BuildSidebar();
+        RefreshQuickActions();
+
+        // A beállítások bárhonnan módosulhatnak (pl. a Beállítások ablakból),
+        // ezért a felső sáv gombjai eseményre frissülnek, nem közvetlen hívásra.
+        _settings.Changed += (_, _) =>
+        {
+            RefreshQuickActions();
+            RefreshSidebarDetails();
+            OnPropertyChanged(nameof(IsDarkTheme));
+            OnPropertyChanged(nameof(ThemeIcon));
+        };
+
         AddTab(GetStartupPath());
     }
 
@@ -35,6 +59,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsSidebarVisible { get; set; } = true;
+
+    /// <summary>A felső sáv első gyorsgombjának felirata.</summary>
+    [ObservableProperty]
+    public partial string QuickAction1Label { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial SymbolRegular QuickAction1Icon { get; set; } = SymbolRegular.FolderAdd24;
+
+    [ObservableProperty]
+    public partial string QuickAction2Label { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial SymbolRegular QuickAction2Icon { get; set; } = SymbolRegular.DocumentAdd24;
+
+    /// <summary>Igaz, ha a felület jelenleg sötét.</summary>
+    public bool IsDarkTheme => _theme.IsDark;
+
+    /// <summary>
+    /// A téma-kapcsoló ikonja: azt mutatja, amire váltani fog, nem azt, ami
+    /// most van — sötét témában napot, hogy a világosra váltás legyen kézenfekvő.
+    /// </summary>
+    public SymbolRegular ThemeIcon => _theme.IsDark
+        ? SymbolRegular.WeatherSunny24
+        : SymbolRegular.WeatherMoon24;
+
+    /// <summary>Akkor jelez, ha a nézetnek meg kell nyitnia a Beállításokat.</summary>
+    public event EventHandler? SettingsRequested;
 
     [RelayCommand]
     private void NewTab() => AddTab(GetStartupPath());
@@ -57,58 +108,104 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenSidebarItemAsync(SidebarItemViewModel? item)
     {
-        if (item is null || SelectedTab is null)
+        if (item is not null && SelectedTab is not null)
         {
-            return;
+            await SelectedTab.NavigateAsync(item.Path);
         }
-
-        await SelectedTab.NavigateAsync(item.Path);
     }
 
     [RelayCommand]
     private async Task OpenBreadcrumbAsync(BreadcrumbSegment? segment)
     {
-        if (segment is null || SelectedTab is null)
+        if (segment is not null && SelectedTab is not null)
         {
-            return;
-        }
-
-        await SelectedTab.NavigateAsync(segment.Path);
-    }
-
-    /// <summary>Nyelvváltás; a felület azonnal átvált, újraindítás nélkül.</summary>
-    [RelayCommand]
-    private void SetLanguage(string? culture)
-    {
-        if (!string.IsNullOrWhiteSpace(culture))
-        {
-            TranslationSource.Instance.SetLanguage(culture);
-            RefreshSidebarDetails();
+            await SelectedTab.NavigateAsync(segment.Path);
         }
     }
 
     [RelayCommand]
-    private static void SetTheme(string? theme)
-    {
-        var applied = theme switch
-        {
-            "light" => ApplicationTheme.Light,
-            "dark" => ApplicationTheme.Dark,
-            _ => ApplicationTheme.Unknown,
-        };
+    private void OpenSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
-        if (applied == ApplicationTheme.Unknown)
+    /// <summary>Váltás világos és sötét téma között.</summary>
+    [RelayCommand]
+    private async Task ToggleThemeAsync(System.Windows.Window? window)
+    {
+        await _theme.ToggleAsync(window);
+
+        OnPropertyChanged(nameof(IsDarkTheme));
+        OnPropertyChanged(nameof(ThemeIcon));
+    }
+
+    /// <summary>Az első vagy második gyorsgomb végrehajtása.</summary>
+    [RelayCommand]
+    private async Task RunQuickActionAsync(string? which)
+    {
+        var action = which == "2" ? _settings.Current.QuickAction2 : _settings.Current.QuickAction1;
+        var result = _quickActions.Execute(action, SelectedTab?.CurrentPath);
+
+        if (!result.Succeeded)
         {
-            ApplicationThemeManager.ApplySystemTheme();
+            if (SelectedTab is not null && result.ErrorMessage is { } key)
+            {
+                SelectedTab.EmptyMessage = TranslationSource.Instance[key];
+            }
+
             return;
         }
 
-        ApplicationThemeManager.Apply(applied);
+        // A frissítés után az új elem a rendezés szerinti helyén jelenik meg.
+        if (SelectedTab is not null)
+        {
+            await SelectedTab.RefreshCommand.ExecuteAsync(null);
+        }
     }
+
+    private void RefreshQuickActions()
+    {
+        var first = _settings.Current.QuickAction1;
+        var second = _settings.Current.QuickAction2;
+
+        QuickAction1Label = ResolveLabel(first, "Cmd_NewFolder");
+        QuickAction1Icon = ParseIcon(first.Icon, SymbolRegular.FolderAdd24);
+
+        QuickAction2Label = ResolveLabel(second, "Cmd_NewFile");
+        QuickAction2Icon = ParseIcon(second.Icon, SymbolRegular.DocumentAdd24);
+    }
+
+    /// <summary>
+    /// A gomb felirata: ha a felhasználó adott sajátot, az; egyébként a
+    /// lefordított alapértelmezés, hogy nyelvváltáskor is helyes maradjon.
+    /// </summary>
+    private static string ResolveLabel(QuickActionSettings action, string fallbackKey) =>
+        string.IsNullOrWhiteSpace(action.Label)
+            ? TranslationSource.Instance[fallbackKey]
+            : action.Label;
+
+    /// <summary>
+    /// Ikonnév feloldása. Elgépelt vagy régi névnél az alapértelmezés lép be —
+    /// egy rossz beállítás ne tegye használhatatlanná a gombot.
+    /// </summary>
+    private static SymbolRegular ParseIcon(string name, SymbolRegular fallback) =>
+        Enum.TryParse<SymbolRegular>(name, ignoreCase: true, out var parsed) ? parsed : fallback;
 
     private void AddTab(string path)
     {
-        var tab = new TabViewModel(_provider);
+        var tab = new TabViewModel(_provider)
+        {
+            ShowHiddenItems = _settings.Current.ShowHiddenItems,
+        };
+
+        // A rejtett elemek kapcsolója fülenként állítható, de a legutóbbi
+        // választás menteni való — a következő indításnál azt várja a felhasználó.
+        tab.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TabViewModel.ShowHiddenItems))
+            {
+                _settings.Current.ShowHiddenItems = tab.ShowHiddenItems;
+                _settings.Save();
+            }
+        };
+
         Tabs.Add(tab);
         SelectedTab = tab;
 
@@ -143,8 +240,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private static List<SidebarItemViewModel> BuildQuickAccess()
     {
-        // A címkék kulcsok, nem kész szövegek: nyelvváltáskor a nézet kötése
-        // fordítja őket újra.
         (Environment.SpecialFolder Folder, string Key, SymbolRegular Icon)[] entries =
         [
             (Environment.SpecialFolder.UserProfile, "Nav_Home", SymbolRegular.Home24),

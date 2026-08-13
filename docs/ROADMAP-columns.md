@@ -1,4 +1,8 @@
-# v0.2 — dizájn- és funkcióspecifikáció
+# v0.3 — oszlopos nézet és a hozzá tartozó felület
+
+> Ez a specifikáció eredetileg a v0.2-nek készült. A v0.2 végül más irányt kapott
+> (téma, animációk, Beállítások, gyorsgombok), ezért az itt leírt munka a
+> **v0.3-ba** csúszott. A tartalma változatlanul érvényes.
 
 A referencia a [Files](https://files.community) felülete. **Nem kódot veszünk át**, hanem
 elrendezési és interakciós mintákat — a megvalósítás saját, a WPF/Fluent

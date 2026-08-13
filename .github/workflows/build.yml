@@ -42,6 +42,3 @@ jobs:
 
       - name: Test
         run: dotnet test Pilaster.slnx -c Release --no-build --verbosity normal
-        # Amíg nincs tesztprojekt, a dotnet test nem talál semmit és
-        # hibával térne vissza; ez a mérföldkő után kerül be élesbe.
-        continue-on-error: true

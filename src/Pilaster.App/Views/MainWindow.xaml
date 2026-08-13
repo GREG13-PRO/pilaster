@@ -23,6 +23,30 @@
 
     <ui:FluentWindow.Resources>
 
+        <!--
+            Animációs időzítések. A belépés gyorsabb, mint a kilépés: a
+            rámutatásra azonnali választ várunk, az elhagyás viszont lágyabban
+            olvad ki, különben a lista villogónak hat gyors egérmozgásnál.
+        -->
+        <Duration x:Key="HoverInDuration">0:0:0.10</Duration>
+        <Duration x:Key="HoverOutDuration">0:0:0.18</Duration>
+
+        <!--  Kiemelés átúsztatással — a sorok, csempék és oldalsáv-elemek közös mintája  -->
+        <Storyboard x:Key="FadeInHighlight">
+            <DoubleAnimation
+                Storyboard.TargetName="Hover"
+                Storyboard.TargetProperty="Opacity"
+                To="1"
+                Duration="{StaticResource HoverInDuration}" />
+        </Storyboard>
+        <Storyboard x:Key="FadeOutHighlight">
+            <DoubleAnimation
+                Storyboard.TargetName="Hover"
+                Storyboard.TargetProperty="Opacity"
+                To="0"
+                Duration="{StaticResource HoverOutDuration}" />
+        </Storyboard>
+
         <!--  Oldalsáv sor  -->
         <Style x:Key="SidebarItemStyle" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="10,7" />
@@ -31,19 +55,32 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border
-                            x:Name="Root"
-                            Padding="{TemplateBinding Padding}"
-                            Background="Transparent"
-                            CornerRadius="7">
-                            <ContentPresenter />
-                        </Border>
+                        <Grid>
+                            <Border
+                                x:Name="Hover"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="7"
+                                Opacity="0" />
+                            <Border
+                                x:Name="Selected"
+                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                CornerRadius="7"
+                                Opacity="0" />
+                            <Border Padding="{TemplateBinding Padding}">
+                                <ContentPresenter />
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeInHighlight}" />
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeOutHighlight}" />
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                                <Setter TargetName="Selected" Property="Opacity" Value="1" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -117,20 +154,32 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
-                        <Border
-                            x:Name="Root"
-                            Margin="4,1"
-                            Padding="{TemplateBinding Padding}"
-                            Background="Transparent"
-                            CornerRadius="6">
-                            <GridViewRowPresenter VerticalAlignment="Center" Columns="{TemplateBinding GridView.ColumnCollection}" />
-                        </Border>
+                        <Grid Margin="4,1">
+                            <Border
+                                x:Name="Hover"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="6"
+                                Opacity="0" />
+                            <Border
+                                x:Name="Selected"
+                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                CornerRadius="6"
+                                Opacity="0" />
+                            <Border Padding="{TemplateBinding Padding}">
+                                <GridViewRowPresenter VerticalAlignment="Center" Columns="{TemplateBinding GridView.ColumnCollection}" />
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeInHighlight}" />
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeOutHighlight}" />
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                                <Setter TargetName="Selected" Property="Opacity" Value="1" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -145,20 +194,32 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border
-                            x:Name="Root"
-                            Margin="4"
-                            Padding="6,10"
-                            Background="Transparent"
-                            CornerRadius="8">
-                            <ContentPresenter />
-                        </Border>
+                        <Grid Margin="4">
+                            <Border
+                                x:Name="Hover"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="8"
+                                Opacity="0" />
+                            <Border
+                                x:Name="Selected"
+                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                CornerRadius="8"
+                                Opacity="0" />
+                            <Border Padding="6,10">
+                                <ContentPresenter />
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeInHighlight}" />
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeOutHighlight}" />
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                                <Setter TargetName="Selected" Property="Opacity" Value="1" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -273,6 +334,31 @@
                         <ui:SymbolIcon Symbol="ArrowClockwise24" />
                     </ui:Button.Icon>
                 </ui:Button>
+
+                <Rectangle
+                    Width="1"
+                    Margin="6,7"
+                    Fill="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+                <!--  Két testreszabható gyorsgomb — a viselkedésük a Beállításokban állítható  -->
+                <ui:Button
+                    Appearance="Transparent"
+                    Command="{Binding RunQuickActionCommand}"
+                    CommandParameter="1"
+                    ToolTip="{Binding QuickAction1Label}">
+                    <ui:Button.Icon>
+                        <ui:SymbolIcon Symbol="{Binding QuickAction1Icon}" />
+                    </ui:Button.Icon>
+                </ui:Button>
+                <ui:Button
+                    Appearance="Transparent"
+                    Command="{Binding RunQuickActionCommand}"
+                    CommandParameter="2"
+                    ToolTip="{Binding QuickAction2Label}">
+                    <ui:Button.Icon>
+                        <ui:SymbolIcon Symbol="{Binding QuickAction2Icon}" />
+                    </ui:Button.Icon>
+                </ui:Button>
             </StackPanel>
 
             <!--  Útvonalsáv  -->
@@ -330,6 +416,7 @@
                     Content="{loc:Loc Cmd_ToggleHidden}"
                     IsChecked="{Binding SelectedTab.ShowHiddenItems, Mode=TwoWay}" />
                 <ui:Button
+                    Click="OnViewModeClick"
                     Appearance="Transparent"
                     ToolTip="{loc:Loc View_Mode}">
                     <ui:Button.Icon>
@@ -339,33 +426,28 @@
                         <ContextMenu>
                             <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
                             <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
-                            <Separator />
-                            <MenuItem Header="{loc:Loc Settings_Language}">
-                                <MenuItem
-                                    Command="{Binding SetLanguageCommand}"
-                                    CommandParameter="hu"
-                                    Header="Magyar" />
-                                <MenuItem
-                                    Command="{Binding SetLanguageCommand}"
-                                    CommandParameter="en"
-                                    Header="English" />
-                            </MenuItem>
-                            <MenuItem Header="{loc:Loc Settings_Theme}">
-                                <MenuItem
-                                    Command="{Binding SetThemeCommand}"
-                                    CommandParameter="light"
-                                    Header="{loc:Loc Theme_Light}" />
-                                <MenuItem
-                                    Command="{Binding SetThemeCommand}"
-                                    CommandParameter="dark"
-                                    Header="{loc:Loc Theme_Dark}" />
-                                <MenuItem
-                                    Command="{Binding SetThemeCommand}"
-                                    CommandParameter="system"
-                                    Header="{loc:Loc Theme_System}" />
-                            </MenuItem>
                         </ContextMenu>
                     </ui:Button.ContextMenu>
+                </ui:Button>
+
+                <!--  Téma-kapcsoló: az ikon azt mutatja, amire váltani fog  -->
+                <ui:Button
+                    Appearance="Transparent"
+                    Command="{Binding ToggleThemeCommand}"
+                    CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                    ToolTip="{loc:Loc Cmd_ToggleTheme}">
+                    <ui:Button.Icon>
+                        <ui:SymbolIcon Symbol="{Binding ThemeIcon}" />
+                    </ui:Button.Icon>
+                </ui:Button>
+
+                <ui:Button
+                    Appearance="Transparent"
+                    Command="{Binding OpenSettingsCommand}"
+                    ToolTip="{loc:Loc Cmd_Settings}">
+                    <ui:Button.Icon>
+                        <ui:SymbolIcon Symbol="Settings24" />
+                    </ui:Button.Icon>
                 </ui:Button>
             </StackPanel>
         </Grid>
