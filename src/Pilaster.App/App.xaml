@@ -26,6 +26,7 @@
             <conv:LocalizeKeyConverter x:Key="LocalizeKey" />
             <conv:InvertBoolConverter x:Key="InvertBool" />
             <conv:EnumToBoolConverter x:Key="EnumToBool" />
+            <conv:TagColorConverter x:Key="TagColorBrush" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

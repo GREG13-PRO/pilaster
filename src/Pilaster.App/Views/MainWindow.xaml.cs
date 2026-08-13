@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
+using Pilaster.App.Converters;
 using Pilaster.App.Diagnostics;
 using Pilaster.App.Localization;
 using Pilaster.App.Services;
@@ -36,6 +37,13 @@ public partial class MainWindow : FluentWindow
 
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
+
+    /// <summary>
+    /// Igaz, amíg a natív jobbklikk-menü (<see cref="NativeContextMenuService"/>)
+    /// nyitva van a külön STA szálon — ne induljon el egy második egymásra,
+    /// ha a felhasználó a menü bezáródása előtt újra jobb gombot nyom.
+    /// </summary>
+    private bool _isNativeContextMenuOpen;
 
     /// <summary>
     /// A fül, amelynek <c>CurrentPath</c> változását épp figyeljük — a csúszó
@@ -117,8 +125,120 @@ public partial class MainWindow : FluentWindow
 
         _settingsWindow = _services.GetRequiredService<SettingsWindow>();
         _settingsWindow.Owner = this;
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Closed += OnSettingsWindowClosed;
         _settingsWindow.Show();
+    }
+
+    /// <summary>
+    /// Egy Mica hátterű, <c>ExtendsContentIntoTitleBar</c> tulajdonságú owned
+    /// ablak (itt: Beállítások) bezárásakor a Windows/DWM időnként hibásan a
+    /// TULAJDONOS ablakot (ez, a főablak) is leminimalizálja — ismert
+    /// owner/owned ablak jelenség, nem az alkalmazás saját hibája. Itt
+    /// visszaállítjuk és fókuszba hozzuk, hogy a Beállítások bezárása után a
+    /// főablak biztosan nyitva és aktív maradjon.
+    /// </summary>
+    private void OnSettingsWindowClosed(object? sender, EventArgs e)
+    {
+        _settingsWindow = null;
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+    }
+
+    /// <summary>
+    /// Kattintás a breadcrumb sáv ÜRES területén (nem egy szegmens-gombon):
+    /// szerkeszthető útvonal-szövegmezőre vált, mint az Intézőben. Egy
+    /// szegmensre kattintva a gomb saját <c>OpenBreadcrumbCommand</c>-ja
+    /// navigál — ezt itt nem szabad felülírni, ezért a bealagcsövezésnél meg
+    /// kell nézni, hogy a kattintás egy gombon (vagy már a szerkesztőmezőn)
+    /// történt-e.
+    /// </summary>
+    private void OnBreadcrumbAreaPreviewLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_viewModel.SelectedTab is not { IsEditingPath: false } tab)
+        {
+            return;
+        }
+
+        if (sender is DependencyObject boundary
+            && e.OriginalSource is DependencyObject originalSource
+            && HasVisualAncestor<ButtonBase>(boundary, originalSource))
+        {
+            return;
+        }
+
+        tab.BeginEditPathCommand.Execute(null);
+    }
+
+    private static bool HasVisualAncestor<T>(DependencyObject boundary, DependencyObject start) where T : DependencyObject
+    {
+        var current = start;
+
+        while (current is not null && !ReferenceEquals(current, boundary))
+        {
+            if (current is T)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    /// <summary>A szerkeszthető útvonalmező automatikusan fókuszba kerül és kijelölődik, amint láthatóvá válik.</summary>
+    private void OnPathEditBoxIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not true || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            textBox.Focus();
+            textBox.SelectAll();
+        });
+    }
+
+    private void OnPathEditBoxKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (_viewModel.SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.Enter:
+                e.Handled = true;
+                tab.CommitEditPathCommand.Execute(null);
+                break;
+            case System.Windows.Input.Key.Escape:
+                e.Handled = true;
+                tab.CancelEditPathCommand.Execute(null);
+                break;
+        }
+    }
+
+    private void OnPathEditBoxLostFocus(object sender, RoutedEventArgs e) =>
+        _viewModel.SelectedTab?.CancelEditPathCommand.Execute(null);
+
+    /// <summary>
+    /// „Liquid glass" — natív Acrylic háttér a helyi menükön, ha a
+    /// Beállításokban be van kapcsolva. Lásd <see cref="GlassEffectService"/>.
+    /// </summary>
+    private void OnGlassContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.ContextMenu menu)
+        {
+            _services.GetRequiredService<GlassEffectService>().ApplyToContextMenu(menu);
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -217,8 +337,12 @@ public partial class MainWindow : FluentWindow
     /// (7-Zip, Git stb.) bejegyzéseivel együtt. Csak akkor esik vissza a
     /// saját, egyszerűbb <c>FileItemContextMenu</c> erőforrásra, ha a natív
     /// hívás valamiért (pl. egy hibás shell-bővítmény miatt) sikertelen.
+    ///
+    /// A natív hívás egy külön STA szálon fut (lásd <see cref="NativeContextMenuService.ShowAsync"/>),
+    /// itt csak <c>await</c>-olva várjuk meg — a WPF Dispatcher emiatt a menü
+    /// nyitva léte alatt is fut, nem fagy le az alkalmazás.
     /// </remarks>
-    private void OnItemPreviewRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private async void OnItemPreviewRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: FileSystemItem item } container)
         {
@@ -226,6 +350,13 @@ public partial class MainWindow : FluentWindow
         }
 
         if (ItemsControl.ItemsControlFromItemContainer(container) is not Selector selector)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (_isNativeContextMenuOpen)
         {
             return;
         }
@@ -249,16 +380,156 @@ public partial class MainWindow : FluentWindow
             _ => [item.FullPath],
         };
 
-        e.Handled = true;
-
         var screenPoint = PointToScreen(e.GetPosition(this));
         var ownerHandle = new WindowInteropHelper(this).Handle;
 
-        var shown = NativeContextMenuService.TryShow(selectedPaths, (int)screenPoint.X, (int)screenPoint.Y, ownerHandle);
+        _isNativeContextMenuOpen = true;
+
+        bool shown;
+
+        try
+        {
+            shown = await NativeContextMenuService.ShowAsync(selectedPaths, (int)screenPoint.X, (int)screenPoint.Y, ownerHandle);
+        }
+        finally
+        {
+            _isNativeContextMenuOpen = false;
+        }
 
         if (!shown && TryFindResource("FileItemContextMenu") is System.Windows.Controls.ContextMenu fallbackMenu)
         {
             fallbackMenu.PlacementTarget = container;
+            fallbackMenu.IsOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// A fájlsoron megjelenő címke-ikon kattintása: kipipálható listát mutat
+    /// a létrehozott címkékből, ki-/bejelölésre azonnal hozzáadja/eltávolítja
+    /// az adott elemen. Új címke létrehozása a Beállításokban történik, nem
+    /// itt — lásd a v0.7 feladatlista 5. pontját.
+    /// </summary>
+    /// <remarks>
+    /// Ez SAJÁT, WPF-es menü (nem a natív shell menü), ezért itt szabadon
+    /// bővíthető egyedi tartalommal — a natív <see cref="NativeContextMenuService"/>
+    /// menüje ezt nem tenné lehetővé.
+    /// </remarks>
+    private void OnTagPickerClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
+        {
+            return;
+        }
+
+        var metadata = _services.GetRequiredService<FileMetadataService>();
+        var colorConverter = new TagColorConverter();
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        if (metadata.Tags.Count == 0)
+        {
+            menu.Items.Add(new System.Windows.Controls.MenuItem
+            {
+                Header = TranslationSource.Instance["Tags_None"],
+                IsEnabled = false,
+            });
+        }
+        else
+        {
+            var currentTagIds = item.Tags.Select(t => t.Id).ToHashSet();
+
+            foreach (var tag in metadata.Tags)
+            {
+                var menuItem = new System.Windows.Controls.MenuItem
+                {
+                    Header = tag.Name,
+                    IsCheckable = true,
+                    IsChecked = currentTagIds.Contains(tag.Id),
+                    Icon = new System.Windows.Shapes.Ellipse
+                    {
+                        Width = 10,
+                        Height = 10,
+                        Fill = (System.Windows.Media.Brush)colorConverter.Convert(
+                            tag.Color, typeof(System.Windows.Media.Brush), null, System.Globalization.CultureInfo.CurrentCulture),
+                    },
+                };
+
+                menuItem.Click += (_, _) =>
+                {
+                    if (menuItem.IsChecked)
+                    {
+                        metadata.AddTag(item.FullPath, tag.Id);
+                    }
+                    else
+                    {
+                        metadata.RemoveTag(item.FullPath, tag.Id);
+                    }
+                };
+
+                menu.Items.Add(menuItem);
+            }
+        }
+
+        menu.PlacementTarget = (UIElement)sender;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Jobb kattintás a lista/rács ÜRES területén (nem egy elemen): a mappa
+    /// VALÓDI Windows háttér-menüjét jeleníti meg (Nézet, Rendezés,
+    /// Frissítés, Beillesztés, Új &gt; stb.) — ugyanaz, mint az Intézőben.
+    /// </summary>
+    /// <remarks>
+    /// Ez a kezelő a <see cref="ListView"/>/<see cref="ListBox"/> konténeren
+    /// van feliratkozva, tehát a bealagcsövezésnél (tunneling) KORÁBBAN fut
+    /// le, mint a soron/csempén lévő <see cref="OnItemPreviewRightButtonDown"/>.
+    /// Ezért itt meg kell nézni, hogy a kattintás egy elemen történt-e — ha
+    /// igen, nem szabad kezelni, hogy az esemény továbbjuthasson lefelé az
+    /// elem saját kezelőjéhez.
+    /// </remarks>
+    private async void OnEmptyAreaPreviewRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not ItemsControl itemsControl)
+        {
+            return;
+        }
+
+        if (e.OriginalSource is DependencyObject originalSource
+            && ItemsControl.ContainerFromElement(itemsControl, originalSource) is not null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (_isNativeContextMenuOpen)
+        {
+            return;
+        }
+
+        if (_viewModel.SelectedTab?.CurrentPath is not { } currentPath)
+        {
+            return;
+        }
+
+        var screenPoint = PointToScreen(e.GetPosition(this));
+        var ownerHandle = new WindowInteropHelper(this).Handle;
+
+        _isNativeContextMenuOpen = true;
+
+        bool shown;
+
+        try
+        {
+            shown = await NativeContextMenuService.ShowBackgroundAsync(currentPath, (int)screenPoint.X, (int)screenPoint.Y, ownerHandle);
+        }
+        finally
+        {
+            _isNativeContextMenuOpen = false;
+        }
+
+        if (!shown && TryFindResource("EmptyAreaContextMenu") is System.Windows.Controls.ContextMenu fallbackMenu)
+        {
+            fallbackMenu.PlacementTarget = itemsControl;
             fallbackMenu.IsOpen = true;
         }
     }
@@ -393,14 +664,21 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
+        // A kijelölés elengedése, hogy ugyanarra a helyre ismét lehessen lépni,
+        // és hogy ne maradjon két szekcióban egyszerre kiemelt sor.
+        ((ListBox)sender).SelectedItem = null;
+
+        // Hiányzó kedvenc (a célja már nem létezik): navigáció helyett a sor
+        // saját eltávolító gombja ajánlja fel a törlést — lásd IsMissing.
+        if (item.IsMissing)
+        {
+            return;
+        }
+
         if (_viewModel.SelectedTab is { } tab)
         {
             await tab.NavigateAsync(item.Path);
         }
-
-        // A kijelölés elengedése, hogy ugyanarra a helyre ismét lehessen lépni,
-        // és hogy ne maradjon két szekcióban egyszerre kiemelt sor.
-        ((ListBox)sender).SelectedItem = null;
     }
 
     /// <summary>

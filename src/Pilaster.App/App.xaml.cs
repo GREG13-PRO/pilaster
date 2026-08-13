@@ -38,8 +38,10 @@ public partial class App : Application
         services.AddSingleton<IShellImageService, ShellImageService>();
         services.AddSingleton<ISettingsService, JsonSettingsService>();
         services.AddSingleton<ThemeService>();
+        services.AddSingleton<GlassEffectService>();
         services.AddSingleton<QuickActionService>();
         services.AddSingleton<FolderSizeService>();
+        services.AddSingleton<FileMetadataService>();
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
         services.AddSingleton<IBugReportService, DiscordBugReportService>();
         services.AddSingleton<IUpdateService, GitHubUpdateService>();
@@ -57,6 +59,7 @@ public partial class App : Application
 
         ApplyStartupCulture(settings.Current);
         _services.GetRequiredService<ThemeService>().ApplyInitial();
+        _services.GetRequiredService<GlassEffectService>().ApplyInitial();
 
         ShellIconImage.Initialize(_services.GetRequiredService<IShellImageService>());
 

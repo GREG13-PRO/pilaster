@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Media;
 using Pilaster.App.Localization;
 using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
+using Pilaster.Core.Metadata;
 
 namespace Pilaster.App.Converters;
 
@@ -213,6 +215,39 @@ public sealed class ThemeModeConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
+}
+
+/// <summary>Címkeszín → tömör ecset a színes pöttyökhöz/sávokhoz.</summary>
+public sealed class TagColorConverter : IValueConverter
+{
+    /// <remarks>
+    /// Fix, nem téma-függő színek — a címke pöttynek MINDIG ugyanazt a
+    /// színt kell mutatnia, világos és sötét témában is, mint a macOS
+    /// Finderben.
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<TagColor, SolidColorBrush> Brushes = new Dictionary<TagColor, SolidColorBrush>
+    {
+        [TagColor.Red] = Freeze(0xE8, 0x11, 0x23),
+        [TagColor.Orange] = Freeze(0xF7, 0x63, 0x0C),
+        [TagColor.Yellow] = Freeze(0xFF, 0xB9, 0x00),
+        [TagColor.Green] = Freeze(0x10, 0x93, 0x54),
+        [TagColor.Blue] = Freeze(0x00, 0x78, 0xD4),
+        [TagColor.Purple] = Freeze(0x88, 0x64, 0xC7),
+        [TagColor.Gray] = Freeze(0x8A, 0x8A, 0x8A),
+    };
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is TagColor color && Brushes.TryGetValue(color, out var brush) ? brush : Brushes[TagColor.Gray];
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+
+    private static SolidColorBrush Freeze(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
 }
 
 /// <summary>Erőforráskulcs → lefordított felirat.</summary>

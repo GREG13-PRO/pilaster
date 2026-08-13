@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 // A WPF projektek implicit using-készlete nem tartalmazza a System.IO-t,
 // ezért itt kifejezetten be kell húzni.
 using System.IO;
 using System.Windows;
+using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pilaster.App.Localization;
@@ -34,17 +36,46 @@ public sealed partial class TabViewModel : ObservableObject
 
     private readonly IFileSystemProvider _provider;
     private readonly FolderSizeService _folderSizes;
+    private readonly FileMetadataService _metadata;
+    private readonly EventHandler _metadataChangedHandler;
     private CancellationTokenSource? _loadCancellation;
     private bool _suppressResort;
+    private int _pathCopiedGeneration;
 
-    public TabViewModel(IFileSystemProvider provider, FolderSizeService folderSizes)
+    public TabViewModel(IFileSystemProvider provider, FolderSizeService folderSizes, FileMetadataService metadata)
     {
         _provider = provider;
         _folderSizes = folderSizes;
+        _metadata = metadata;
         Items = [];
         Breadcrumbs = [];
         History = new NavigationHistory();
         Title = TranslationSource.Instance["Nav_Home"];
+
+        // Címke/kedvenc bárhonnan változhat (más fül, oldalsáv, jobbklikk) —
+        // az ITT látható elemeket ilyenkor frissen kell tartani. A kezelőt
+        // névvel tároljuk, hogy Detach()-ben leiratkozhassunk — enélkül egy
+        // bezárt fül vagy eldobott oszlop örökre bent ragadna a
+        // FileMetadataService feliratkozói közt.
+        _metadataChangedHandler = (_, _) => RefreshMetadataOnItems();
+        _metadata.Changed += _metadataChangedHandler;
+    }
+
+    /// <summary>
+    /// Leiratkozás a <see cref="FileMetadataService.Changed"/> eseményről —
+    /// fül bezárásakor és oszlop eldobásakor kell hívni, különben a
+    /// singleton szolgáltatás örökre él tartaná a már elhagyott példányt.
+    /// </summary>
+    public void Detach() => _metadata.Changed -= _metadataChangedHandler;
+
+    /// <summary>Az aktuálisan betöltött elemek címkéinek/kedvenc-jelölésének frissítése — metaadat-változás után.</summary>
+    private void RefreshMetadataOnItems()
+    {
+        foreach (var item in Items)
+        {
+            item.Tags = _metadata.GetTags(item.FullPath);
+            item.IsFavorite = _metadata.IsFavorite(item.FullPath);
+        }
     }
 
     /// <summary>Az aktuális mappa tartalma.</summary>
@@ -52,6 +83,115 @@ public sealed partial class TabViewModel : ObservableObject
 
     /// <summary>Az útvonalsáv szegmensei.</summary>
     public ObservableCollection<BreadcrumbSegment> Breadcrumbs { get; }
+
+    /// <summary>Igaz, amíg a breadcrumb helyén a szerkeszthető útvonal-szövegmező látszik.</summary>
+    [ObservableProperty]
+    public partial bool IsEditingPath { get; set; }
+
+    /// <summary>A szerkeszthető útvonal-szövegmező tartalma, amíg <see cref="IsEditingPath"/> igaz.</summary>
+    [ObservableProperty]
+    public partial string EditablePathText { get; set; } = string.Empty;
+
+    /// <summary>Rövid ideig igaz az „Útvonal másolása" gomb után, „Másolva" visszajelzésként.</summary>
+    [ObservableProperty]
+    public partial bool PathCopied { get; set; }
+
+    /// <summary>Breadcrumb-ra kattintva a jelenlegi útvonallal előtöltve szerkeszthetővé vált a sáv — mint az Intézőben.</summary>
+    [RelayCommand]
+    private void BeginEditPath()
+    {
+        EditablePathText = CurrentPath ?? string.Empty;
+        IsEditingPath = true;
+    }
+
+    /// <summary>Esc vagy fókuszvesztés: vissza a breadcrumb nézetre, a beírt szöveg elvész.</summary>
+    [RelayCommand]
+    private void CancelEditPath() => IsEditingPath = false;
+
+    /// <summary>
+    /// Enter a szerkeszthető útvonal-mezőben: navigálás a beírt/beillesztett
+    /// útra. Érvénytelen útnál a meglévő <see cref="LoadAsync"/> hibakezelése
+    /// (lásd az ott bővített catch-ágakat) ad felhasználóbarát üzenetet —
+    /// innen sosem száll ki kivétel.
+    /// </summary>
+    [RelayCommand]
+    private async Task CommitEditPathAsync()
+    {
+        var target = EditablePathText.Trim();
+
+        IsEditingPath = false;
+
+        if (target.Length == 0)
+        {
+            return;
+        }
+
+        await NavigateAsync(target).ConfigureAwait(false);
+    }
+
+    /// <summary>Az aktuális útvonal vágólapra másolása, rövid „Másolva" visszajelzéssel.</summary>
+    [RelayCommand]
+    private void CopyPath()
+    {
+        if (CurrentPath is not { } path)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(path);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // A vágólapot időnként egy másik folyamat zárolja — nincs jobb
+            // teendő, mint csendben kihagyni, mintsem hibaüzenettel zavarni.
+            return;
+        }
+
+        var generation = ++_pathCopiedGeneration;
+        PathCopied = true;
+        _ = ClearPathCopiedAsync(generation);
+    }
+
+    private async Task ClearPathCopiedAsync(int generation)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+
+        if (generation == _pathCopiedGeneration)
+        {
+            await OnUiAsync(() => PathCopied = false).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Az aktív címkeszűrő azonosítója, vagy <c>null</c>, ha nincs szűrés —
+    /// az oldalsáv Címkék szekciójában egy címkére kattintva állítódik.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? ActiveTagFilterId { get; set; }
+
+    partial void OnActiveTagFilterIdChanged(string? value)
+    {
+        var view = CollectionViewSource.GetDefaultView(Items);
+
+        view.Filter = value is null
+            ? null
+            : candidate => candidate is FileSystemItem item && item.Tags.Any(t => t.Id == value);
+    }
+
+    /// <summary>Kedvenc jelölés váltása — a szív ikon és a jobbklikk-menü közös belépési pontja.</summary>
+    [RelayCommand]
+    private void ToggleFavorite(FileSystemItem? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        _metadata.ToggleFavorite(item.FullPath);
+        item.IsFavorite = _metadata.IsFavorite(item.FullPath);
+    }
 
     /// <summary>A fül vissza/előre előzménye.</summary>
     public NavigationHistory History { get; }
@@ -111,6 +251,11 @@ public sealed partial class TabViewModel : ObservableObject
     /// </summary>
     private void ResetColumns()
     {
+        foreach (var column in Columns)
+        {
+            column.Detach();
+        }
+
         Columns.Clear();
         ColumnsSelectedFile = null;
 
@@ -119,7 +264,7 @@ public sealed partial class TabViewModel : ObservableObject
             return;
         }
 
-        var root = new TabViewModel(_provider, _folderSizes);
+        var root = new TabViewModel(_provider, _folderSizes, _metadata);
         Columns.Add(root);
         _ = root.NavigateAsync(path);
     }
@@ -141,14 +286,16 @@ public sealed partial class TabViewModel : ObservableObject
 
         while (Columns.Count > columnIndex + 1)
         {
+            var discarded = Columns[^1];
             Columns.RemoveAt(Columns.Count - 1);
+            discarded.Detach();
         }
 
         if (item.IsNavigable)
         {
             ColumnsSelectedFile = null;
 
-            var next = new TabViewModel(_provider, _folderSizes);
+            var next = new TabViewModel(_provider, _folderSizes, _metadata);
             Columns.Add(next);
             await next.NavigateAsync(item.FullPath).ConfigureAwait(false);
         }
@@ -375,6 +522,14 @@ public sealed partial class TabViewModel : ObservableObject
         {
             failure = TranslationSource.Instance["Folder_NotFound"];
         }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            // Eddig minden útvonal már ellenőrzött forrásból jött (breadcrumb,
+            // oldalsáv, Vissza/Előre) — a szerkeszthető útvonalsáv (lásd
+            // CommitEditPathAsync) viszont szabad szöveget enged be, ami
+            // ilyen kivételeket dobhat egy érvénytelen elérési útnál.
+            failure = TranslationSource.Instance["Folder_InvalidPath"];
+        }
         catch (IOException ex)
         {
             failure = ex.Message;
@@ -404,6 +559,7 @@ public sealed partial class TabViewModel : ObservableObject
                 ? TranslationSource.Instance["Folder_Empty"]
                 : null);
             UpdateStatus(0, 0);
+            RefreshMetadataOnItems();
         }).ConfigureAwait(false);
 
         // Mappánként háttérben induló, korlátozott párhuzamosságú számítás —

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Pilaster.Core.Metadata;
 
 namespace Pilaster.Core.FileSystem;
 
@@ -57,6 +58,18 @@ public sealed partial class FileSystemItem : ObservableObject
     /// </summary>
     [ObservableProperty]
     public partial long ComputedFolderSize { get; set; } = -1;
+
+    /// <summary>
+    /// A ráhelyezett címkék — a mappabetöltés utáni feldúsítás tölti ki
+    /// (lásd <c>TabViewModel.EnrichWithMetadata</c>), és a
+    /// <c>FileMetadataService.Changed</c> eseményre frissül.
+    /// </summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<TagDefinition> Tags { get; set; } = [];
+
+    /// <summary>Igaz, ha az elem kedvencként meg van jelölve.</summary>
+    [ObservableProperty]
+    public partial bool IsFavorite { get; set; }
 
     public override string ToString() => FullPath;
 }

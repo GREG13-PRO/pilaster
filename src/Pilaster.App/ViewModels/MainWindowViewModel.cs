@@ -21,6 +21,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly ThemeService _theme;
     private readonly QuickActionService _quickActions;
     private readonly FolderSizeService _folderSizes;
+    private readonly FileMetadataService _metadata;
 
     public MainWindowViewModel(
         IFileSystemProvider provider,
@@ -28,7 +29,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ThemeService theme,
         QuickActionService quickActions,
         UpdateViewModel updates,
-        FolderSizeService folderSizes)
+        FolderSizeService folderSizes,
+        FileMetadataService metadata)
     {
         _provider = provider;
         _settings = settings;
@@ -36,6 +38,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _quickActions = quickActions;
         Updates = updates;
         _folderSizes = folderSizes;
+        _metadata = metadata;
 
         Tabs = [];
         Sections = [];
@@ -53,18 +56,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(ThemeIcon));
         };
 
+        // Kedvenc/címke hozzáadása/eltávolítása bárhonnan jöhet (fájlsor szív
+        // ikonja, tag-választó, más fül) — az oldalsáv Kedvencek és Címkék
+        // szekciója erre frissül.
+        _metadata.Changed += (_, _) =>
+        {
+            RefreshFavorites();
+            RefreshTagFilters();
+        };
+
+        RefreshTagFilters();
+
         AddTab(GetStartupPath());
     }
 
     partial void OnSelectedTabChanged(TabViewModel? value)
     {
         UpdateActiveSidebarItem();
+        SyncTagFilterHighlight();
         OnPropertyChanged(nameof(CanEjectCurrentDrive));
     }
 
     public ObservableCollection<TabViewModel> Tabs { get; }
 
     public ObservableCollection<SidebarSection> Sections { get; }
+
+    /// <summary>Az oldalsáv Címkék szekciója — külön listaként, mert nem navigál, hanem szűr.</summary>
+    public ObservableCollection<TagFilterItemViewModel> TagFilters { get; } = [];
 
     /// <summary>Frissítés-ellenőrzés és -telepítés állapota — a sáv és a Beállítások közösen használja.</summary>
     public UpdateViewModel Updates { get; }
@@ -131,6 +149,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var index = Tabs.IndexOf(tab);
         Tabs.Remove(tab);
+        tab.Detach();
 
         // A szomszédos fülre lépünk, hogy ne maradjon kijelöletlen a sáv.
         SelectedTab = Tabs[Math.Clamp(index, 0, Tabs.Count - 1)];
@@ -387,7 +406,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void AddTab(string path)
     {
-        var tab = new TabViewModel(_provider, _folderSizes)
+        var tab = new TabViewModel(_provider, _folderSizes, _metadata)
         {
             ShowHiddenItems = _settings.Current.ShowHiddenItems,
             ViewMode = _settings.Current.LastViewMode,
@@ -450,6 +469,122 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Header = TranslationSource.Instance["Nav_Drives"],
             Items = BuildDrives(),
         });
+
+        Sections.Add(new SidebarSection
+        {
+            HeaderKey = "Nav_Favorites",
+            Header = TranslationSource.Instance["Nav_Favorites"],
+            Items = BuildFavorites(),
+        });
+    }
+
+    /// <summary>
+    /// A kedvencként megjelölt fájlok/mappák. A már nem létező célok is
+    /// megjelennek (halványabban, <see cref="SidebarItemViewModel.IsMissing"/>),
+    /// hogy a felhasználó eltávolíthassa őket ahelyett, hogy csendben eltűnnének.
+    /// </summary>
+    private List<SidebarItemViewModel> BuildFavorites()
+    {
+        var items = new List<SidebarItemViewModel>();
+
+        foreach (var path in _metadata.GetFavoritePaths().OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            var exists = Directory.Exists(path) || File.Exists(path);
+            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+
+            items.Add(new SidebarItemViewModel
+            {
+                Label = string.IsNullOrEmpty(name) ? path : name,
+                Path = path,
+                Icon = SymbolRegular.Heart24,
+                IsMissing = !exists,
+                IsRemovable = true,
+            });
+        }
+
+        return items;
+    }
+
+    /// <summary>Az oldalsáv Kedvencek szekciójának újraépítése — kedvenc hozzáadása/eltávolítása után.</summary>
+    public void RefreshFavorites()
+    {
+        var favoritesSection = Sections.FirstOrDefault(s => s.HeaderKey == "Nav_Favorites");
+
+        if (favoritesSection is null)
+        {
+            return;
+        }
+
+        var index = Sections.IndexOf(favoritesSection);
+
+        Sections[index] = new SidebarSection
+        {
+            HeaderKey = "Nav_Favorites",
+            Header = TranslationSource.Instance["Nav_Favorites"],
+            Items = BuildFavorites(),
+        };
+
+        UpdateActiveSidebarItem();
+    }
+
+    [RelayCommand]
+    private void RemoveFavorite(SidebarItemViewModel? item)
+    {
+        if (item is not null)
+        {
+            _metadata.SetFavorite(item.Path, false);
+        }
+    }
+
+    /// <summary>
+    /// Az oldalsáv Címkék szekciójának újraépítése — címke létrehozása,
+    /// átnevezése vagy törlése után (a Beállításokból).
+    /// </summary>
+    private void RefreshTagFilters()
+    {
+        var previouslyActive = SelectedTab?.ActiveTagFilterId;
+
+        TagFilters.Clear();
+
+        foreach (var tag in _metadata.Tags.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            TagFilters.Add(new TagFilterItemViewModel
+            {
+                Id = tag.Id,
+                Name = tag.Name,
+                Color = tag.Color,
+                IsActive = tag.Id == previouslyActive,
+            });
+        }
+
+        // Ha a törölt címke épp aktív szűrő volt, a szűrést is le kell venni.
+        if (SelectedTab is { } tab && tab.ActiveTagFilterId is { } id && TagFilters.All(t => t.Id != id))
+        {
+            tab.ActiveTagFilterId = null;
+        }
+    }
+
+    /// <summary>Kattintás egy címkére az oldalsávban: szűrés arra a címkére, vagy — ismételt kattintásra — a szűrés levétele.</summary>
+    [RelayCommand]
+    private void SelectTagFilter(TagFilterItemViewModel? tag)
+    {
+        if (tag is null || SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        tab.ActiveTagFilterId = tab.ActiveTagFilterId == tag.Id ? null : tag.Id;
+        SyncTagFilterHighlight();
+    }
+
+    private void SyncTagFilterHighlight()
+    {
+        var activeId = SelectedTab?.ActiveTagFilterId;
+
+        foreach (var tag in TagFilters)
+        {
+            tag.IsActive = tag.Id == activeId;
+        }
     }
 
     private static List<SidebarItemViewModel> BuildQuickAccess()

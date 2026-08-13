@@ -90,6 +90,12 @@
   <data name="Nav_Home" xml:space="preserve">
     <value>Kezdőlap</value>
   </data>
+  <data name="Nav_Favorites" xml:space="preserve">
+    <value>Kedvencek</value>
+  </data>
+  <data name="Nav_Tags" xml:space="preserve">
+    <value>Címkék</value>
+  </data>
 
   <data name="Cmd_Back" xml:space="preserve">
     <value>Vissza</value>
@@ -195,6 +201,12 @@
   <data name="Folder_NotFound" xml:space="preserve">
     <value>Ez a mappa már nem létezik</value>
   </data>
+  <data name="Folder_InvalidPath" xml:space="preserve">
+    <value>Érvénytelen elérési út</value>
+  </data>
+  <data name="Path_Copied" xml:space="preserve">
+    <value>Másolva</value>
+  </data>
 
   <data name="Settings_Language" xml:space="preserve">
     <value>Nyelv</value>
@@ -237,6 +249,18 @@
   </data>
   <data name="Settings_AnimationsHint" xml:space="preserve">
     <value>Átúsztatások és egérrel érintéskori visszajelzés. Kikapcsolva a lehető leggyorsabb a válasz.</value>
+  </data>
+  <data name="Settings_LiquidGlass" xml:space="preserve">
+    <value>Áttetsző hatás</value>
+  </data>
+  <data name="Settings_LiquidGlassHint" xml:space="preserve">
+    <value>Üveges, áttetsző oldalsáv, felső sáv, menük és Beállítások panel a Mica háttér felett. Gyengébb gépeken kikapcsolható.</value>
+  </data>
+  <data name="Settings_TagsHint" xml:space="preserve">
+    <value>Fájlokhoz és mappákhoz rendelhető színes címkék — a fájlsoron megjelenő címke-ikonnal adhatók hozzá. Itt hozhatók létre, nevezhetők át és törölhetők.</value>
+  </data>
+  <data name="Settings_NewTagPlaceholder" xml:space="preserve">
+    <value>Új címke neve, pl. Munka</value>
   </data>
   <data name="Settings_LanguageHint" xml:space="preserve">
     <value>Azonnal érvényre jut, újraindítás nélkül.</value>
@@ -333,6 +357,24 @@
   </data>
   <data name="Cmd_CopyPath" xml:space="preserve">
     <value>Útvonal másolása</value>
+  </data>
+  <data name="Cmd_RemoveFavorite" xml:space="preserve">
+    <value>Eltávolítás a kedvencekből</value>
+  </data>
+  <data name="Cmd_AddFavorite" xml:space="preserve">
+    <value>Hozzáadás a kedvencekhez</value>
+  </data>
+  <data name="Cmd_Tags" xml:space="preserve">
+    <value>Címkék</value>
+  </data>
+  <data name="Cmd_Delete" xml:space="preserve">
+    <value>Törlés</value>
+  </data>
+  <data name="Cmd_Add" xml:space="preserve">
+    <value>Hozzáadás</value>
+  </data>
+  <data name="Tags_None" xml:space="preserve">
+    <value>Még nincs létrehozott címke (Beállítások → Címkék)</value>
   </data>
   <data name="Cmd_ShowInExplorer" xml:space="preserve">
     <value>Megjelenítés az Intézőben</value>

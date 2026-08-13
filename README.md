@@ -20,24 +20,28 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 
 ## Állapot
 
-**v0.6.1 — korai fejlesztés.** Ami már működik:
+**v0.7.0 — korai fejlesztés.** Ami már működik:
 
+- **Natív Windows 11 jobbklikk-menü** fájlokon ÉS mappák üres területén egyaránt — a menü hívása külön szálon fut, hogy soha ne fagyassza le a felületet
+- **Liquid glass felület**: áttetsző oldalsáv, felső sáv, helyi menük (natív DWM Acrylic háttérrel) és Beállítások panel a Mica háttér felett — kapcsolható a Beállításokban, gyengébb gépekre
+- **Címkék** (macOS Tags mintára): 7 előre definiált szín, saját nevekkel, Beállításokban létrehozva/átnevezve/törölve; a fájlsoron megjelenő címke-ikonnal rendelhetők egy elemhez, az oldalsáv Címkék szekciója pedig szűr rájuk
+- **Kedvencek**: szív ikon hoverre a fájlsoron, oldalsáv Kedvencek szekció, törölt célnál halvány jelzéssel és egykattintásos eltávolítással
 - **Oszlopos (Miller) nézet** macOS Finder módra: mappára kattintva jobbra nyílik az újabb oszlop, fájlnál jobb oldalon részletek panel (típus, méret, módosítás dátuma) — a nézetmód (Lista/Rács/Oszlopok) fülenként megjegyzett
-- **Natív Windows 11 jobbklikk-menü** fájlokon és mappákon — szó szerint ugyanaz, mint az Intézőben, a telepített programok (7-Zip, Git stb.) saját bejegyzéseivel együtt
+- **Breadcrumb**: útvonal másolása egy kattintással, vagy kattintásra szerkeszthető szövegmezővé vált (mint az Intézőben) — Enter navigál, Esc/fókuszvesztés visszavált
 - **Mappák mérete** háttérszálon kiszámolva és gyorsítótárazva, amíg számol „…" jelzéssel
 - **Kiadás** (biztonságos leválasztás) cserélhető és optikai meghajtóknál, „használatban van"-jelzéssel hiba esetén
 - **Optikai meghajtó saját ikonja és neve** a behelyezett lemez kötetcímkéje/autorun.inf ikonja alapján, lemezcserére automatikusan frissülve
 - Fluent felület Mica háttérrel, lekerekített sarkokkal, **keretek/háttér nélküli eszköztár-gombokkal** (csak hoverre finom kiemelés, a téma szövegszínét követve)
 - **Automatikus frissítés** a GitHub Release-ekből: induláskor csendben ellenőriz, nem tolakodó sávban jelzi, egy kattintásra letölti, ellenőrzőösszeggel hitelesíti és — újraindítás megerősítése után — telepíti
 - **Téma**: világos / sötét / rendszerkövető, egykattintásos kapcsolóval, átúsztatva, **mentve**
-- Oldalsáv gyorseléréssel és meghajtókkal (kihasználtság-sáv, szabad hely) — a mappalánc **minden szintje** kiemelve, nem csak a pontos találat
-- Fülek, útvonalsáv (breadcrumb), vissza/előre/fel/frissítés, csúszó átmenet mappaváltáskor
+- Oldalsáv gyorseléréssel, meghajtókkal (kihasználtság-sáv, szabad hely), Kedvencekkel és Címkékkel — a mappalánc **minden szintje** kiemelve, nem csak a pontos találat
+- Fülek, vissza/előre/fel/frissítés, csúszó átmenet mappaváltáskor
 - Részletes lista és ikonrács — mindkettő **teljesen virtualizálva**, kijelöléssel, jobbklikk-menüvel (elemen ÉS üres területen egyaránt: új mappa/fájl, beillesztés, frissítés, rendezés) és **húzásos (marquee) kijelöléssel**
 - Fájlok **beillesztése a vágólapról** — az Intézővel kompatibilis formátumban, másolással és kivágással is
 - **Oszlopfejléces rendezés** iránynyíllal, az Explorer természetes sorrendjével
 - Natív Windows ikonok és bélyegképek, lemezre gyorsítótárazva
 - **Két testreszabható gyorsgomb** — mappa vagy fájl, saját névsablonnal (`{date}`, `{time}`, `{n}`) és célmappával
-- **Beállítások panel**: téma, animációk, nyelv, gyorsgombok, frissítések — minden azonnal mentődik
+- **Beállítások panel**: téma, áttetsző hatás, animációk, nyelv, gyorsgombok, címkék, frissítések — minden azonnal mentődik
 - **Hibabejelentő**: a felhasználók egy publikus e-mail-címet látnak (`pilaster-explorer@proton.me`); a fejlesztői panel (közvetlen küldés egy Discord botnak, „Kész" gombbal és automatikus archiválással, képernyőkép-/naplócsatolással) rejtve marad, amíg a szekciófejlécre 10-szer nem kattintanak
 - Magyar és angol felület, **futásidejű nyelvváltással**, a rendszernyelv automatikus felismerésével
 
@@ -114,12 +118,13 @@ A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak
 | **v0.5** ✅ | Automatikus frissítés, keretek nélküli gombok, jobbklikk üres területen, húzásos kijelölés, vágólap-beillesztés |
 | **v0.6** ✅ | Oszlopos (Miller) nézet, natív jobbklikk-menü, mappaméret-számítás, meghajtó-kiadás, optikai lemez ikonja, Discord bot |
 | **v0.6.1** ✅ | Publikus hibabejelentő e-mail + rejtett fejlesztői panel, bot-biztonsági frissítés (multer 2.x) |
-| v0.7 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
-| v0.8 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
-| v0.9 | Azonnali keresés (NTFS MFT-index), parancspaletta |
-| v1.0 | Osztott panelek, munkaterek, címkék, polc, tömeges átnevezés |
-| v1.1 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
-| v1.2 | Csiszolás, dokumentáció, 30+ nyelv |
+| **v0.7.0** ✅ | Liquid glass felület, natív jobbklikk-fagyás javítása, üres terület natív menüje, címkék, kedvencek, breadcrumb-szerkesztés |
+| v0.8 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
+| v0.9 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
+| v1.0 | Azonnali keresés (NTFS MFT-index), parancspaletta |
+| v1.1 | Osztott panelek, munkaterek, polc, tömeges átnevezés |
+| v1.2 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
+| v1.3 | Csiszolás, dokumentáció, 30+ nyelv |
 
 ## Fordítás más nyelvre
 

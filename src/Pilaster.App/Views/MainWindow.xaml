@@ -5,6 +5,7 @@
     xmlns:controls="clr-namespace:Pilaster.App.Controls"
     xmlns:fs="clr-namespace:Pilaster.Core.FileSystem;assembly=Pilaster.Core"
     xmlns:loc="clr-namespace:Pilaster.App.Localization"
+    xmlns:metadata="clr-namespace:Pilaster.Core.Metadata;assembly=Pilaster.Core"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:vm="clr-namespace:Pilaster.App.ViewModels"
     Title="Pilaster"
@@ -150,7 +151,7 @@
             vizuális fában él, és nem örökli automatikusan a
             PlacementTarget adatkontextusát.
         -->
-        <ContextMenu x:Key="FileItemContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+        <ContextMenu x:Key="FileItemContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnGlassContextMenuOpened">
             <MenuItem Click="OnOpenItemClick" Header="{loc:Loc Cmd_Open}">
                 <MenuItem.Icon>
                     <ui:SymbolIcon Symbol="Open24" />
@@ -176,14 +177,14 @@
         </ContextMenu>
 
         <!--
-            Az üres terület helyi menüje. A DetailsView/GridViewList
-            KONTÉNERÉRE van kötve (nem csak a sorokra/csempékre), hogy jobb
-            klikk a listán belüli üres felületen is megnyíljon — korábban ez
-            hiányzott, mert csak az elem-stílusok kaptak ContextMenu-t. A WPF
-            a találati pont alapján dönti el, melyik nyílik: elemen a
-            FileItemContextMenu, üres helyen ez.
+            Az üres terület helyi menüje. Elsődlegesen a VALÓDI Windows
+            háttér-menü jelenik meg (NativeContextMenuService.ShowBackgroundAsync,
+            hívva az OnEmptyAreaPreviewRightButtonDown kódból) — ez csak akkor
+            nyílik meg kézzel, ha a natív menü valamiért nem elérhető. Nincs
+            Setter Property="ContextMenu" a DetailsView/GridViewList-en, hogy
+            a WPF automatikus megnyitása ne ütközzön a kézi hívással.
         -->
-        <ContextMenu x:Key="EmptyAreaContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+        <ContextMenu x:Key="EmptyAreaContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnGlassContextMenuOpened">
             <MenuItem Command="{Binding CreateNewFolderCommand}" Header="{loc:Loc Cmd_NewFolder}">
                 <MenuItem.Icon>
                     <ui:SymbolIcon Symbol="FolderAdd24" />
@@ -336,6 +337,91 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!--
+            Címke-pöttyök + kedvenc szív + címke-választó ikon egy fájlsoron —
+            közös sablon a Részletes és a Rácsnézet között (lásd
+            OnTagPickerClick / SelectedTab.ToggleFavoriteCommand). A
+            RelativeSource AncestorType=Control a legközelebbi Control ősre
+            (ListViewItem VAGY ListBoxItem, nézettől függően) hivatkozik —
+            ez teszi lehetővé, hogy ugyanaz a sablon mindkét nézetben
+            hoverre jelenítse meg a gombokat.
+        -->
+        <DataTemplate x:Key="FileBadgesTemplate" DataType="{x:Type fs:FileSystemItem}">
+            <StackPanel Orientation="Horizontal">
+                <ItemsControl VerticalAlignment="Center" ItemsSource="{Binding Tags}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type metadata:TagDefinition}">
+                            <Ellipse
+                                Width="7"
+                                Height="7"
+                                Margin="2,0"
+                                Fill="{Binding Color, Converter={StaticResource TagColorBrush}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ui:Button
+                    Margin="4,0,0,0"
+                    Padding="3"
+                    VerticalAlignment="Center"
+                    Appearance="Transparent"
+                    Click="OnTagPickerClick"
+                    ToolTip="{loc:Loc Cmd_Tags}">
+                    <ui:Button.Style>
+                        <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
+                            <Setter Property="Opacity" Value="0" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=IsMouseOver}" Value="True">
+                                    <Setter Property="Opacity" Value="1" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                    <ui:SymbolIcon FontSize="12" Symbol="Tag24" />
+                </ui:Button>
+
+                <ui:Button
+                    Margin="2,0,0,0"
+                    Padding="3"
+                    VerticalAlignment="Center"
+                    Appearance="Transparent"
+                    Command="{Binding DataContext.SelectedTab.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="{loc:Loc Cmd_AddFavorite}">
+                    <ui:Button.Style>
+                        <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
+                            <Setter Property="Opacity" Value="0" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                    <Setter Property="Opacity" Value="1" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Control}, Path=IsMouseOver}" Value="True">
+                                    <Setter Property="Opacity" Value="1" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                    <ui:SymbolIcon FontSize="13" Filled="{Binding IsFavorite}" Symbol="Heart24">
+                        <ui:SymbolIcon.Style>
+                            <Style TargetType="ui:SymbolIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                        <Setter Property="Foreground" Value="#E81123" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:SymbolIcon.Style>
+                    </ui:SymbolIcon>
+                </ui:Button>
+            </StackPanel>
+        </DataTemplate>
 
         <!--  Fájllista sor a részletes nézetben  -->
         <Style x:Key="FileRowStyle" TargetType="ListViewItem">
@@ -501,6 +587,18 @@
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
+        <!--
+            Felső sáv — „liquid glass" háttér a fülsor ÉS az eszköztár mögött.
+            A fülsáv/eszköztár saját tartalma változatlan; ez a Border csak a
+            hátterüket adja, ezért kerül eléjük a Grid gyermeksorrendjében.
+        -->
+        <Border
+            Grid.Row="1"
+            Grid.RowSpan="2"
+            Margin="6,2,6,2"
+            Background="{DynamicResource GlassPanelBrush}"
+            CornerRadius="9" />
+
         <!--  Fülsáv  -->
         <Border
             Grid.Row="1"
@@ -616,41 +714,89 @@
                 </ui:Button>
             </StackPanel>
 
-            <!--  Útvonalsáv  -->
+            <!--
+                Útvonalsáv. Kattintás az üres területére (nem egy szegmensre)
+                szerkeszthető szövegmezőre vált — lásd
+                OnBreadcrumbAreaPreviewLeftButtonDown — mint az Intézőben.
+            -->
             <Border
                 Grid.Column="1"
                 Padding="6,3"
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="7">
-                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{Binding SelectedTab.Breadcrumbs}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:BreadcrumbSegment}">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:Button
-                                        Padding="7,3"
-                                        Appearance="Transparent"
-                                        Command="{Binding DataContext.OpenBreadcrumbCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
-                                        CommandParameter="{Binding}"
-                                        Content="{Binding Label}" />
-                                    <ui:SymbolIcon
-                                        Margin="1,0"
-                                        VerticalAlignment="Center"
-                                        FontSize="11"
-                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                        Symbol="ChevronRight24" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                CornerRadius="7"
+                PreviewMouseLeftButtonDown="OnBreadcrumbAreaPreviewLeftButtonDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ScrollViewer
+                        Grid.Column="0"
+                        HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Disabled"
+                        Visibility="{Binding SelectedTab.IsEditingPath, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                        <ItemsControl ItemsSource="{Binding SelectedTab.Breadcrumbs}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:BreadcrumbSegment}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:Button
+                                            Padding="7,3"
+                                            Appearance="Transparent"
+                                            Command="{Binding DataContext.OpenBreadcrumbCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                            CommandParameter="{Binding}"
+                                            Content="{Binding Label}" />
+                                        <ui:SymbolIcon
+                                            Margin="1,0"
+                                            VerticalAlignment="Center"
+                                            FontSize="11"
+                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                            Symbol="ChevronRight24" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <ui:TextBox
+                        x:Name="PathEditBox"
+                        Grid.Column="0"
+                        Padding="4,0"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        IsVisibleChanged="OnPathEditBoxIsVisibleChanged"
+                        KeyDown="OnPathEditBoxKeyDown"
+                        LostFocus="OnPathEditBoxLostFocus"
+                        Text="{Binding SelectedTab.EditablePathText, UpdateSourceTrigger=PropertyChanged}"
+                        Visibility="{Binding SelectedTab.IsEditingPath, Converter={StaticResource BoolToVisibility}}" />
+
+                    <TextBlock
+                        Grid.Column="1"
+                        Margin="6,0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="{loc:Loc Path_Copied}"
+                        Visibility="{Binding SelectedTab.PathCopied, Converter={StaticResource BoolToVisibility}}" />
+
+                    <ui:Button
+                        Grid.Column="2"
+                        Padding="5"
+                        Appearance="Transparent"
+                        Command="{Binding SelectedTab.CopyPathCommand}"
+                        ToolTip="{loc:Loc Cmd_CopyPath}">
+                        <ui:SymbolIcon FontSize="14" Symbol="Copy24" />
+                    </ui:Button>
+                </Grid>
             </Border>
 
             <ui:TextBox
@@ -678,7 +824,7 @@
                     ToolTip="{loc:Loc Cmd_More}">
                     <ui:SymbolIcon Symbol="MoreHorizontal24" />
                     <ui:Button.ContextMenu>
-                        <ContextMenu>
+                        <ContextMenu Opened="OnGlassContextMenuOpened">
                             <MenuItem Header="{loc:Loc View_Mode}">
                                 <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
                                 <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
@@ -783,14 +929,15 @@
                 <ColumnDefinition Width="*" MinWidth="320" />
             </Grid.ColumnDefinitions>
 
-            <!--  Oldalsáv  -->
+            <!--  Oldalsáv — „liquid glass": GlassEffectService.ApplyInitial/SetEnabled kapcsolja GlassPanelBrush-t áttetsző/átlátszatlan között  -->
             <Border
                 Grid.Column="0"
-                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                Background="{DynamicResource GlassPanelBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="9">
                 <ScrollViewer Padding="0,6" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
                     <ItemsControl ItemsSource="{Binding Sections}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:SidebarSection}">
@@ -810,33 +957,52 @@
                                         SelectionMode="Single">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:SidebarItemViewModel}">
-                                                <StackPanel>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <!--
-                                                            Behelyezett optikai lemeznél a saját
-                                                            ikonja (autorun.inf/.ico) az általános
-                                                            glyph helyett — lásd
-                                                            SidebarItemViewModel.CustomIcon és
-                                                            DiscIconResolver.
-                                                        -->
-                                                        <ui:SymbolIcon
-                                                            Margin="0,0,10,0"
+                                                <StackPanel Opacity="{Binding IsMissing, Converter={StaticResource HiddenOpacity}}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                            <!--
+                                                                Behelyezett optikai lemeznél a saját
+                                                                ikonja (autorun.inf/.ico) az általános
+                                                                glyph helyett — lásd
+                                                                SidebarItemViewModel.CustomIcon és
+                                                                DiscIconResolver.
+                                                            -->
+                                                            <ui:SymbolIcon
+                                                                Margin="0,0,10,0"
+                                                                VerticalAlignment="Center"
+                                                                FontSize="16"
+                                                                Symbol="{Binding Icon}"
+                                                                Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                                            <Image
+                                                                Width="16"
+                                                                Height="16"
+                                                                Margin="0,0,10,0"
+                                                                VerticalAlignment="Center"
+                                                                Source="{Binding CustomIcon}"
+                                                                Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}}" />
+                                                            <TextBlock
+                                                                VerticalAlignment="Center"
+                                                                Text="{Binding Label}"
+                                                                TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+
+                                                        <!--  Kedvenc eltávolítása — csak a Kedvencek szekció sorain (IsRemovable)  -->
+                                                        <ui:Button
+                                                            Grid.Column="1"
+                                                            Padding="4"
                                                             VerticalAlignment="Center"
-                                                            FontSize="16"
-                                                            Symbol="{Binding Icon}"
-                                                            Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
-                                                        <Image
-                                                            Width="16"
-                                                            Height="16"
-                                                            Margin="0,0,10,0"
-                                                            VerticalAlignment="Center"
-                                                            Source="{Binding CustomIcon}"
-                                                            Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}}" />
-                                                        <TextBlock
-                                                            VerticalAlignment="Center"
-                                                            Text="{Binding Label}"
-                                                            TextTrimming="CharacterEllipsis" />
-                                                    </StackPanel>
+                                                            Appearance="Transparent"
+                                                            Command="{Binding DataContext.RemoveFavoriteCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip="{loc:Loc Cmd_RemoveFavorite}"
+                                                            Visibility="{Binding IsRemovable, Converter={StaticResource BoolToVisibility}}">
+                                                            <ui:SymbolIcon FontSize="12" Symbol="Dismiss24" />
+                                                        </ui:Button>
+                                                    </Grid>
 
                                                     <!--  Meghajtóknál kihasználtság-sáv  -->
                                                     <StackPanel
@@ -860,6 +1026,54 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!--
+                        Címkék szekció — külön az ItemsControl-tól, mert nem
+                        navigál, hanem az aktuális fül nézetét szűri (lásd
+                        MainWindowViewModel.SelectTagFilterCommand /
+                        TabViewModel.ActiveTagFilterId). Csak akkor jelenik
+                        meg, ha van legalább egy létrehozott címke.
+                    -->
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock
+                            Margin="16,6,12,4"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                            Text="{loc:Loc Nav_Tags}" />
+                        <ItemsControl ItemsSource="{Binding TagFilters}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:TagFilterItemViewModel}">
+                                    <ui:Button
+                                        Padding="12,6"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Appearance="Transparent"
+                                        Command="{Binding DataContext.SelectTagFilterCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                        CommandParameter="{Binding}">
+                                        <ui:Button.Style>
+                                            <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                        <Setter Property="Appearance" Value="Secondary" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse
+                                                Width="9"
+                                                Height="9"
+                                                Margin="0,0,10,0"
+                                                Fill="{Binding Color, Converter={StaticResource TagColorBrush}}" />
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </ui:Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
                 </ScrollViewer>
             </Border>
 
@@ -898,11 +1112,11 @@
                         x:Name="DetailsView"
                         Background="Transparent"
                         BorderThickness="0"
-                        ContextMenu="{StaticResource EmptyAreaContextMenu}"
                         GridViewColumnHeader.Click="OnColumnHeaderClick"
                         ItemContainerStyle="{StaticResource FileRowStyle}"
                         ItemsSource="{Binding SelectedTab.Items}"
                         MouseDoubleClick="OnItemDoubleClick"
+                        PreviewMouseRightButtonDown="OnEmptyAreaPreviewRightButtonDown"
                         SelectionChanged="OnSelectionChanged"
                         SelectionMode="Extended"
                         VirtualizingPanel.IsVirtualizing="True"
@@ -928,6 +1142,7 @@
                                                     VerticalAlignment="Center"
                                                     Text="{Binding Name}"
                                                     TextTrimming="CharacterEllipsis" />
+                                                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource FileBadgesTemplate}" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
@@ -985,10 +1200,10 @@
                         x:Name="GridViewList"
                         Background="Transparent"
                         BorderThickness="0"
-                        ContextMenu="{StaticResource EmptyAreaContextMenu}"
                         ItemContainerStyle="{StaticResource FileTileStyle}"
                         ItemsSource="{Binding SelectedTab.Items}"
                         MouseDoubleClick="OnItemDoubleClick"
+                        PreviewMouseRightButtonDown="OnEmptyAreaPreviewRightButtonDown"
                         ScrollViewer.CanContentScroll="True"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         SelectionChanged="OnSelectionChanged"
@@ -1017,6 +1232,11 @@
                                         TextAlignment="Center"
                                         TextTrimming="CharacterEllipsis"
                                         TextWrapping="Wrap" />
+                                    <ContentPresenter
+                                        Margin="0,2,0,0"
+                                        HorizontalAlignment="Center"
+                                        Content="{Binding}"
+                                        ContentTemplate="{StaticResource FileBadgesTemplate}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

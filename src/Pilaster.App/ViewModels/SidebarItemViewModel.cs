@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Pilaster.App.Localization;
+using Pilaster.Core.Metadata;
 using Pilaster.Providers.Local;
 using Wpf.Ui.Controls;
 using ImageSource = System.Windows.Media.ImageSource;
@@ -69,6 +70,17 @@ public sealed partial class SidebarItemViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsActive { get; set; }
 
+    /// <summary>
+    /// Igaz a Kedvencek szekció olyan sorára, amelynek célja már nem
+    /// létezik a lemezen — a sor halványabban jelenik meg, és eltávolítást
+    /// kínál fel navigáció helyett.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsMissing { get; set; }
+
+    /// <summary>Igaz a Kedvencek szekció soraira — ekkor jelenik meg az eltávolító „x" gomb.</summary>
+    public bool IsRemovable { get; init; }
+
     /// <summary>A lefordítható feliratok újraképzése nyelvváltás után.</summary>
     public void RefreshLabel()
     {
@@ -98,4 +110,22 @@ public sealed partial class SidebarSection : ObservableObject
             item.RefreshLabel();
         }
     }
+}
+
+/// <summary>
+/// Egy címke sora az oldalsáv Címkék szekciójában — kattintva az aktuális
+/// fül nézetét szűri az adott címkével ellátott elemekre (nem navigál,
+/// szemben a többi oldalsáv-sorral).
+/// </summary>
+public sealed partial class TagFilterItemViewModel : ObservableObject
+{
+    public required string Id { get; init; }
+
+    public required string Name { get; init; }
+
+    public required TagColor Color { get; init; }
+
+    /// <summary>Igaz, ha ez a szűrő aktív az éppen kijelölt fülön.</summary>
+    [ObservableProperty]
+    public partial bool IsActive { get; set; }
 }

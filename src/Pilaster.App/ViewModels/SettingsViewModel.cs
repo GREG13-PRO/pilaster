@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Pilaster.App.Diagnostics;
 using Pilaster.App.Localization;
 using Pilaster.App.Services;
+using Pilaster.Core.Metadata;
 using Pilaster.Core.Settings;
 
 // Lásd a ThemeService-ben: a .NET 10-es WPF saját ThemeMode típusa ütközne.
@@ -20,6 +22,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settings;
     private readonly ThemeService _theme;
+    private readonly GlassEffectService _glass;
+    private readonly FileMetadataService _metadata;
 
     /// <summary>
     /// Igaz, amíg a konstruktor tölti a mezőket. Enélkül a kezdeti értékek
@@ -30,17 +34,22 @@ public sealed partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         ISettingsService settings,
         ThemeService theme,
+        GlassEffectService glass,
+        FileMetadataService metadata,
         IBugReportService bugReportService,
         UpdateViewModel updates)
     {
         _settings = settings;
         _theme = theme;
+        _glass = glass;
+        _metadata = metadata;
         Updates = updates;
 
         var current = settings.Current;
 
         _selectedTheme = current.Theme;
         _animationsEnabled = current.AnimationsEnabled;
+        _liquidGlassEnabled = current.LiquidGlassEnabled;
         _selectedLanguage = Languages.FirstOrDefault(l => l.Code == current.Language) ?? Languages[0];
 
         QuickActions =
@@ -48,6 +57,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             new QuickActionEditorViewModel("QuickAction_First", current.QuickAction1, OnQuickActionChanged),
             new QuickActionEditorViewModel("QuickAction_Second", current.QuickAction2, OnQuickActionChanged),
         ];
+
+        Tags = new ObservableCollection<TagEditorViewModel>(
+            _metadata.Tags.Select(t => new TagEditorViewModel(_metadata, t)));
 
         BugReport = new BugReportViewModel(bugReportService);
 
@@ -77,6 +89,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public ObservableCollection<QuickActionEditorViewModel> QuickActions { get; }
 
+    /// <summary>A létrehozott címkék — átnevezhetők, törölhetők; lásd <see cref="TagEditorViewModel"/>.</summary>
+    public ObservableCollection<TagEditorViewModel> Tags { get; }
+
+    /// <summary>Az előre definiált színkészlet, amiből egy új címkéhez választani lehet.</summary>
+    public IReadOnlyList<TagColor> TagColors { get; } = Enum.GetValues<TagColor>();
+
     [ObservableProperty]
     private ThemeMode _selectedTheme;
 
@@ -85,6 +103,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _animationsEnabled;
+
+    [ObservableProperty]
+    private bool _liquidGlassEnabled;
+
+    [ObservableProperty]
+    private string _newTagName = string.Empty;
+
+    [ObservableProperty]
+    private TagColor _newTagColor = TagColor.Blue;
 
     /// <summary>Az az ablak, amelyiken a témaváltás átúsztatása fusson.</summary>
     public System.Windows.Window? AnimationHost { get; set; }
@@ -108,6 +135,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.NotifyChanged();
     }
 
+    partial void OnLiquidGlassEnabledChanged(bool value)
+    {
+        if (_loaded)
+        {
+            _glass.SetEnabled(value);
+        }
+    }
+
     partial void OnSelectedLanguageChanged(LanguageOption value)
     {
         if (!_loaded)
@@ -125,4 +160,33 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     private void OnQuickActionChanged() => _settings.NotifyChanged();
+
+    /// <summary>Új címke létrehozása a beírt névvel és a kiválasztott színnel.</summary>
+    [RelayCommand]
+    private void AddTag()
+    {
+        var name = NewTagName.Trim();
+
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        var tag = _metadata.CreateTag(name, NewTagColor);
+        Tags.Add(new TagEditorViewModel(_metadata, tag));
+        NewTagName = string.Empty;
+    }
+
+    /// <summary>Egy címke törlése — a listából is eltűnik, nem csak a tárolóból.</summary>
+    [RelayCommand]
+    private void DeleteTag(TagEditorViewModel? tag)
+    {
+        if (tag is null)
+        {
+            return;
+        }
+
+        tag.DeleteCommand.Execute(null);
+        Tags.Remove(tag);
+    }
 }

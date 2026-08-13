@@ -82,6 +82,13 @@ public sealed class AppSettings
 
     public bool AnimationsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Áttetsző „liquid glass" felület — az oldalsáv, a felső sáv, a
+    /// jobbklikk-menük és a Beállítások panel áttetsző rétegként jelennek
+    /// meg a Mica háttér felett. Gyengébb gépeken kikapcsolható.
+    /// </summary>
+    public bool LiquidGlassEnabled { get; set; } = true;
+
     /// <summary>Az utoljára használt nézetmód — új fül ezzel nyílik.</summary>
     public Pilaster.Core.FileSystem.ViewMode LastViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
 

@@ -90,6 +90,12 @@
   <data name="Nav_Home" xml:space="preserve">
     <value>Home</value>
   </data>
+  <data name="Nav_Favorites" xml:space="preserve">
+    <value>Favorites</value>
+  </data>
+  <data name="Nav_Tags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
 
   <data name="Cmd_Back" xml:space="preserve">
     <value>Back</value>
@@ -195,6 +201,12 @@
   <data name="Folder_NotFound" xml:space="preserve">
     <value>This folder no longer exists</value>
   </data>
+  <data name="Folder_InvalidPath" xml:space="preserve">
+    <value>Invalid path</value>
+  </data>
+  <data name="Path_Copied" xml:space="preserve">
+    <value>Copied</value>
+  </data>
 
   <data name="Settings_Language" xml:space="preserve">
     <value>Language</value>
@@ -237,6 +249,18 @@
   </data>
   <data name="Settings_AnimationsHint" xml:space="preserve">
     <value>Fades and hover feedback. Turn off for the fastest possible response.</value>
+  </data>
+  <data name="Settings_LiquidGlass" xml:space="preserve">
+    <value>Glass effect</value>
+  </data>
+  <data name="Settings_LiquidGlassHint" xml:space="preserve">
+    <value>Translucent glass sidebar, top bar, menus and Settings panel over the Mica backdrop. Can be turned off on weaker machines.</value>
+  </data>
+  <data name="Settings_TagsHint" xml:space="preserve">
+    <value>Colored tags you can assign to files and folders — add them via the tag icon on a file row. Create, rename and delete them here.</value>
+  </data>
+  <data name="Settings_NewTagPlaceholder" xml:space="preserve">
+    <value>New tag name, e.g. Work</value>
   </data>
   <data name="Settings_LanguageHint" xml:space="preserve">
     <value>Applies immediately, without restarting.</value>
@@ -333,6 +357,24 @@
   </data>
   <data name="Cmd_CopyPath" xml:space="preserve">
     <value>Copy path</value>
+  </data>
+  <data name="Cmd_RemoveFavorite" xml:space="preserve">
+    <value>Remove from favorites</value>
+  </data>
+  <data name="Cmd_AddFavorite" xml:space="preserve">
+    <value>Add to favorites</value>
+  </data>
+  <data name="Cmd_Tags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
+  <data name="Cmd_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Cmd_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Tags_None" xml:space="preserve">
+    <value>No tags created yet (Settings → Tags)</value>
   </data>
   <data name="Cmd_ShowInExplorer" xml:space="preserve">
     <value>Show in Explorer</value>
