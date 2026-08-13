@@ -39,6 +39,7 @@ public partial class App : Application
         services.AddSingleton<ISettingsService, JsonSettingsService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<QuickActionService>();
+        services.AddSingleton<FolderSizeService>();
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
         services.AddSingleton<IBugReportService, DiscordBugReportService>();
         services.AddSingleton<IUpdateService, GitHubUpdateService>();

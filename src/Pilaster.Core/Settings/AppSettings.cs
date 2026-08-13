@@ -82,6 +82,9 @@ public sealed class AppSettings
 
     public bool AnimationsEnabled { get; set; } = true;
 
+    /// <summary>Az utoljára használt nézetmód — új fül ezzel nyílik.</summary>
+    public Pilaster.Core.FileSystem.ViewMode LastViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
+
     /// <summary>A felső sáv első gyorsgombja.</summary>
     public QuickActionSettings QuickAction1 { get; set; } = new()
     {

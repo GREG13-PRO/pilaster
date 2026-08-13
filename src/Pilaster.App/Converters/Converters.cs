@@ -17,6 +17,39 @@ public sealed class ByteSizeConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// A méret oszlop tartalma: fájlnál <see cref="FileSystemItem.SizeBytes"/>,
+/// mappánál a háttérben számolt <see cref="FileSystemItem.ComputedFolderSize"/>.
+/// </summary>
+/// <remarks>
+/// Azért <see cref="IMultiValueConverter"/>, nem sima <c>{Binding}</c> az
+/// egész elemre: egy útvonal nélküli kötés nem figyeli az almezők
+/// PropertyChanged-jét, tehát nem frissülne, amint a mappaméret-számítás
+/// később beérkezik. A MultiBinding mindhárom bemenetét külön figyeli.
+/// </remarks>
+public sealed class FolderAwareSizeConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values is not [FileSystemItemKind kind, long sizeBytes, long computedFolderSize])
+        {
+            return string.Empty;
+        }
+
+        if (kind != FileSystemItemKind.Directory)
+        {
+            return sizeBytes < 0 ? "—" : ByteSize.Format(sizeBytes, culture);
+        }
+
+        // A "…" jelzi, hogy a számítás folyamatban van — a "—"-tól
+        // szándékosan eltér, hogy a felhasználó lássa: hamarosan érkezik.
+        return computedFolderSize < 0 ? "…" : ByteSize.Format(computedFolderSize, culture);
+    }
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Elem → típusleírás („Mappa", „PDF-fájl", „Fájl").</summary>
 public sealed class FileTypeConverter : IValueConverter
 {

@@ -20,8 +20,13 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 
 ## Állapot
 
-**v0.5 — korai fejlesztés.** Ami már működik:
+**v0.6 — korai fejlesztés.** Ami már működik:
 
+- **Oszlopos (Miller) nézet** macOS Finder módra: mappára kattintva jobbra nyílik az újabb oszlop, fájlnál jobb oldalon részletek panel (típus, méret, módosítás dátuma) — a nézetmód (Lista/Rács/Oszlopok) fülenként megjegyzett
+- **Natív Windows 11 jobbklikk-menü** fájlokon és mappákon — szó szerint ugyanaz, mint az Intézőben, a telepített programok (7-Zip, Git stb.) saját bejegyzéseivel együtt
+- **Mappák mérete** háttérszálon kiszámolva és gyorsítótárazva, amíg számol „…" jelzéssel
+- **Kiadás** (biztonságos leválasztás) cserélhető és optikai meghajtóknál, „használatban van"-jelzéssel hiba esetén
+- **Optikai meghajtó saját ikonja és neve** a behelyezett lemez kötetcímkéje/autorun.inf ikonja alapján, lemezcserére automatikusan frissülve
 - Fluent felület Mica háttérrel, lekerekített sarkokkal, **keretek/háttér nélküli eszköztár-gombokkal** (csak hoverre finom kiemelés, a téma szövegszínét követve)
 - **Automatikus frissítés** a GitHub Release-ekből: induláskor csendben ellenőriz, nem tolakodó sávban jelzi, egy kattintásra letölti, ellenőrzőösszeggel hitelesíti és — újraindítás megerősítése után — telepíti
 - **Téma**: világos / sötét / rendszerkövető, egykattintásos kapcsolóval, átúsztatva, **mentve**
@@ -33,7 +38,7 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 - Natív Windows ikonok és bélyegképek, lemezre gyorsítótárazva
 - **Két testreszabható gyorsgomb** — mappa vagy fájl, saját névsablonnal (`{date}`, `{time}`, `{n}`) és célmappával
 - **Beállítások panel**: téma, animációk, nyelv, gyorsgombok, frissítések — minden azonnal mentődik
-- **Hibabejelentő** Discord webhookkal, hiba/ötlet megkülönböztetéssel, opcionális képernyőkép- és naplócsatolással
+- **Hibabejelentő** egy valódi Discord boton keresztül, „Kész" gombbal és automatikus archiválással, hiba/ötlet megkülönböztetéssel, opcionális képernyőkép- és naplócsatolással
 - Magyar és angol felület, **futásidejű nyelvváltással**, a rendszernyelv automatikus felismerésével
 
 Amit a következő mérföldkövek hoznak, azt lásd az [ütemezésben](#ütemezés).
@@ -89,8 +94,10 @@ dotnet publish src/Pilaster.App -c Release -r win-x64 `
 src/
 ├─ Pilaster.Core/       Domain: elemek, provider-interfész, rendezés, formázás
 ├─ Pilaster.Providers/  Helyi fájlrendszer (később: archívum, FTP/SFTP, S3, WebDAV)
-├─ Pilaster.Shell/      Win32/COM interop: ikonok, bélyegképek
+├─ Pilaster.Shell/      Win32/COM interop: ikonok, bélyegképek, meghajtó-kiadás, natív jobbklikk-menü
 └─ Pilaster.App/        WPF felület, nézetmodellek, lokalizáció
+
+discord-bot/            Node.js — hibabejelentő Discord bot (lásd docs/BUG_REPORTS.md)
 ```
 
 A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak *egy* implementáció. Ezért fog később az archívum, az FTP és az S3 ugyanúgy „mappaként" viselkedni, a felület módosítása nélkül.
@@ -105,12 +112,13 @@ A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak
 | **v0.3** ✅ | Hibabejelentő (Discord webhook), aktív mappa kiemelése, tisztább eszköztár |
 | **v0.4** ✅ | Fájlkijelölés/jobbklikk javítás, ős-lánc kiemelés, egységes gombstílus, csúszó átmenet, ötlet/hiba megkülönböztetés |
 | **v0.5** ✅ | Automatikus frissítés, keretek nélküli gombok, jobbklikk üres területen, húzásos kijelölés, vágólap-beillesztés |
-| v0.6 | **Oszlopos (Miller) nézet**, előnézeti panel, Quick Look — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
-| v0.7 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
-| v0.8 | Azonnali keresés (NTFS MFT-index), parancspaletta |
-| v0.9 | Osztott panelek, munkaterek, címkék, polc, tömeges átnevezés |
-| v1.0 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
-| v1.1 | Csiszolás, dokumentáció, 30+ nyelv |
+| **v0.6** ✅ | Oszlopos (Miller) nézet, natív jobbklikk-menü, mappaméret-számítás, meghajtó-kiadás, optikai lemez ikonja, Discord bot |
+| v0.7 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
+| v0.8 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
+| v0.9 | Azonnali keresés (NTFS MFT-index), parancspaletta |
+| v1.0 | Osztott panelek, munkaterek, címkék, polc, tömeges átnevezés |
+| v1.1 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
+| v1.2 | Csiszolás, dokumentáció, 30+ nyelv |
 
 ## Fordítás más nyelvre
 

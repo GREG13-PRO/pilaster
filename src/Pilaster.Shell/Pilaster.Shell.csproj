@@ -17,4 +17,26 @@
     <ProjectReference Include="..\Pilaster.Core\Pilaster.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    A meghajtó-kiadás (DeviceIoControl-alapú kötetzárolás/leválasztás) és a
+    lemezikon-kinyerés (autorun.inf ICON=) kézzel írt P/Invoke-kal rendkívül
+    hibalehetőség-érzékeny volna — ezért itt, a projekt eredeti tervében is
+    szereplő Vanara csomagokra támaszkodunk, amik ezt már helyesen
+    csomagolják (biztonságos handle-ök, helyesen marshalt struktúrák).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Vanara.PInvoke.Kernel32" Version="$(VanaraVersion)" />
+    <PackageReference Include="Vanara.PInvoke.Shell32" Version="$(VanaraVersion)" />
+    <PackageReference Include="Vanara.PInvoke.User32" Version="$(VanaraVersion)" />
+
+    <!--
+    A natív Windows 11 jobbklikk-menü (telepített programok bejegyzéseivel
+    együtt) csak a valódi IContextMenu/IShellFolder COM-géppel érhető el —
+    a Vanara.Windows.Shell.ShellContextMenu ezt csomagolja be tesztelt,
+    biztonságos módon (PIDL-kezelés, TrackPopupMenuEx, üzenet-továbbítás),
+    amit kézzel újraírni jelentős, feleslegesen vállalt kockázat volna.
+  -->
+    <PackageReference Include="Vanara.Windows.Shell.Common" Version="$(VanaraVersion)" />
+  </ItemGroup>
+
 </Project>

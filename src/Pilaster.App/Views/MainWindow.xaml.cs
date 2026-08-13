@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,8 @@ using Pilaster.App.Localization;
 using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
 using Pilaster.Core.FileSystem;
+using Pilaster.Shell.Devices;
+using Pilaster.Shell.Menus;
 using Wpf.Ui.Controls;
 
 // A WPF-UI saját ListView/ListBox/Panel típusokat is szállít ugyanezekkel a
@@ -50,6 +53,7 @@ public partial class MainWindow : FluentWindow
         viewModel.SettingsRequested += OnSettingsRequested;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.Updates.RestartRequested += OnUpdateRestartRequested;
+        viewModel.EjectCompleted += OnEjectCompleted;
 
         InitializeComponent();
 
@@ -66,6 +70,41 @@ public partial class MainWindow : FluentWindow
         marquee.Attach(GridViewList);
 
         TrackTab(_viewModel.SelectedTab);
+
+        // A nézetmód (lista/rács/oszlopok) fülenként eltérhet és mentődik
+        // (lásd MainWindowViewModel.AddTab) — induláskor az induló fülhöz
+        // tartozó nézetet kell megjeleníteni, nem a XAML-ben alapértelmezett
+        // Részleteset.
+        SyncViewModeVisuals(_viewModel.SelectedTab?.ViewMode ?? ViewMode.Details);
+    }
+
+    /// <summary>
+    /// Meghajtó-csatlakoztatás/eltávolítás vagy lemezváltás figyelése, hogy
+    /// az oldalsáv Meghajtók szekciója (kötetcímke, egyedi lemezikon)
+    /// automatikusan frissüljön — nem csak a jobbklikk/Frissítés gombra.
+    /// </summary>
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        if (PresentationSource.FromVisual(this) is HwndSource source)
+        {
+            source.AddHook(OnWindowMessage);
+        }
+    }
+
+    private nint OnWindowMessage(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        const int WmDeviceChange = 0x0219;
+        const int DbtDeviceArrival = 0x8000;
+        const int DbtDeviceRemoveComplete = 0x8004;
+
+        if (msg == WmDeviceChange && (int)wParam is DbtDeviceArrival or DbtDeviceRemoveComplete)
+        {
+            _viewModel.RefreshDrives();
+        }
+
+        return nint.Zero;
     }
 
     private void OnSettingsRequested(object? sender, EventArgs e)
@@ -87,6 +126,7 @@ public partial class MainWindow : FluentWindow
         if (e.PropertyName == nameof(MainWindowViewModel.SelectedTab))
         {
             TrackTab(_viewModel.SelectedTab);
+            SyncViewModeVisuals(_viewModel.SelectedTab?.ViewMode ?? ViewMode.Details);
         }
     }
 
@@ -171,6 +211,13 @@ public partial class MainWindow : FluentWindow
     /// fájlkezelő megszokott viselkedése. Ha már a kijelölés része, a meglévő
     /// (esetleg többelemes) kijelölés érintetlen marad.
     /// </summary>
+    /// <remarks>
+    /// A menü maga a VALÓDI Windows shell jobbklikk-menü — lásd
+    /// <see cref="NativeContextMenuService"/> —, a telepített programok
+    /// (7-Zip, Git stb.) bejegyzéseivel együtt. Csak akkor esik vissza a
+    /// saját, egyszerűbb <c>FileItemContextMenu</c> erőforrásra, ha a natív
+    /// hívás valamiért (pl. egy hibás shell-bővítmény miatt) sikertelen.
+    /// </remarks>
     private void OnItemPreviewRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: FileSystemItem item } container)
@@ -193,6 +240,26 @@ public partial class MainWindow : FluentWindow
         if (!alreadySelected)
         {
             selector.SelectedItem = item;
+        }
+
+        var selectedPaths = selector switch
+        {
+            ListView view => view.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath).ToList(),
+            ListBox box => box.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath).ToList(),
+            _ => [item.FullPath],
+        };
+
+        e.Handled = true;
+
+        var screenPoint = PointToScreen(e.GetPosition(this));
+        var ownerHandle = new WindowInteropHelper(this).Handle;
+
+        var shown = NativeContextMenuService.TryShow(selectedPaths, (int)screenPoint.X, (int)screenPoint.Y, ownerHandle);
+
+        if (!shown && TryFindResource("FileItemContextMenu") is System.Windows.Controls.ContextMenu fallbackMenu)
+        {
+            fallbackMenu.PlacementTarget = container;
+            fallbackMenu.IsOpen = true;
         }
     }
 
@@ -308,11 +375,13 @@ public partial class MainWindow : FluentWindow
             _ => [],
         };
 
-        // A mappák -1 méretet hordoznak, amíg nincs kiszámolva a tartalmuk;
+        // Fájloknál SizeBytes, mappáknál a háttérben számolt
+        // ComputedFolderSize — mindkettő -1, amíg nincs (még) ismert érték,
         // azt nem szabad beleszámolni az összegbe.
         var totalBytes = selected
-            .Where(item => item.SizeBytes > 0)
-            .Sum(item => item.SizeBytes);
+            .Select(item => item.Kind == FileSystemItemKind.Directory ? item.ComputedFolderSize : item.SizeBytes)
+            .Where(size => size > 0)
+            .Sum();
 
         tab.UpdateStatus(selected.Count, totalBytes);
     }
@@ -456,9 +525,25 @@ public partial class MainWindow : FluentWindow
         System.Windows.Application.Current.Shutdown();
     }
 
+    private void OnEjectCompleted(object? sender, EjectOutcome outcome)
+    {
+        var strings = TranslationSource.Instance;
+
+        var (message, icon) = outcome switch
+        {
+            EjectOutcome.Succeeded => (strings["Eject_Success"], System.Windows.MessageBoxImage.Information),
+            EjectOutcome.InUse => (strings["Eject_InUse"], System.Windows.MessageBoxImage.Warning),
+            _ => (strings["Eject_Error"], System.Windows.MessageBoxImage.Error),
+        };
+
+        System.Windows.MessageBox.Show(message, "Pilaster", System.Windows.MessageBoxButton.OK, icon);
+    }
+
     private void OnSetViewDetails(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Details);
 
     private void OnSetViewGrid(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Grid);
+
+    private void OnSetViewColumns(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Columns);
 
     private void ApplyViewMode(ViewMode mode)
     {
@@ -467,7 +552,40 @@ public partial class MainWindow : FluentWindow
             tab.ViewMode = mode;
         }
 
+        SyncViewModeVisuals(mode);
+    }
+
+    /// <summary>
+    /// A három nézet közül csak a megadottnak megfelelő gyökérelem látszik.
+    /// Külön a <see cref="ApplyViewMode"/>-tól, mert fülváltáskor (vagy
+    /// induláskor) is szinkronizálni kell a vizuális állapotot az adott fül
+    /// már meglévő <see cref="TabViewModel.ViewMode"/> értékéhez, anélkül,
+    /// hogy azt újra beállítanánk (ami felesleges mentést váltana ki).
+    /// </summary>
+    private void SyncViewModeVisuals(ViewMode mode)
+    {
         DetailsView.Visibility = mode == ViewMode.Details ? Visibility.Visible : Visibility.Collapsed;
         GridViewList.Visibility = mode == ViewMode.Grid ? Visibility.Visible : Visibility.Collapsed;
+        ColumnsHost.Visibility = mode == ViewMode.Columns ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Elem kijelölése egy oszlopban az oszlopos nézetben: navigálható
+    /// elemnél új oszlop nyílik, fájlnál a részletek panel jelenik meg —
+    /// lásd <see cref="TabViewModel.SelectColumnItemAsync"/>.
+    /// </summary>
+    private async void OnColumnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ListBox { DataContext: TabViewModel column, SelectedItem: FileSystemItem item })
+        {
+            return;
+        }
+
+        if (_viewModel.SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        await tab.SelectColumnItemAsync(column, item);
     }
 }

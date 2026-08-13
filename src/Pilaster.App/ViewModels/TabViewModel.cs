@@ -7,6 +7,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pilaster.App.Localization;
+using Pilaster.App.Services;
 using Pilaster.Core.Collections;
 using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
@@ -32,12 +33,14 @@ public sealed partial class TabViewModel : ObservableObject
     private const int MaxBatchSize = 20_000;
 
     private readonly IFileSystemProvider _provider;
+    private readonly FolderSizeService _folderSizes;
     private CancellationTokenSource? _loadCancellation;
     private bool _suppressResort;
 
-    public TabViewModel(IFileSystemProvider provider)
+    public TabViewModel(IFileSystemProvider provider, FolderSizeService folderSizes)
     {
         _provider = provider;
+        _folderSizes = folderSizes;
         Items = [];
         Breadcrumbs = [];
         History = new NavigationHistory();
@@ -53,8 +56,107 @@ public sealed partial class TabViewModel : ObservableObject
     /// <summary>A fül vissza/előre előzménye.</summary>
     public NavigationHistory History { get; }
 
+    /// <summary>
+    /// Az oszlopos nézet aktuálisan nyitott oszlopai — mindegyik egy-egy
+    /// önálló <see cref="TabViewModel"/>, amely a saját mappájának
+    /// tartalmát listázza. Csak <see cref="ViewMode.Columns"/> módban van
+    /// tartalma; lásd <see cref="ResetColumns"/> és <see cref="SelectColumnItemAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// Ugyanazt a <see cref="TabViewModel"/>-et használja oszloponként, mint
+    /// amit a fülek — ugyanaz a betöltés/rendezés/mappaméret-logika kell
+    /// mindkettőhöz, nincs értelme duplikálni. Az oszlop-<see cref="TabViewModel"/>-ek
+    /// <see cref="ViewMode"/>-ja szándékosan marad <see cref="ViewMode.Details"/>
+    /// (az alapérték): ha Columns lenne, az <see cref="OnCurrentPathChanged"/>
+    /// végtelenül egymásba ágyazott oszlopfát próbálna építeni.
+    /// </remarks>
+    public ObservableCollection<TabViewModel> Columns { get; } = [];
+
+    /// <summary>
+    /// Az oszlopos nézetben kijelölt fájl (nem navigálható elem) — ekkor a
+    /// jobb oldali részletek panel ezt mutatja üres/új oszlop helyett.
+    /// </summary>
+    [ObservableProperty]
+    public partial FileSystemItem? ColumnsSelectedFile { get; set; }
+
     [ObservableProperty]
     public partial string? CurrentPath { get; set; }
+
+    partial void OnCurrentPathChanged(string? value)
+    {
+        // Csak akkor kell újraépíteni az oszlopokat, ha ez a fül maga az
+        // oszlopos nézetet mutató "gyökér" — egy oszlop saját CurrentPath-
+        // változása (amikor belé navigálunk) nem indíthat saját oszlopfát.
+        if (ViewMode == ViewMode.Columns)
+        {
+            ResetColumns();
+        }
+    }
+
+    partial void OnViewModeChanged(ViewMode value)
+    {
+        OnPropertyChanged(nameof(ShowFlatEmptyMessage));
+        OnPropertyChanged(nameof(ShowFlatLoading));
+
+        if (value == ViewMode.Columns)
+        {
+            ResetColumns();
+        }
+    }
+
+    /// <summary>
+    /// Az oszlopok visszaállítása egyetlen, a fül aktuális mappáját mutató
+    /// oszlopra — nézetváltáskor, vagy ha a fül más úton (breadcrumb,
+    /// oldalsáv, vissza/előre) navigál, amíg oszlopos nézetben van.
+    /// </summary>
+    private void ResetColumns()
+    {
+        Columns.Clear();
+        ColumnsSelectedFile = null;
+
+        if (CurrentPath is not { } path)
+        {
+            return;
+        }
+
+        var root = new TabViewModel(_provider, _folderSizes);
+        Columns.Add(root);
+        _ = root.NavigateAsync(path);
+    }
+
+    /// <summary>
+    /// Egy elem kijelölése egy oszlopban: navigálható elemnél új oszlop
+    /// nyílik jobbra a tartalmával, fájlnál a részletek panel jelenik meg.
+    /// Az adott oszlop utáni, korábban nyitott oszlopok bezáródnak — ahogy
+    /// a Finderben is, ha egy korábbi oszlopban más elemre kattintasz.
+    /// </summary>
+    public async Task SelectColumnItemAsync(TabViewModel column, FileSystemItem item)
+    {
+        var columnIndex = Columns.IndexOf(column);
+
+        if (columnIndex < 0)
+        {
+            return;
+        }
+
+        while (Columns.Count > columnIndex + 1)
+        {
+            Columns.RemoveAt(Columns.Count - 1);
+        }
+
+        if (item.IsNavigable)
+        {
+            ColumnsSelectedFile = null;
+
+            var next = new TabViewModel(_provider, _folderSizes);
+            Columns.Add(next);
+            await next.NavigateAsync(item.FullPath).ConfigureAwait(false);
+        }
+        else
+        {
+            ColumnsSelectedFile = item;
+        }
+    }
 
     /// <summary>A fülfeliraton megjelenő név.</summary>
     [ObservableProperty]
@@ -63,12 +165,33 @@ public sealed partial class TabViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    /// <summary>Igaz, ha a betöltésjelzőt a lapos nézetben kell mutatni — lásd <see cref="ShowFlatEmptyMessage"/>.</summary>
+    public bool ShowFlatLoading => IsLoading && ViewMode != ViewMode.Columns;
+
+    partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(ShowFlatLoading));
+
     [ObservableProperty]
     public partial ViewMode ViewMode { get; set; } = ViewMode.Details;
 
     /// <summary>Hibaüzenet vagy üres-mappa jelzés; <c>null</c>, ha minden rendben.</summary>
     [ObservableProperty]
     public partial string? EmptyMessage { get; set; }
+
+    /// <summary>
+    /// Igaz, ha az EmptyMessage-et a lapos (Részletek/Rács) nézet szövegként
+    /// meg is jelenítendő üzenetként kell mutatni.
+    /// </summary>
+    /// <remarks>
+    /// Oszlopos nézetben ez a fül maga is lefuttatja a saját betöltését (a
+    /// gyökérmappa tartalmát <see cref="Columns"/>[0] mutatja), tehát az
+    /// EmptyMessage itt is beállítódna — de a felületen már az adott oszlop
+    /// SAJÁT üres/hiba-üzenete jelenik meg. E nélkül a megkülönböztetés
+    /// nélkül a lapos nézet felirata átfedésben, „lebegve" jelenne meg az
+    /// oszlopok fölött.
+    /// </remarks>
+    public bool ShowFlatEmptyMessage => EmptyMessage is not null && ViewMode != ViewMode.Columns;
+
+    partial void OnEmptyMessageChanged(string? value) => OnPropertyChanged(nameof(ShowFlatEmptyMessage));
 
     /// <summary>Az állapotsor bal oldali szövege.</summary>
     [ObservableProperty]
@@ -282,6 +405,14 @@ public sealed partial class TabViewModel : ObservableObject
                 : null);
             UpdateStatus(0, 0);
         }).ConfigureAwait(false);
+
+        // Mappánként háttérben induló, korlátozott párhuzamosságú számítás —
+        // lásd FolderSizeService. A token elnavigáláskor megszakítja a még
+        // futó, immár érdektelen számításokat.
+        foreach (var item in sorted)
+        {
+            _folderSizes.EnsureComputed(item, token);
+        }
     }
 
     private List<FileSystemItem> SortItems(List<FileSystemItem> items)

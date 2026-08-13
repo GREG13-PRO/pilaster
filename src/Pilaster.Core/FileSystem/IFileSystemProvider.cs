@@ -38,6 +38,15 @@ public interface IFileSystemProvider
 
     /// <summary>A szülőmappa útvonala, vagy <c>null</c>, ha ez már a gyökér.</summary>
     string? GetParentPath(string path);
+
+    /// <summary>
+    /// Egy mappa teljes (rekurzív) tartalomméretének kiszámítása.
+    /// </summary>
+    /// <remarks>
+    /// Lassú lehet nagy mappafáknál, ezért a hívó felelőssége háttérszálon és
+    /// megszakíthatóan hívni — lásd <c>Pilaster.App.Services.FolderSizeService</c>.
+    /// </remarks>
+    Task<long> GetFolderSizeAsync(string path, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

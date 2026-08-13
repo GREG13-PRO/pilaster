@@ -318,7 +318,7 @@
     <value>No internet connection, or the server didn't respond.</value>
   </data>
   <data name="BugReport_NotConfigured" xml:space="preserve">
-    <value>Bug reporting isn't set up yet. Create a Discord webhook and save its URL to {0}, or set the PILASTER_BUG_REPORT_WEBHOOK environment variable.</value>
+    <value>Bug reporting isn't set up yet. Save the bot API URL and key (one per line) to {0}, or set the PILASTER_BUG_REPORT_API_URL / PILASTER_BUG_REPORT_API_KEY environment variables.</value>
     <comment>{0} = local file path</comment>
   </data>
   <data name="BugReport_IsFeatureIdea" xml:space="preserve">
@@ -395,5 +395,18 @@
   </data>
   <data name="Update_ConfirmRestartMessage" xml:space="preserve">
     <value>Update v{0} is downloaded and ready to install. Pilaster needs to restart — continue?</value>
+  </data>
+
+  <data name="Cmd_Eject" xml:space="preserve">
+    <value>Eject</value>
+  </data>
+  <data name="Eject_Success" xml:space="preserve">
+    <value>The drive was ejected safely. It's now safe to unplug it.</value>
+  </data>
+  <data name="Eject_InUse" xml:space="preserve">
+    <value>The drive is in use — close any files or folders open on it, then try again.</value>
+  </data>
+  <data name="Eject_Error" xml:space="preserve">
+    <value>Couldn't eject the drive.</value>
   </data>
 </root>

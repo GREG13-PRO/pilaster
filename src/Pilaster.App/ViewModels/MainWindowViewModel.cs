@@ -8,6 +8,7 @@ using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
 using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
+using Pilaster.Shell.Devices;
 using Wpf.Ui.Controls;
 
 namespace Pilaster.App.ViewModels;
@@ -19,19 +20,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly ISettingsService _settings;
     private readonly ThemeService _theme;
     private readonly QuickActionService _quickActions;
+    private readonly FolderSizeService _folderSizes;
 
     public MainWindowViewModel(
         IFileSystemProvider provider,
         ISettingsService settings,
         ThemeService theme,
         QuickActionService quickActions,
-        UpdateViewModel updates)
+        UpdateViewModel updates,
+        FolderSizeService folderSizes)
     {
         _provider = provider;
         _settings = settings;
         _theme = theme;
         _quickActions = quickActions;
         Updates = updates;
+        _folderSizes = folderSizes;
 
         Tabs = [];
         Sections = [];
@@ -52,7 +56,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         AddTab(GetStartupPath());
     }
 
-    partial void OnSelectedTabChanged(TabViewModel? value) => UpdateActiveSidebarItem();
+    partial void OnSelectedTabChanged(TabViewModel? value)
+    {
+        UpdateActiveSidebarItem();
+        OnPropertyChanged(nameof(CanEjectCurrentDrive));
+    }
 
     public ObservableCollection<TabViewModel> Tabs { get; }
 
@@ -97,8 +105,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public bool AnimationsEnabled => _settings.Current.AnimationsEnabled;
 
+    /// <summary>
+    /// Igaz, ha az aktív fül jelenlegi mappája egy cserélhető vagy optikai
+    /// meghajtón van — ekkor jelenik meg a Kiadás gomb az eszköztárban.
+    /// </summary>
+    public bool CanEjectCurrentDrive =>
+        GetCurrentDriveType() is { } driveType && RemovableDriveService.IsEjectable(driveType);
+
     /// <summary>Akkor jelez, ha a nézetnek meg kell nyitnia a Beállításokat.</summary>
     public event EventHandler? SettingsRequested;
+
+    /// <summary>Egy Kiadás-kísérlet lezárult — a nézet ez alapján mutat visszajelzést.</summary>
+    public event EventHandler<EjectOutcome>? EjectCompleted;
 
     [RelayCommand]
     private void NewTab() => AddTab(GetStartupPath());
@@ -138,6 +156,91 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Az aktuális meghajtó biztonságos leválasztása/kiadása.
+    /// </summary>
+    /// <remarks>
+    /// Siker esetén az aktív fület a kezdőlapra navigálja — a meghajtó
+    /// eltűnése után az addigi útvonal érvénytelen lenne —, és újraépíti a
+    /// Meghajtók szekciót, hogy a lista azonnal kövesse a változást.
+    /// </remarks>
+    [RelayCommand]
+    private async Task EjectCurrentDriveAsync()
+    {
+        if (SelectedTab?.CurrentPath is not { } path || GetCurrentDriveRoot(path) is not { } root)
+        {
+            return;
+        }
+
+        var driveType = GetCurrentDriveType();
+
+        if (driveType is null || !RemovableDriveService.IsEjectable(driveType.Value))
+        {
+            return;
+        }
+
+        var result = RemovableDriveService.Eject(root, driveType.Value);
+
+        if (result.Outcome == EjectOutcome.Succeeded)
+        {
+            await SelectedTab.NavigateAsync(GetStartupPath());
+            RefreshDrives();
+        }
+
+        EjectCompleted?.Invoke(this, result.Outcome);
+    }
+
+    /// <summary>Az oldalsáv Meghajtók szekciójának újraépítése — pl. kiadás vagy médiaváltás után.</summary>
+    public void RefreshDrives()
+    {
+        var driveSection = Sections.FirstOrDefault(s => s.HeaderKey == "Nav_Drives");
+
+        if (driveSection is null)
+        {
+            return;
+        }
+
+        var index = Sections.IndexOf(driveSection);
+
+        Sections[index] = new SidebarSection
+        {
+            HeaderKey = "Nav_Drives",
+            Header = TranslationSource.Instance["Nav_Drives"],
+            Items = BuildDrives(),
+        };
+
+        UpdateActiveSidebarItem();
+    }
+
+    private DriveType? GetCurrentDriveType() =>
+        SelectedTab?.CurrentPath is { } path && GetCurrentDriveRoot(path) is { } root
+            ? TryGetDriveType(root)
+            : null;
+
+    private static string? GetCurrentDriveRoot(string path)
+    {
+        try
+        {
+            return Path.GetPathRoot(path) is { Length: > 0 } root ? root : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static DriveType? TryGetDriveType(string root)
+    {
+        try
+        {
+            return new DriveInfo(root).DriveType;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>Váltás világos és sötét téma között.</summary>
     [RelayCommand]
@@ -284,13 +387,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void AddTab(string path)
     {
-        var tab = new TabViewModel(_provider)
+        var tab = new TabViewModel(_provider, _folderSizes)
         {
             ShowHiddenItems = _settings.Current.ShowHiddenItems,
+            ViewMode = _settings.Current.LastViewMode,
         };
 
-        // A rejtett elemek kapcsolója fülenként állítható, de a legutóbbi
-        // választás menteni való — a következő indításnál azt várja a felhasználó.
+        // A rejtett elemek kapcsolója és a nézetmód fülenként állítható, de
+        // a legutóbbi választás menteni való — a következő indításnál/új
+        // fülnél azt várja a felhasználó.
         tab.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(TabViewModel.ShowHiddenItems))
@@ -299,11 +404,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 _settings.Save();
             }
 
+            if (e.PropertyName == nameof(TabViewModel.ViewMode) && ReferenceEquals(tab, SelectedTab))
+            {
+                _settings.Current.LastViewMode = tab.ViewMode;
+                _settings.Save();
+            }
+
             // Csak az aktív fül útvonalváltása befolyásolja az oldalsáv
-            // kiemelését — egy háttérben navigáló fül ne rángassa el.
+            // kiemelését és a Kiadás gomb láthatóságát — egy háttérben
+            // navigáló fül ne rángassa el.
             if (e.PropertyName == nameof(TabViewModel.CurrentPath) && ReferenceEquals(tab, SelectedTab))
             {
                 UpdateActiveSidebarItem();
+                OnPropertyChanged(nameof(CanEjectCurrentDrive));
             }
         };
 
@@ -407,11 +520,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 _ => SymbolRegular.Storage24,
             };
 
+            // Csak akkor van értelme lemezikont keresni, ha ténylegesen van
+            // beolvasható lemez — üres tálcánál marad az általános CD-glyph.
+            var customIcon = drive.DriveType == DriveType.CDRom && drive.TotalBytes > 0
+                ? DiscIconResolver.TryResolve(drive.Item.FullPath)
+                : null;
+
             items.Add(new SidebarItemViewModel
             {
                 Label = drive.Label,
                 Path = drive.Item.FullPath,
                 Icon = icon,
+                CustomIcon = customIcon,
                 Drive = drive,
                 Detail = FormatDriveDetail(drive),
                 UsedFraction = drive.UsedFraction,

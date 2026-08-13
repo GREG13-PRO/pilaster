@@ -234,4 +234,37 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
             return null;
         }
     }
+
+    public Task<long> GetFolderSizeAsync(string path, CancellationToken cancellationToken = default) =>
+        Task.Run(() => ComputeFolderSize(path, cancellationToken), cancellationToken);
+
+    /// <summary>
+    /// A rekurzív bejárás ugyanazt a <see cref="FileSystemEnumerable{TResult}"/>
+    /// alapú, allokáció-szegény mintát követi, mint a listázás — csak
+    /// <c>RecurseSubdirectories = true</c> mellett, és csak a fájlméreteket
+    /// összegzi. Az <see cref="FileAttributes.ReparsePoint"/> kihagyása
+    /// szimbolikus link/junction miatti végtelen ciklust előz meg.
+    /// </summary>
+    private static long ComputeFolderSize(string path, CancellationToken cancellationToken)
+    {
+        var enumerable = new FileSystemEnumerable<long>(
+            path,
+            static (ref FileSystemEntry entry) => entry.IsDirectory ? 0 : entry.Length,
+            new System.IO.EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+                IgnoreInaccessible = true,
+            });
+
+        var total = 0L;
+
+        foreach (var size in enumerable)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            total += size;
+        }
+
+        return total;
+    }
 }

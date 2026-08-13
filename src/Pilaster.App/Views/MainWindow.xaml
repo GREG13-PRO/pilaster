@@ -344,7 +344,13 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
-            <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+            <!--
+                Nincs Setter Property="ContextMenu" itt: a jobbklikket
+                OnItemPreviewRightButtonDown kezeli, ami a VALÓDI Windows
+                shell menüt hívja meg (NativeContextMenuService) — a
+                FileItemContextMenu csak akkor nyílik meg kézzel, ha a
+                natív menü valamiért nem elérhető.
+            -->
             <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemPreviewRightButtonDown" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -387,7 +393,13 @@
         <Style x:Key="FileTileStyle" TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
-            <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+            <!--
+                Nincs Setter Property="ContextMenu" itt: a jobbklikket
+                OnItemPreviewRightButtonDown kezeli, ami a VALÓDI Windows
+                shell menüt hívja meg (NativeContextMenuService) — a
+                FileItemContextMenu csak akkor nyílik meg kézzel, ha a
+                natív menü valamiért nem elérhető.
+            -->
             <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemPreviewRightButtonDown" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -405,6 +417,48 @@
                                 CornerRadius="8"
                                 Opacity="0" />
                             <Border Padding="6,10">
+                                <ContentPresenter />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeInHighlight}" />
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard Storyboard="{StaticResource FadeOutHighlight}" />
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Selected" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--  Sor egy oszlopos nézet oszlopában — a FileTileStyle könnyített, keret nélküli változata  -->
+        <Style x:Key="ColumnItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Margin="4,1" Background="Transparent">
+                            <Border
+                                x:Name="Hover"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="6"
+                                Opacity="0" />
+                            <Border
+                                x:Name="Selected"
+                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                CornerRadius="6"
+                                Opacity="0" />
+                            <Border Padding="{TemplateBinding Padding}">
                                 <ContentPresenter />
                             </Border>
                         </Grid>
@@ -526,6 +580,20 @@
                     <ui:SymbolIcon Symbol="ArrowClockwise24" />
                 </ui:Button>
 
+                <!--
+                    Kiadás — csak akkor látszik, ha az aktív fül jelenlegi
+                    mappája cserélhető vagy optikai meghajtón van. Lásd
+                    MainWindowViewModel.CanEjectCurrentDrive és
+                    Pilaster.Shell.Devices.RemovableDriveService.
+                -->
+                <ui:Button
+                    Command="{Binding EjectCurrentDriveCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="{loc:Loc Cmd_Eject}"
+                    Visibility="{Binding CanEjectCurrentDrive, Converter={StaticResource BoolToVisibility}}">
+                    <ui:SymbolIcon Symbol="ArrowEject20" />
+                </ui:Button>
+
                 <Rectangle
                     Width="1"
                     Margin="6,7"
@@ -614,6 +682,7 @@
                             <MenuItem Header="{loc:Loc View_Mode}">
                                 <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
                                 <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
+                                <MenuItem Click="OnSetViewColumns" Header="{loc:Loc View_Columns}" />
                             </MenuItem>
                             <Separator />
                             <MenuItem
@@ -743,11 +812,26 @@
                                             <DataTemplate DataType="{x:Type vm:SidebarItemViewModel}">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal">
+                                                        <!--
+                                                            Behelyezett optikai lemeznél a saját
+                                                            ikonja (autorun.inf/.ico) az általános
+                                                            glyph helyett — lásd
+                                                            SidebarItemViewModel.CustomIcon és
+                                                            DiscIconResolver.
+                                                        -->
                                                         <ui:SymbolIcon
                                                             Margin="0,0,10,0"
                                                             VerticalAlignment="Center"
                                                             FontSize="16"
-                                                            Symbol="{Binding Icon}" />
+                                                            Symbol="{Binding Icon}"
+                                                            Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                                        <Image
+                                                            Width="16"
+                                                            Height="16"
+                                                            Margin="0,0,10,0"
+                                                            VerticalAlignment="Center"
+                                                            Source="{Binding CustomIcon}"
+                                                            Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}}" />
                                                         <TextBlock
                                                             VerticalAlignment="Center"
                                                             Text="{Binding Label}"
@@ -801,7 +885,13 @@
                 <Border.RenderTransform>
                     <TranslateTransform X="0" />
                 </Border.RenderTransform>
-                <Grid x:Name="FileListHost">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid x:Name="FileListHost" Grid.Column="0">
 
                     <!--  Részletes nézet  -->
                     <ListView
@@ -874,8 +964,15 @@
                                         <DataTemplate DataType="{x:Type fs:FileSystemItem}">
                                             <TextBlock
                                                 HorizontalAlignment="Right"
-                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                Text="{Binding SizeBytes, Converter={StaticResource ByteSize}}" />
+                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                                <TextBlock.Text>
+                                                    <MultiBinding Converter="{StaticResource FolderAwareSize}">
+                                                        <Binding Path="Kind" />
+                                                        <Binding Path="SizeBytes" />
+                                                        <Binding Path="ComputedFolderSize" />
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
@@ -925,14 +1022,20 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <!--  Üres mappa / hiba üzenet  -->
+                    <!--
+                        Üres mappa / hiba üzenet — csak lapos (Részletek/Rács)
+                        nézetben, lásd TabViewModel.ShowFlatEmptyMessage: oszlopos
+                        nézetben ugyanez az adat már minden oszlop saját
+                        buborékjában megjelenik, enélkül duplán, egymásra
+                        lebegve látszódna.
+                    -->
                     <TextBlock
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         FontSize="14"
                         Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                         Text="{Binding SelectedTab.EmptyMessage}"
-                        Visibility="{Binding SelectedTab.EmptyMessage, Converter={StaticResource NullToCollapsed}}" />
+                        Visibility="{Binding SelectedTab.ShowFlatEmptyMessage, Converter={StaticResource BoolToVisibility}}" />
 
                     <ui:ProgressRing
                         Width="34"
@@ -940,7 +1043,7 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         IsIndeterminate="True"
-                        Visibility="{Binding SelectedTab.IsLoading, Converter={StaticResource BoolToVisibility}}" />
+                        Visibility="{Binding SelectedTab.ShowFlatLoading, Converter={StaticResource BoolToVisibility}}" />
 
                     <!--
                         Húzásos (marquee) kijelölő téglalap. Nyugalomban
@@ -959,6 +1062,153 @@
                         BorderThickness="1"
                         IsHitTestVisible="False"
                         Visibility="Collapsed" />
+
+                    <!--
+                        Oszlopos (Miller) nézet: minden Columns-beli elem egy
+                        TabViewModel, ami a saját mappáját listázza — lásd
+                        TabViewModel.Columns/SelectColumnItemAsync. A
+                        kijelölés minden oszlopban OnColumnSelectionChanged-en
+                        fut át (MainWindow.xaml.cs).
+                    -->
+                    <ItemsControl
+                        x:Name="ColumnsHost"
+                        ItemsSource="{Binding SelectedTab.Columns}"
+                        Visibility="Collapsed">
+                        <ItemsControl.Template>
+                            <ControlTemplate TargetType="ItemsControl">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:TabViewModel}">
+                                <Border
+                                    Width="230"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,1,0">
+                                    <Grid>
+                                        <ListBox
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            ItemContainerStyle="{StaticResource ColumnItemStyle}"
+                                            ItemsSource="{Binding Items}"
+                                            SelectionChanged="OnColumnSelectionChanged"
+                                            SelectionMode="Single"
+                                            VirtualizingPanel.IsVirtualizing="True">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type fs:FileSystemItem}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <controls:ShellIconImage
+                                                            Grid.Column="0"
+                                                            Width="16"
+                                                            Height="16"
+                                                            Margin="0,0,8,0"
+                                                            VerticalAlignment="Center"
+                                                            IconSize="16"
+                                                            Item="{Binding}" />
+                                                        <TextBlock
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Text="{Binding Name}"
+                                                            TextTrimming="CharacterEllipsis" />
+                                                        <ui:SymbolIcon
+                                                            Grid.Column="2"
+                                                            Margin="8,0,0,0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="11"
+                                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                            Symbol="ChevronRight24"
+                                                            Visibility="{Binding IsNavigable, Converter={StaticResource BoolToVisibility}}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontSize="12"
+                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                            Text="{Binding EmptyMessage}"
+                                            Visibility="{Binding EmptyMessage, Converter={StaticResource NullToCollapsed}}" />
+
+                                        <ui:ProgressRing
+                                            Width="22"
+                                            Height="22"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsIndeterminate="True"
+                                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    </Grid>
+
+                    <!--
+                        Oszlopos nézet jobb oldali részletek panelje — csak
+                        akkor látszik, ha egy oszlopban FÁJLT (nem mappát)
+                        jelöltek ki, lásd TabViewModel.ColumnsSelectedFile.
+                    -->
+                    <Border
+                        Grid.Column="1"
+                        Width="240"
+                        Padding="18"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1,0,0,0"
+                        Visibility="{Binding SelectedTab.ColumnsSelectedFile, Converter={StaticResource NullToCollapsed}}">
+                        <StackPanel DataContext="{Binding SelectedTab.ColumnsSelectedFile}">
+                            <controls:ShellIconImage
+                                Width="48"
+                                Height="48"
+                                Margin="0,0,0,14"
+                                HorizontalAlignment="Center"
+                                IconSize="48"
+                                Item="{Binding}" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{Binding Name}"
+                                TextAlignment="Center"
+                                TextWrapping="Wrap" />
+
+                            <Separator Margin="0,16,0,16" />
+
+                            <StackPanel Margin="0,0,0,12">
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                    Text="{loc:Loc Col_Type}" />
+                                <TextBlock Margin="0,2,0,0" Text="{Binding Converter={StaticResource FileType}}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,0,12">
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                    Text="{loc:Loc Col_Size}" />
+                                <TextBlock Margin="0,2,0,0" Text="{Binding SizeBytes, Converter={StaticResource ByteSize}}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                    Text="{loc:Loc Col_Modified}" />
+                                <TextBlock Margin="0,2,0,0" Text="{Binding ModifiedUtc, Converter={StaticResource LocalDate}}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
             </Grid>

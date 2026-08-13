@@ -20,11 +20,11 @@ public sealed partial class BugReportViewModel : ObservableObject
         if (!IsConfigured)
         {
             // Ez a figyelmeztetés — a küldés utáni visszajelzéssel ellentétben —
-            // szándékosan nem tűnik el magától: amíg nincs webhook beállítva,
+            // szándékosan nem tűnik el magától: amíg nincs bot API beállítva,
             // a Küldés gomb is inaktív marad, tehát az állapot végig érvényes.
             StatusMessage = string.Format(
                 TranslationSource.Instance["BugReport_NotConfigured"],
-                BugReportWebhookResolver.ConfigFilePath);
+                BugReportApiResolver.ConfigFilePath);
             StatusIsError = true;
             StatusVisible = true;
         }

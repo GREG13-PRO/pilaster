@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Pilaster.App.Localization;
 using Pilaster.Providers.Local;
 using Wpf.Ui.Controls;
+using ImageSource = System.Windows.Media.ImageSource;
 
 namespace Pilaster.App.ViewModels;
 
@@ -27,6 +28,17 @@ public sealed partial class SidebarItemViewModel : ObservableObject
     public required string Path { get; init; }
 
     public SymbolRegular Icon { get; init; } = SymbolRegular.Folder24;
+
+    /// <summary>
+    /// Behelyezett optikai lemez saját ikonja (autorun.inf vagy gyökér-.ico
+    /// alapján) — ha van, ez jelenik meg az <see cref="Icon"/> helyett.
+    /// </summary>
+    [ObservableProperty]
+    public partial ImageSource? CustomIcon { get; set; }
+
+    public bool HasCustomIcon => CustomIcon is not null;
+
+    partial void OnCustomIconChanged(ImageSource? value) => OnPropertyChanged(nameof(HasCustomIcon));
 
     /// <summary>Meghajtóknál a kapacitás-adatok; egyébként <c>null</c>.</summary>
     public DriveEntry? Drive { get; init; }
