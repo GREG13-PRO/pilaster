@@ -20,8 +20,14 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 
 ## Állapot
 
-**v0.7.0 — korai fejlesztés.** Ami már működik:
+**v0.8.0 — korai fejlesztés.** Ami már működik:
 
+- **Kezdőlap fül**: „Ez a gép"-stílusú áttekintés — gyorsmappák (Asztal, Dokumentumok, Letöltések, Képek, Zene, Videók) és a meghajtók csempézve, kihasználtság-sávval, a felület saját liquid glass dizájnjában
+- **Szerkeszthető gyorselérés**: saját mappák rögzítése jobbklikkel vagy húzással a panelre, alapértelmezett elemek eltávolítása, sorrend húzással átrendezve — minden mentve, újraindítás után is megmarad
+- **Kuka a gyorselérésben**: tartalom megtekintése, elemek visszaállítása vagy végleges törlése, „Kuka ürítése", üres állapot jelzése
+- **Azonnali átnevezés** új mappa/fájl létrehozásakor — pontosan az Intézőhöz hasonlóan: az alapnév kijelölve, szerkeszthető állapotban, Enter menti, Esc visszaáll, ütköző névnél automatikus sorszámozás
+- **Kiadás ikon** a cserélhető és optikai meghajtók sorának végén az oldalsávban — egy kattintásra azonnali biztonságos leválasztás, rendszermeghajtónál sosem jelenik meg
+- **Új alkalmazás ikon és arculat** — friss, éles arculat minden méretben (ablak, tálca, telepítő, exe-erőforrás)
 - **Natív Windows 11 jobbklikk-menü** fájlokon ÉS mappák üres területén egyaránt — a menü hívása külön szálon fut, hogy soha ne fagyassza le a felületet
 - **Liquid glass felület**: áttetsző oldalsáv, felső sáv, helyi menük (natív DWM Acrylic háttérrel) és Beállítások panel a Mica háttér felett — kapcsolható a Beállításokban, gyengébb gépekre
 - **Címkék** (macOS Tags mintára): 7 előre definiált szín, saját nevekkel, Beállításokban létrehozva/átnevezve/törölve; a fájlsoron megjelenő címke-ikonnal rendelhetők egy elemhez, az oldalsáv Címkék szekciója pedig szűr rájuk
@@ -119,12 +125,13 @@ A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak
 | **v0.6** ✅ | Oszlopos (Miller) nézet, natív jobbklikk-menü, mappaméret-számítás, meghajtó-kiadás, optikai lemez ikonja, Discord bot |
 | **v0.6.1** ✅ | Publikus hibabejelentő e-mail + rejtett fejlesztői panel, bot-biztonsági frissítés (multer 2.x) |
 | **v0.7.0** ✅ | Liquid glass felület, natív jobbklikk-fagyás javítása, üres terület natív menüje, címkék, kedvencek, breadcrumb-szerkesztés |
-| v0.8 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
-| v0.9 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
-| v1.0 | Azonnali keresés (NTFS MFT-index), parancspaletta |
-| v1.1 | Osztott panelek, munkaterek, polc, tömeges átnevezés |
-| v1.2 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
-| v1.3 | Csiszolás, dokumentáció, 30+ nyelv |
+| **v0.8.0** ✅ | Új alkalmazás ikon, azonnali átnevezés létrehozáskor, Kuka a gyorselérésben, Kezdőlap „Ez a gép" nézet, szerkeszthető gyorselérés, meghajtó-kiadás ikon az oldalsávban |
+| v0.9 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
+| v1.0 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
+| v1.1 | Azonnali keresés (NTFS MFT-index), parancspaletta |
+| v1.2 | Osztott panelek, munkaterek, polc, tömeges átnevezés |
+| v1.3 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
+| v1.4 | Csiszolás, dokumentáció, 30+ nyelv |
 
 ## Fordítás más nyelvre
 

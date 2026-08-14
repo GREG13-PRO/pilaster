@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Pilaster.App.Localization;
 using Pilaster.Core.Metadata;
 using Pilaster.Providers.Local;
+using Pilaster.Shell.Devices;
 using Wpf.Ui.Controls;
 using ImageSource = System.Windows.Media.ImageSource;
 
@@ -47,6 +48,13 @@ public sealed partial class SidebarItemViewModel : ObservableObject
     /// <summary>Igaz, ha meghajtó — ilyenkor a sor kihasználtság-sávot is rajzol.</summary>
     public bool IsDrive => Drive is not null;
 
+    /// <summary>
+    /// Igaz, ha ez a sor egy cserélhető/optikai meghajtó, ami biztonságosan
+    /// kiadható — ilyenkor jelenik meg a sor végén a Kiadás ikon.
+    /// Rendszermeghajtónál (fix lemeznél) sosem igaz.
+    /// </summary>
+    public bool CanEject => Drive is { } drive && RemovableDriveService.IsEjectable(drive.DriveType);
+
     /// <summary>A meghajtó másodlagos sora, pl. „82,4 GB szabad / 476 GB".</summary>
     [ObservableProperty]
     public partial string? Detail { get; set; }
@@ -80,6 +88,22 @@ public sealed partial class SidebarItemViewModel : ObservableObject
 
     /// <summary>Igaz a Kedvencek szekció soraira — ekkor jelenik meg az eltávolító „x" gomb.</summary>
     public bool IsRemovable { get; init; }
+
+    /// <summary>Igaz a Gyorselérés rögzített mappáira — ekkor jelenik meg a leoldó „x" gomb.</summary>
+    public bool IsUnpinnable { get; init; }
+
+    /// <summary>
+    /// Igaz a Lomtár sorára — kattintáskor ilyenkor nem navigálás történik
+    /// (nincs is valódi <see cref="Path"/>-ja), hanem a Lomtár-ablak nyílik
+    /// meg. Lásd <c>MainWindow.OnSidebarSelectionChanged</c>.
+    /// </summary>
+    public bool IsRecycleBin { get; init; }
+
+    /// <summary>Igaz a Kezdőlap sorára — a Kezdőlap-panel nem mutat magára mutató csempét.</summary>
+    public bool IsHomeEntry { get; init; }
+
+    /// <summary>Igaz, ha ez a sor csempeként megjeleníthető a Kezdőlap-panelen (nem a Lomtár és nem maga a Kezdőlap).</summary>
+    public bool IsDashboardTile => !IsRecycleBin && !IsHomeEntry;
 
     /// <summary>A lefordítható feliratok újraképzése nyelvváltás után.</summary>
     public void RefreshLabel()

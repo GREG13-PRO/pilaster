@@ -38,12 +38,26 @@ public partial class MainWindow : FluentWindow
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
 
+    /// <summary>A Lomtár-ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
+    private RecycleBinWindow? _recycleBinWindow;
+
     /// <summary>
     /// Igaz, amíg a natív jobbklikk-menü (<see cref="NativeContextMenuService"/>)
     /// nyitva van a külön STA szálon — ne induljon el egy második egymásra,
     /// ha a felhasználó a menü bezáródása előtt újra jobb gombot nyom.
     /// </summary>
     private bool _isNativeContextMenuOpen;
+
+    /// <summary>
+    /// A gomb lenyomásának képernyőpontja — a húzás-indítás küszöbének
+    /// (<see cref="SystemParameters.MinimumHorizontalDragDistance"/>)
+    /// méréséhez. Közös a fájlsorok és az oldalsáv sorai közt, mert
+    /// egyszerre csak az egyik húzás-fajta lehet folyamatban.
+    /// </summary>
+    private System.Windows.Point? _dragStartPoint;
+
+    /// <summary>Egyedi vágólap-formátum a gyorselérés-sorok áthúzásos átrendezéséhez.</summary>
+    private const string QuickAccessReorderFormat = "Pilaster.QuickAccessReorder";
 
     /// <summary>
     /// A fül, amelynek <c>CurrentPath</c> változását épp figyeljük — a csúszó
@@ -83,7 +97,7 @@ public partial class MainWindow : FluentWindow
         // (lásd MainWindowViewModel.AddTab) — induláskor az induló fülhöz
         // tartozó nézetet kell megjeleníteni, nem a XAML-ben alapértelmezett
         // Részleteset.
-        SyncViewModeVisuals(_viewModel.SelectedTab?.ViewMode ?? ViewMode.Details);
+        SyncViewModeVisuals(_viewModel.SelectedTab);
     }
 
     /// <summary>
@@ -230,6 +244,73 @@ public partial class MainWindow : FluentWindow
         _viewModel.SelectedTab?.CancelEditPathCommand.Execute(null);
 
     /// <summary>
+    /// A névmező fókuszba kerülésekor: mint az Intézőben, csak a NÉV RÉSZ
+    /// jelölődik ki (a kiterjesztés nem) — így egy gondatlan Enter nem
+    /// veszíti el véletlenül a fájl típusát. Mappáknál/kiterjesztés nélküli
+    /// fájloknál a teljes név kijelölődik.
+    /// </summary>
+    private void OnRenameBoxIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not true || sender is not TextBox textBox || textBox.DataContext is not FileSystemItem item)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            textBox.Focus();
+
+            var baseLength = item.EditableName.Length - item.Extension.Length - 1;
+
+            if (item.Kind != FileSystemItemKind.Directory && item.Extension.Length > 0 && baseLength > 0)
+            {
+                textBox.Select(0, baseLength);
+            }
+            else
+            {
+                textBox.SelectAll();
+            }
+        });
+    }
+
+    private void OnRenameBoxKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: FileSystemItem item } || _viewModel.SelectedTab is not { } tab)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.Enter:
+                e.Handled = true;
+                tab.CommitRenameCommand.Execute(item);
+                break;
+            case System.Windows.Input.Key.Escape:
+                e.Handled = true;
+                tab.CancelRenameCommand.Execute(item);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Fókuszvesztés (kattintás máshova): mint az Intézőben, ez ELFOGADJA a
+    /// beírt nevet, nem elveti. Ha a mező már nincs szerkesztés alatt (mert
+    /// az Enter/Esc épp most zárta le, és ez csak annak visszhangja, hiszen
+    /// az elrejtett mező is fókuszt veszít), nincs teendő — enélkül egy Esc
+    /// utáni visszhang tévesen újra elmentené a nevet.
+    /// </summary>
+    private void OnRenameBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: FileSystemItem { IsRenaming: true } item })
+        {
+            return;
+        }
+
+        _viewModel.SelectedTab?.CommitRenameCommand.Execute(item);
+    }
+
+    /// <summary>
     /// „Liquid glass" — natív Acrylic háttér a helyi menükön, ha a
     /// Beállításokban be van kapcsolva. Lásd <see cref="GlassEffectService"/>.
     /// </summary>
@@ -246,7 +327,7 @@ public partial class MainWindow : FluentWindow
         if (e.PropertyName == nameof(MainWindowViewModel.SelectedTab))
         {
             TrackTab(_viewModel.SelectedTab);
-            SyncViewModeVisuals(_viewModel.SelectedTab?.ViewMode ?? ViewMode.Details);
+            SyncViewModeVisuals(_viewModel.SelectedTab);
         }
     }
 
@@ -258,6 +339,7 @@ public partial class MainWindow : FluentWindow
         if (_trackedTab is not null)
         {
             _trackedTab.PropertyChanged -= OnTrackedTabPropertyChanged;
+            _trackedTab.RenameRequested -= OnTrackedTabRenameRequested;
         }
 
         _trackedTab = tab;
@@ -265,6 +347,7 @@ public partial class MainWindow : FluentWindow
         if (_trackedTab is not null)
         {
             _trackedTab.PropertyChanged += OnTrackedTabPropertyChanged;
+            _trackedTab.RenameRequested += OnTrackedTabRenameRequested;
         }
     }
 
@@ -272,8 +355,54 @@ public partial class MainWindow : FluentWindow
     {
         if (e.PropertyName == nameof(TabViewModel.CurrentPath))
         {
+            // Kezdőlapra navigálva (vagy onnan elnavigálva) a fül IsHome
+            // állapota is változik ugyanekkor — a látható panelt is
+            // szinkronizálni kell, nem csak az átmenetet lejátszani.
+            SyncViewModeVisuals(_trackedTab);
             PlayContentTransition();
         }
+    }
+
+    /// <summary>
+    /// Egy elem átnevezés-módba vált (új létrehozás után azonnal, vagy kézi
+    /// átnevezéskor) — kijelöli és láthatóvá görgeti a sort. A tényleges
+    /// fókuszt/kijelölést a szerkesztőmezőn az OnRenameBoxIsVisibleChanged
+    /// adja, amint a virtualizált konténer ténylegesen megjelenik.
+    /// </summary>
+    /// <remarks>
+    /// Oszlopos nézetben egyelőre nincs helyben-szerkesztő UI (lásd
+    /// FileNameEditTemplate — csak a Részletes/Rács nézet sablonjaiba van
+    /// bekötve), ezért ott ez a metódus nem csinál semmit; az új elem a
+    /// normál nevével jelenik meg.
+    /// </remarks>
+    private void OnTrackedTabRenameRequested(object? sender, FileSystemItem item)
+    {
+        Selector? selector = _viewModel.SelectedTab?.ViewMode switch
+        {
+            ViewMode.Grid => GridViewList,
+            ViewMode.Details => DetailsView,
+            _ => null,
+        };
+
+        if (selector is null)
+        {
+            return;
+        }
+
+        selector.SelectedItem = item;
+
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            switch (selector)
+            {
+                case ListView listView:
+                    listView.ScrollIntoView(item);
+                    break;
+                case ListBox listBox:
+                    listBox.ScrollIntoView(item);
+                    break;
+            }
+        });
     }
 
     /// <summary>
@@ -560,6 +689,14 @@ public partial class MainWindow : FluentWindow
         }
     }
 
+    private void OnPinToQuickAccessClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is FileSystemItem item)
+        {
+            _viewModel.PinToQuickAccessCommand.Execute(item.FullPath);
+        }
+    }
+
     private void OnShowInExplorerClick(object sender, RoutedEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
@@ -675,10 +812,175 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
+        if (item.IsRecycleBin)
+        {
+            OpenRecycleBinWindow();
+            return;
+        }
+
         if (_viewModel.SelectedTab is { } tab)
         {
             await tab.NavigateAsync(item.Path);
         }
+    }
+
+    /// <summary>
+    /// A Lomtár-ablak megnyitása — nem modális, és nem nyílik meg kettő
+    /// egyszerre (ugyanaz a minta, mint a Beállításoknál).
+    /// </summary>
+    private void OpenRecycleBinWindow()
+    {
+        if (_recycleBinWindow is { IsLoaded: true })
+        {
+            _recycleBinWindow.Activate();
+            return;
+        }
+
+        _recycleBinWindow = _services.GetRequiredService<RecycleBinWindow>();
+        _recycleBinWindow.Owner = this;
+
+        _recycleBinWindow.Closed += (_, _) =>
+        {
+            _recycleBinWindow = null;
+
+            // Ürítés/visszaállítás/végleges törlés után a Gyors elérés
+            // „üres" jelzése elavulttá válhatott.
+            _viewModel.RefreshQuickAccess();
+        };
+
+        _recycleBinWindow.Show();
+    }
+
+    private void OnFileRowPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+        _dragStartPoint = e.GetPosition(null);
+
+    /// <summary>
+    /// Mappa húzásának indítása a fájllistából — a gyorselérés panelre
+    /// ejtve rögzíti (lásd <see cref="OnSidebarDrop"/>). A szabványos
+    /// <see cref="System.Windows.DataFormats.FileDrop"/> formátumot
+    /// használja, tehát mellékesen valódi Explorer-ablakra húzva is működne.
+    /// </summary>
+    private void OnFileRowPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _dragStartPoint is not { } start)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(null);
+
+        if (Math.Abs(current.X - start.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(current.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        _dragStartPoint = null;
+
+        if (sender is not FrameworkElement { DataContext: FileSystemItem { IsNavigable: true } item } container)
+        {
+            return;
+        }
+
+        var data = new System.Windows.DataObject(System.Windows.DataFormats.FileDrop, new[] { item.FullPath });
+        DragDrop.DoDragDrop(container, data, DragDropEffects.Link);
+    }
+
+    private void OnSidebarItemPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+        _dragStartPoint = e.GetPosition(null);
+
+    /// <summary>
+    /// Gyorselérés-sor húzásának indítása az átrendezéshez — saját
+    /// vágólap-formátummal (<see cref="QuickAccessReorderFormat"/>), hogy a
+    /// leejtő oldal megkülönböztethesse egy fájllistából húzott mappa
+    /// rögzítésétől.
+    /// </summary>
+    private void OnSidebarItemPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _dragStartPoint is not { } start)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(null);
+
+        if (Math.Abs(current.X - start.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(current.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        _dragStartPoint = null;
+
+        if (sender is not FrameworkElement { DataContext: SidebarItemViewModel { IsUnpinnable: true } item } container)
+        {
+            return;
+        }
+
+        var data = new System.Windows.DataObject(QuickAccessReorderFormat, item.Path);
+        DragDrop.DoDragDrop(container, data, DragDropEffects.Move);
+    }
+
+    private void OnSidebarDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(QuickAccessReorderFormat) || e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Ejtés az oldalsávon: mappa(k) rögzítése a gyorselérésbe (külső húzás
+    /// a fájllistából), vagy egy meglévő gyorselérés-sor átrendezése (belső
+    /// húzás). A cél sort a leejtés pontjának vizuálisfa-bejárásával
+    /// találjuk meg — virtualizált listánál is működik, mert a húzás alatt
+    /// a látható konténerek már realizálva vannak.
+    /// </summary>
+    private void OnSidebarDrop(object sender, DragEventArgs e)
+    {
+        if (sender is not ListBox listBox)
+        {
+            return;
+        }
+
+        if (e.Data.GetData(QuickAccessReorderFormat) is string sourcePath)
+        {
+            if (FindSidebarItemAt(listBox, e.GetPosition(listBox)) is { } target)
+            {
+                _viewModel.ReorderQuickAccess(sourcePath, target.Path);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] paths)
+        {
+            foreach (var path in paths)
+            {
+                _viewModel.PinToQuickAccessCommand.Execute(path);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private static SidebarItemViewModel? FindSidebarItemAt(ListBox listBox, System.Windows.Point position)
+    {
+        if (listBox.InputHitTest(position) is not DependencyObject hit)
+        {
+            return null;
+        }
+
+        var current = hit;
+
+        while (current is not null && current is not System.Windows.Controls.ListBoxItem)
+        {
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return (current as System.Windows.Controls.ListBoxItem)?.DataContext as SidebarItemViewModel;
     }
 
     /// <summary>
@@ -830,21 +1132,26 @@ public partial class MainWindow : FluentWindow
             tab.ViewMode = mode;
         }
 
-        SyncViewModeVisuals(mode);
+        SyncViewModeVisuals(_viewModel.SelectedTab);
     }
 
     /// <summary>
-    /// A három nézet közül csak a megadottnak megfelelő gyökérelem látszik.
-    /// Külön a <see cref="ApplyViewMode"/>-tól, mert fülváltáskor (vagy
-    /// induláskor) is szinkronizálni kell a vizuális állapotot az adott fül
-    /// már meglévő <see cref="TabViewModel.ViewMode"/> értékéhez, anélkül,
-    /// hogy azt újra beállítanánk (ami felesleges mentést váltana ki).
+    /// A négy nézet (Részletes/Rács/Oszlopok/Kezdőlap) közül csak az adott
+    /// fülnek megfelelő gyökérelem látszik. Külön a <see cref="ApplyViewMode"/>-tól,
+    /// mert fülváltáskor, induláskor és Kezdőlap-navigáláskor (vagy onnan
+    /// elnavigáláskor) is szinkronizálni kell a vizuális állapotot, anélkül,
+    /// hogy a <see cref="TabViewModel.ViewMode"/>-ot újra beállítanánk (ami
+    /// felesleges mentést váltana ki).
     /// </summary>
-    private void SyncViewModeVisuals(ViewMode mode)
+    private void SyncViewModeVisuals(TabViewModel? tab)
     {
-        DetailsView.Visibility = mode == ViewMode.Details ? Visibility.Visible : Visibility.Collapsed;
-        GridViewList.Visibility = mode == ViewMode.Grid ? Visibility.Visible : Visibility.Collapsed;
-        ColumnsHost.Visibility = mode == ViewMode.Columns ? Visibility.Visible : Visibility.Collapsed;
+        var isHome = tab?.IsHome ?? false;
+        var mode = tab?.ViewMode ?? ViewMode.Details;
+
+        HomeDashboard.Visibility = isHome ? Visibility.Visible : Visibility.Collapsed;
+        DetailsView.Visibility = !isHome && mode == ViewMode.Details ? Visibility.Visible : Visibility.Collapsed;
+        GridViewList.Visibility = !isHome && mode == ViewMode.Grid ? Visibility.Visible : Visibility.Collapsed;
+        ColumnsHost.Visibility = !isHome && mode == ViewMode.Columns ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>

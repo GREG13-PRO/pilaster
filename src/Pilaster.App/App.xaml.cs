@@ -53,6 +53,10 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<SettingsWindow>();
 
+        // A Lomtár tartalma is friss betöltést kap minden megnyitáskor.
+        services.AddTransient<RecycleBinViewModel>();
+        services.AddTransient<RecycleBinWindow>();
+
         _services = services.BuildServiceProvider();
 
         var settings = _services.GetRequiredService<ISettingsService>();

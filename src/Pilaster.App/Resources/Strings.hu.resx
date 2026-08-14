@@ -93,6 +93,9 @@
   <data name="Nav_Favorites" xml:space="preserve">
     <value>Kedvencek</value>
   </data>
+  <data name="Nav_RecycleBin" xml:space="preserve">
+    <value>Lomtár</value>
+  </data>
   <data name="Nav_Tags" xml:space="preserve">
     <value>Címkék</value>
   </data>
@@ -306,6 +309,12 @@
   <data name="Error_CreateFailed" xml:space="preserve">
     <value>Az elem létrehozása nem sikerült</value>
   </data>
+  <data name="Rename_InvalidName" xml:space="preserve">
+    <value>A név érvénytelen karaktert tartalmaz</value>
+  </data>
+  <data name="Rename_NameTaken" xml:space="preserve">
+    <value>Már van ilyen nevű elem itt</value>
+  </data>
 
   <data name="Cmd_More" xml:space="preserve">
     <value>Több</value>
@@ -363,6 +372,12 @@
   </data>
   <data name="Cmd_AddFavorite" xml:space="preserve">
     <value>Hozzáadás a kedvencekhez</value>
+  </data>
+  <data name="Cmd_UnpinQuickAccess" xml:space="preserve">
+    <value>Eltávolítás a gyorselérésből</value>
+  </data>
+  <data name="Cmd_PinToQuickAccess" xml:space="preserve">
+    <value>Rögzítés a gyorseléréshez</value>
   </data>
   <data name="Cmd_Tags" xml:space="preserve">
     <value>Címkék</value>
@@ -453,5 +468,36 @@
   </data>
   <data name="Eject_Error" xml:space="preserve">
     <value>A meghajtó kiadása nem sikerült.</value>
+  </data>
+
+  <data name="RecycleBin_Title" xml:space="preserve">
+    <value>Lomtár</value>
+  </data>
+  <data name="RecycleBin_EmptyState" xml:space="preserve">
+    <value>A Lomtár üres</value>
+  </data>
+  <data name="RecycleBin_OriginalLocation" xml:space="preserve">
+    <value>Eredeti hely</value>
+  </data>
+  <data name="Cmd_Restore" xml:space="preserve">
+    <value>Visszaállítás</value>
+  </data>
+  <data name="Cmd_DeletePermanently" xml:space="preserve">
+    <value>Végleges törlés</value>
+  </data>
+  <data name="Cmd_EmptyRecycleBin" xml:space="preserve">
+    <value>Lomtár ürítése</value>
+  </data>
+  <data name="RecycleBin_ConfirmDelete" xml:space="preserve">
+    <value>Véglegesen törlöd ezt: „{0}"? Ez a lépés nem vonható vissza.</value>
+  </data>
+  <data name="RecycleBin_ConfirmEmpty" xml:space="preserve">
+    <value>Biztosan véglegesen törlöd a Lomtár összes tartalmát? Ez a lépés nem vonható vissza.</value>
+  </data>
+  <data name="RecycleBin_RestoreFailed" xml:space="preserve">
+    <value>Nem sikerült visszaállítani: „{0}"</value>
+  </data>
+  <data name="RecycleBin_DeleteFailed" xml:space="preserve">
+    <value>Nem sikerült véglegesen törölni: „{0}"</value>
   </data>
 </root>

@@ -15,17 +15,26 @@ namespace Pilaster.Core.FileSystem;
 /// </remarks>
 public sealed partial class FileSystemItem : ObservableObject
 {
-    /// <summary>Teljes útvonal. Virtuális elemeknél séma-előtagot is tartalmazhat.</summary>
-    public required string FullPath { get; init; }
+    /// <summary>
+    /// Teljes útvonal. Virtuális elemeknél séma-előtagot is tartalmazhat.
+    /// Sikeres átnevezés után frissül — lásd <c>TabViewModel.CommitRenameAsync</c>.
+    /// </summary>
+    [ObservableProperty]
+    public required partial string FullPath { get; set; }
 
-    /// <summary>A megjelenítendő név (fájlnév kiterjesztéssel, vagy meghajtó-címke).</summary>
-    public required string Name { get; init; }
+    /// <summary>
+    /// A megjelenítendő név (fájlnév kiterjesztéssel, vagy meghajtó-címke).
+    /// Sikeres átnevezés után frissül.
+    /// </summary>
+    [ObservableProperty]
+    public required partial string Name { get; set; }
 
     /// <summary>Az elem alaptípusa.</summary>
     public required FileSystemItemKind Kind { get; init; }
 
-    /// <summary>Kiterjesztés pont nélkül, kisbetűsítve. Mappáknál üres.</summary>
-    public string Extension { get; init; } = string.Empty;
+    /// <summary>Kiterjesztés pont nélkül, kisbetűsítve. Mappáknál üres. Átnevezés után frissül.</summary>
+    [ObservableProperty]
+    public partial string Extension { get; set; } = string.Empty;
 
     /// <summary>Méret bájtban. Mappáknál -1, amíg ki nem számoltuk.</summary>
     public long SizeBytes { get; init; } = -1;
@@ -70,6 +79,26 @@ public sealed partial class FileSystemItem : ObservableObject
     /// <summary>Igaz, ha az elem kedvencként meg van jelölve.</summary>
     [ObservableProperty]
     public partial bool IsFavorite { get; set; }
+
+    /// <summary>
+    /// Igaz, amíg a sor helyben szerkeszthető névmezőt mutat név helyett —
+    /// új elem létrehozásakor azonnal, vagy kézi átnevezéskor. Lásd
+    /// <c>TabViewModel.BeginRename</c>/<c>CommitRenameAsync</c>.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsRenaming { get; set; }
+
+    /// <summary>A szerkeszthető névmező tartalma, amíg <see cref="IsRenaming"/> igaz.</summary>
+    [ObservableProperty]
+    public partial string EditableName { get; set; } = string.Empty;
+
+    /// <summary>Sikertelen átnevezés oka, vagy <c>null</c>. Csak <see cref="IsRenaming"/> alatt jelenik meg.</summary>
+    [ObservableProperty]
+    public partial string? RenameError { get; set; }
+
+    public bool HasRenameError => RenameError is not null;
+
+    partial void OnRenameErrorChanged(string? value) => OnPropertyChanged(nameof(HasRenameError));
 
     public override string ToString() => FullPath;
 }

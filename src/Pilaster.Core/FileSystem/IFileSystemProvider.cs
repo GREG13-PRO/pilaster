@@ -40,6 +40,14 @@ public interface IFileSystemProvider
     string? GetParentPath(string path);
 
     /// <summary>
+    /// Egy elem átnevezése a saját mappáján belül.
+    /// </summary>
+    /// <param name="path">Az átnevezendő elem teljes útvonala.</param>
+    /// <param name="newName">Az új név — csak a névrész, útvonal nélkül.</param>
+    /// <returns>Az átnevezett elem új teljes útvonala.</returns>
+    Task<string> RenameAsync(string path, string newName, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Egy mappa teljes (rekurzív) tartalomméretének kiszámítása.
     /// </summary>
     /// <remarks>

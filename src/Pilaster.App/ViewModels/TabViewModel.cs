@@ -34,6 +34,15 @@ public sealed partial class TabViewModel : ObservableObject
     /// </summary>
     private const int MaxBatchSize = 20_000;
 
+    /// <summary>
+    /// A <see cref="CurrentPath"/> ezen az álnéven jelzi a virtuális
+    /// Kezdőlap-nézetet — nincs mögötte valódi mappa, ezért a
+    /// <see cref="LoadAsync"/> nem az <see cref="IFileSystemProvider"/>-t
+    /// hívja meg rá, hanem <see cref="LoadHomeAsync"/>-et. Lásd
+    /// <see cref="IsHome"/> és a nézet oldalán a Kezdőlap-panel.
+    /// </summary>
+    public const string HomeMarker = "pilaster:home";
+
     private readonly IFileSystemProvider _provider;
     private readonly FolderSizeService _folderSizes;
     private readonly FileMetadataService _metadata;
@@ -193,6 +202,109 @@ public sealed partial class TabViewModel : ObservableObject
         item.IsFavorite = _metadata.IsFavorite(item.FullPath);
     }
 
+    /// <summary>
+    /// Akkor jelez, amikor egy elem szerkeszthető névmezőre vált — a nézet
+    /// erre kijelöli a sort, láthatóvá görgeti, és fókuszba viszi a mezőt.
+    /// Lásd <c>MainWindow.TrackTab</c>/<c>OnTrackedTabRenameRequested</c>.
+    /// </summary>
+    public event EventHandler<FileSystemItem>? RenameRequested;
+
+    /// <summary>
+    /// Átnevezés-mód indítása egy elemen — új elem létrehozása után azonnal,
+    /// vagy kézi átnevezéskor. Egyszerre csak egy elem lehet szerkesztés alatt.
+    /// </summary>
+    public void BeginRename(FileSystemItem item)
+    {
+        foreach (var other in Items)
+        {
+            if (other.IsRenaming)
+            {
+                other.IsRenaming = false;
+                other.RenameError = null;
+            }
+        }
+
+        item.EditableName = item.Name;
+        item.RenameError = null;
+        item.IsRenaming = true;
+
+        RenameRequested?.Invoke(this, item);
+    }
+
+    /// <summary>Esc: vissza a névre, a beírt szöveg elvész.</summary>
+    [RelayCommand]
+    private void CancelRename(FileSystemItem? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        item.IsRenaming = false;
+        item.RenameError = null;
+    }
+
+    /// <summary>
+    /// Enter, vagy fókuszvesztés a névmezőn: átnevezés a beírt névre.
+    /// Érvénytelen vagy ütköző névnél a mező NYITVA marad, hibaüzenettel —
+    /// mint az Intézőben —, hogy a felhasználó rögtön javíthasson.
+    /// </summary>
+    [RelayCommand]
+    private async Task CommitRenameAsync(FileSystemItem? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var newName = item.EditableName.Trim();
+
+        if (newName.Length == 0 || newName == item.Name)
+        {
+            item.IsRenaming = false;
+            item.RenameError = null;
+            return;
+        }
+
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            item.RenameError = TranslationSource.Instance["Rename_InvalidName"];
+            return;
+        }
+
+        try
+        {
+            var newPath = await _provider.RenameAsync(item.FullPath, newName).ConfigureAwait(false);
+
+            await OnUiAsync(() =>
+            {
+                item.FullPath = newPath;
+                item.Name = newName;
+                item.Extension = item.Kind == FileSystemItemKind.Directory
+                    ? string.Empty
+                    : GetExtensionLowerInvariant(newName);
+                item.IsRenaming = false;
+                item.RenameError = null;
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            await OnUiAsync(() =>
+                item.RenameError = ex is UnauthorizedAccessException
+                    ? TranslationSource.Instance["Error_AccessDenied"]
+                    : TranslationSource.Instance["Rename_NameTaken"]).ConfigureAwait(false);
+        }
+    }
+
+    private static string GetExtensionLowerInvariant(string name)
+    {
+        var dot = name.LastIndexOf('.');
+
+        return dot <= 0 || dot == name.Length - 1
+            ? string.Empty
+            : name[(dot + 1)..].ToLowerInvariant();
+    }
+
     /// <summary>A fül vissza/előre előzménye.</summary>
     public NavigationHistory History { get; }
 
@@ -222,12 +334,21 @@ public sealed partial class TabViewModel : ObservableObject
     [ObservableProperty]
     public partial string? CurrentPath { get; set; }
 
+    /// <summary>
+    /// Igaz, amíg a fül a virtuális Kezdőlap-nézetet mutatja („Ez a gép"
+    /// stílusban: gyorselérés-mappák + meghajtók) a normál fájllista helyett.
+    /// </summary>
+    public bool IsHome => CurrentPath == HomeMarker;
+
     partial void OnCurrentPathChanged(string? value)
     {
+        OnPropertyChanged(nameof(IsHome));
+
         // Csak akkor kell újraépíteni az oszlopokat, ha ez a fül maga az
         // oszlopos nézetet mutató "gyökér" — egy oszlop saját CurrentPath-
         // változása (amikor belé navigálunk) nem indíthat saját oszlopfát.
-        if (ViewMode == ViewMode.Columns)
+        // Kezdőlap-nézetben nincs értelme oszlopokat építeni.
+        if (ViewMode == ViewMode.Columns && !IsHome)
         {
             ResetColumns();
         }
@@ -238,10 +359,40 @@ public sealed partial class TabViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowFlatEmptyMessage));
         OnPropertyChanged(nameof(ShowFlatLoading));
 
-        if (value == ViewMode.Columns)
+        if (value == ViewMode.Columns && !IsHome)
         {
             ResetColumns();
         }
+    }
+
+    /// <summary>
+    /// A virtuális Kezdőlap-nézet betöltése — nincs valódi fájlrendszer-
+    /// elérés, csak a fül állapotát állítja „Kezdőlap" módra. Maga a tartalom
+    /// (gyorselérés-mappák, meghajtók) a <c>MainWindowViewModel.Sections</c>-ből
+    /// jön a nézet oldalán, hogy ne kelljen duplikálni azt a logikát.
+    /// </summary>
+    private async Task LoadHomeAsync()
+    {
+        var previous = _loadCancellation;
+        _loadCancellation = null;
+
+        if (previous is not null)
+        {
+            await previous.CancelAsync().ConfigureAwait(false);
+            previous.Dispose();
+        }
+
+        await OnUiAsync(() =>
+        {
+            CurrentPath = HomeMarker;
+            Title = TranslationSource.Instance["Nav_Home"];
+            IsLoading = false;
+            EmptyMessage = null;
+            Items.Clear();
+            Breadcrumbs.Clear();
+            Breadcrumbs.Add(new BreadcrumbSegment(TranslationSource.Instance["Nav_Home"], HomeMarker));
+            RaiseNavigationState();
+        }).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -456,6 +607,12 @@ public sealed partial class TabViewModel : ObservableObject
     /// </remarks>
     private async Task LoadAsync(string path)
     {
+        if (path == HomeMarker)
+        {
+            await LoadHomeAsync().ConfigureAwait(false);
+            return;
+        }
+
         // Gyors mappaváltogatásnál a korábbi betöltés feleslegessé válik.
         var previous = _loadCancellation;
         var cancellation = new CancellationTokenSource();

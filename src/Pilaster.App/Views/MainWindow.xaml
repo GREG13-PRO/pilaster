@@ -157,6 +157,14 @@
                     <ui:SymbolIcon Symbol="Open24" />
                 </MenuItem.Icon>
             </MenuItem>
+            <MenuItem
+                Click="OnPinToQuickAccessClick"
+                Header="{loc:Loc Cmd_PinToQuickAccess}"
+                Visibility="{Binding IsNavigable, Converter={StaticResource BoolToVisibility}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Pin24" />
+                </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Click="OnCopyPathClick" Header="{loc:Loc Cmd_CopyPath}">
                 <MenuItem.Icon>
@@ -224,6 +232,15 @@
             <Setter Property="Padding" Value="10,7" />
             <Setter Property="Margin" Value="6,1" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <!--
+                Húzás indítása: a gyorselérés sorai áthúzhatók egymásra az
+                átrendezéshez (lásd OnSidebarItemPreviewMouseMove). Más
+                szekciók (Meghajtók, Kedvencek) sorain is fut, de ott a
+                MainWindowViewModel.ReorderQuickAccess csendben nem csinál
+                semmit, mert az útvonal nincs a gyorselérés-listában.
+            -->
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="OnSidebarItemPreviewMouseDown" />
+            <EventSetter Event="PreviewMouseMove" Handler="OnSidebarItemPreviewMouseMove" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -339,6 +356,36 @@
         </Style>
 
         <!--
+            Helyben szerkeszthető névmező — új elem létrehozásakor azonnal
+            (lásd MainWindowViewModel.CreateNewItemAsync → TabViewModel.BeginRename)
+            vagy kézi átnevezéskor jelenik meg a statikus névTextBlock helyett.
+            Közös sablon a Részletes és a Rácsnézet között.
+        -->
+        <DataTemplate x:Key="FileNameEditTemplate" DataType="{x:Type fs:FileSystemItem}">
+            <ui:TextBox
+                x:Name="RenameBox"
+                MinWidth="80"
+                Padding="3,0"
+                VerticalAlignment="Center"
+                IsVisibleChanged="OnRenameBoxIsVisibleChanged"
+                KeyDown="OnRenameBoxKeyDown"
+                LostFocus="OnRenameBoxLostFocus"
+                Text="{Binding EditableName, UpdateSourceTrigger=PropertyChanged}"
+                ToolTip="{Binding RenameError}">
+                <ui:TextBox.Style>
+                    <Style BasedOn="{StaticResource {x:Type ui:TextBox}}" TargetType="ui:TextBox">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasRenameError}" Value="True">
+                                <Setter Property="BorderBrush" Value="#E81123" />
+                                <Setter Property="BorderThickness" Value="1" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ui:TextBox.Style>
+            </ui:TextBox>
+        </DataTemplate>
+
+        <!--
             Címke-pöttyök + kedvenc szív + címke-választó ikon egy fájlsoron —
             közös sablon a Részletes és a Rácsnézet között (lásd
             OnTagPickerClick / SelectedTab.ToggleFavoriteCommand). A
@@ -438,6 +485,9 @@
                 natív menü valamiért nem elérhető.
             -->
             <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemPreviewRightButtonDown" />
+            <!--  Mappa húzása a gyorselérésre — lásd OnFileRowPreviewMouseMove.  -->
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="OnFileRowPreviewMouseDown" />
+            <EventSetter Event="PreviewMouseMove" Handler="OnFileRowPreviewMouseMove" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
@@ -487,6 +537,9 @@
                 natív menü valamiért nem elérhető.
             -->
             <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemPreviewRightButtonDown" />
+            <!--  Mappa húzása a gyorselérésre — lásd OnFileRowPreviewMouseMove.  -->
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="OnFileRowPreviewMouseDown" />
+            <EventSetter Event="PreviewMouseMove" Handler="OnFileRowPreviewMouseMove" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -949,8 +1002,11 @@
                                         Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                         Text="{Binding Header}" />
                                     <ListBox
+                                        AllowDrop="True"
                                         Background="Transparent"
                                         BorderThickness="0"
+                                        DragOver="OnSidebarDragOver"
+                                        Drop="OnSidebarDrop"
                                         ItemContainerStyle="{StaticResource SidebarItemStyle}"
                                         ItemsSource="{Binding Items}"
                                         SelectionChanged="OnSidebarSelectionChanged"
@@ -1002,6 +1058,32 @@
                                                             Visibility="{Binding IsRemovable, Converter={StaticResource BoolToVisibility}}">
                                                             <ui:SymbolIcon FontSize="12" Symbol="Dismiss24" />
                                                         </ui:Button>
+
+                                                        <!--  Gyorselérés leoldása — csak a rögzített mappák sorain (IsUnpinnable)  -->
+                                                        <ui:Button
+                                                            Grid.Column="1"
+                                                            Padding="4"
+                                                            VerticalAlignment="Center"
+                                                            Appearance="Transparent"
+                                                            Command="{Binding DataContext.UnpinQuickAccessCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip="{loc:Loc Cmd_UnpinQuickAccess}"
+                                                            Visibility="{Binding IsUnpinnable, Converter={StaticResource BoolToVisibility}}">
+                                                            <ui:SymbolIcon FontSize="12" Symbol="Dismiss24" />
+                                                        </ui:Button>
+
+                                                        <!--  Kiadás — csak cserélhető/optikai meghajtóknál, sosem a rendszermeghajtónál (CanEject)  -->
+                                                        <ui:Button
+                                                            Grid.Column="1"
+                                                            Padding="4"
+                                                            VerticalAlignment="Center"
+                                                            Appearance="Transparent"
+                                                            Command="{Binding DataContext.EjectDriveCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip="{loc:Loc Cmd_Eject}"
+                                                            Visibility="{Binding CanEject, Converter={StaticResource BoolToVisibility}}">
+                                                            <ui:SymbolIcon FontSize="14" Symbol="ArrowEject20" />
+                                                        </ui:Button>
                                                     </Grid>
 
                                                     <!--  Meghajtóknál kihasználtság-sáv  -->
@@ -1018,6 +1100,14 @@
                                                             Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                             Text="{Binding Detail}" />
                                                     </StackPanel>
+
+                                                    <!--  Lomtár: „üres" jelzés, ha nincs benne semmi  -->
+                                                    <TextBlock
+                                                        Margin="26,3,2,0"
+                                                        FontSize="11"
+                                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                        Text="{Binding Detail}"
+                                                        Visibility="{Binding IsRecycleBin, Converter={StaticResource BoolToVisibility}}" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -1141,7 +1231,12 @@
                                                 <TextBlock
                                                     VerticalAlignment="Center"
                                                     Text="{Binding Name}"
-                                                    TextTrimming="CharacterEllipsis" />
+                                                    TextTrimming="CharacterEllipsis"
+                                                    Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                                <ContentPresenter
+                                                    Content="{Binding}"
+                                                    ContentTemplate="{StaticResource FileNameEditTemplate}"
+                                                    Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}}" />
                                                 <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource FileBadgesTemplate}" />
                                             </StackPanel>
                                         </DataTemplate>
@@ -1231,7 +1326,12 @@
                                         Text="{Binding Name}"
                                         TextAlignment="Center"
                                         TextTrimming="CharacterEllipsis"
-                                        TextWrapping="Wrap" />
+                                        TextWrapping="Wrap"
+                                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                    <ContentPresenter
+                                        Content="{Binding}"
+                                        ContentTemplate="{StaticResource FileNameEditTemplate}"
+                                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}}" />
                                     <ContentPresenter
                                         Margin="0,2,0,0"
                                         HorizontalAlignment="Center"
@@ -1375,6 +1475,109 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!--
+                        Kezdőlap-panel — „Ez a gép" stílusban: gyorselérés-
+                        mappák és meghajtók nagy csempékként, saját dizájnnal.
+                        Csak akkor látszik, ha a fül a virtuális Kezdőlap-
+                        nézetet mutatja (TabViewModel.IsHome) — lásd
+                        MainWindow.xaml.cs SyncViewModeVisuals.
+                    -->
+                    <ScrollViewer
+                        x:Name="HomeDashboard"
+                        Padding="6"
+                        VerticalScrollBarVisibility="Auto"
+                        Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock
+                                Margin="4,4,0,10"
+                                FontSize="15"
+                                FontWeight="SemiBold"
+                                Text="{loc:Loc Nav_QuickAccess}" />
+                            <ItemsControl ItemsSource="{Binding Sections[0].Items}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:SidebarItemViewModel}">
+                                        <ui:Button
+                                            Width="130"
+                                            Height="92"
+                                            Margin="0,0,10,10"
+                                            Padding="0"
+                                            Appearance="Secondary"
+                                            Command="{Binding DataContext.OpenSidebarItemCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                            CommandParameter="{Binding}"
+                                            CornerRadius="9"
+                                            Visibility="{Binding IsDashboardTile, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <ui:SymbolIcon
+                                                    HorizontalAlignment="Center"
+                                                    FontSize="28"
+                                                    Symbol="{Binding Icon}" />
+                                                <TextBlock
+                                                    Margin="0,10,0,0"
+                                                    HorizontalAlignment="Center"
+                                                    Text="{Binding Label}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </ui:Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock
+                                Margin="4,16,0,10"
+                                FontSize="15"
+                                FontWeight="SemiBold"
+                                Text="{loc:Loc Nav_Drives}" />
+                            <ItemsControl ItemsSource="{Binding Sections[1].Items}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:SidebarItemViewModel}">
+                                        <ui:Button
+                                            Width="230"
+                                            Margin="0,0,12,12"
+                                            Padding="14,12"
+                                            HorizontalContentAlignment="Stretch"
+                                            Appearance="Secondary"
+                                            Command="{Binding DataContext.OpenSidebarItemCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                            CommandParameter="{Binding}"
+                                            CornerRadius="9">
+                                            <StackPanel HorizontalAlignment="Stretch">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ui:SymbolIcon
+                                                        Margin="0,0,8,0"
+                                                        VerticalAlignment="Center"
+                                                        FontSize="20"
+                                                        Symbol="{Binding Icon}" />
+                                                    <TextBlock
+                                                        VerticalAlignment="Center"
+                                                        Text="{Binding Label}"
+                                                        TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <ProgressBar
+                                                    Height="4"
+                                                    Margin="0,10,0,4"
+                                                    Maximum="1"
+                                                    Value="{Binding UsedFraction, Mode=OneWay}" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                    Text="{Binding Detail}" />
+                                            </StackPanel>
+                                        </ui:Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
                     </Grid>
 
                     <!--

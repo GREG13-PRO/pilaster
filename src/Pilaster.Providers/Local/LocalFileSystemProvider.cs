@@ -235,6 +235,32 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
         }
     }
 
+    public Task<string> RenameAsync(string path, string newName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var trimmed = Path.TrimEndingDirectorySeparator(path);
+        var directory = Path.GetDirectoryName(trimmed);
+
+        if (string.IsNullOrEmpty(directory))
+        {
+            throw new IOException("A szülőmappa nem található.");
+        }
+
+        var destination = Path.Combine(directory, newName);
+
+        if (Directory.Exists(path))
+        {
+            Directory.Move(path, destination);
+        }
+        else
+        {
+            File.Move(path, destination);
+        }
+
+        return Task.FromResult(destination);
+    }
+
     public Task<long> GetFolderSizeAsync(string path, CancellationToken cancellationToken = default) =>
         Task.Run(() => ComputeFolderSize(path, cancellationToken), cancellationToken);
 

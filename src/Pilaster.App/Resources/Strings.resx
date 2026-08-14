@@ -93,6 +93,9 @@
   <data name="Nav_Favorites" xml:space="preserve">
     <value>Favorites</value>
   </data>
+  <data name="Nav_RecycleBin" xml:space="preserve">
+    <value>Recycle Bin</value>
+  </data>
   <data name="Nav_Tags" xml:space="preserve">
     <value>Tags</value>
   </data>
@@ -306,6 +309,12 @@
   <data name="Error_CreateFailed" xml:space="preserve">
     <value>Could not create the item</value>
   </data>
+  <data name="Rename_InvalidName" xml:space="preserve">
+    <value>The name contains an invalid character</value>
+  </data>
+  <data name="Rename_NameTaken" xml:space="preserve">
+    <value>An item with that name already exists here</value>
+  </data>
 
   <data name="Cmd_More" xml:space="preserve">
     <value>More</value>
@@ -363,6 +372,12 @@
   </data>
   <data name="Cmd_AddFavorite" xml:space="preserve">
     <value>Add to favorites</value>
+  </data>
+  <data name="Cmd_UnpinQuickAccess" xml:space="preserve">
+    <value>Remove from Quick access</value>
+  </data>
+  <data name="Cmd_PinToQuickAccess" xml:space="preserve">
+    <value>Pin to Quick access</value>
   </data>
   <data name="Cmd_Tags" xml:space="preserve">
     <value>Tags</value>
@@ -453,5 +468,36 @@
   </data>
   <data name="Eject_Error" xml:space="preserve">
     <value>Couldn't eject the drive.</value>
+  </data>
+
+  <data name="RecycleBin_Title" xml:space="preserve">
+    <value>Recycle Bin</value>
+  </data>
+  <data name="RecycleBin_EmptyState" xml:space="preserve">
+    <value>The Recycle Bin is empty</value>
+  </data>
+  <data name="RecycleBin_OriginalLocation" xml:space="preserve">
+    <value>Original location</value>
+  </data>
+  <data name="Cmd_Restore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="Cmd_DeletePermanently" xml:space="preserve">
+    <value>Delete permanently</value>
+  </data>
+  <data name="Cmd_EmptyRecycleBin" xml:space="preserve">
+    <value>Empty Recycle Bin</value>
+  </data>
+  <data name="RecycleBin_ConfirmDelete" xml:space="preserve">
+    <value>Permanently delete "{0}"? This can't be undone.</value>
+  </data>
+  <data name="RecycleBin_ConfirmEmpty" xml:space="preserve">
+    <value>Permanently delete everything in the Recycle Bin? This can't be undone.</value>
+  </data>
+  <data name="RecycleBin_RestoreFailed" xml:space="preserve">
+    <value>Couldn't restore "{0}"</value>
+  </data>
+  <data name="RecycleBin_DeleteFailed" xml:space="preserve">
+    <value>Couldn't permanently delete "{0}"</value>
   </data>
 </root>

@@ -55,6 +55,29 @@ public sealed class QuickActionSettings
 }
 
 /// <summary>
+/// Egy rögzített mappa a gyorselérésben.
+/// </summary>
+/// <remarks>
+/// Az előre definiált mappáknál (Asztal, Dokumentumok stb.) a
+/// <see cref="LabelKey"/> egy fordítási kulcs, hogy nyelvváltáskor a felirat
+/// is kövesse — a felhasználó által rögzített egyéni mappáknál nincs
+/// fordítás, ott a <see cref="CustomLabel"/> (a mappa saját neve) jelenik meg.
+/// </remarks>
+public sealed class PinnedFolder
+{
+    public required string Path { get; set; }
+
+    /// <summary>Fordítási kulcs az előre definiált mappákhoz (pl. „Nav_Desktop"). Egyéni mappánál <c>null</c>.</summary>
+    public string? LabelKey { get; set; }
+
+    /// <summary>Egyéni (a felhasználó által rögzített) mappánál a megjelenítendő név.</summary>
+    public string? CustomLabel { get; set; }
+
+    /// <summary>A WPF-UI ikon neve (pl. <c>Desktop24</c>). Egyéni mappánál általános mappaikon.</summary>
+    public string Icon { get; set; } = "Folder24";
+}
+
+/// <summary>
 /// Az alkalmazás menthető beállításai.
 /// </summary>
 /// <remarks>
@@ -91,6 +114,16 @@ public sealed class AppSettings
 
     /// <summary>Az utoljára használt nézetmód — új fül ezzel nyílik.</summary>
     public Pilaster.Core.FileSystem.ViewMode LastViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
+
+    /// <summary>
+    /// A gyorselérés rögzített mappái, sorrendben. <c>null</c> = még sosem
+    /// lett testreszabva — ilyenkor a nézet az alapértelmezett hat mappával
+    /// (Asztal, Dokumentumok, Letöltések, Képek, Zene, Videók) tölti fel
+    /// első használatkor, és el is menti, hogy onnantól ez legyen az igazság
+    /// forrása. Így törlés/rögzítés/átrendezés után soha nem áll vissza az
+    /// alapértelmezésre.
+    /// </summary>
+    public List<PinnedFolder>? QuickAccessPins { get; set; }
 
     /// <summary>A felső sáv első gyorsgombja.</summary>
     public QuickActionSettings QuickAction1 { get; set; } = new()

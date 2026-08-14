@@ -9,6 +9,7 @@ using Pilaster.Core.Formatting;
 using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
 using Pilaster.Shell.Devices;
+using Pilaster.Shell.Recycle;
 using Wpf.Ui.Controls;
 
 namespace Pilaster.App.ViewModels;
@@ -67,7 +68,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         RefreshTagFilters();
 
-        AddTab(GetStartupPath());
+        AddTab(TabViewModel.HomeMarker);
     }
 
     partial void OnSelectedTabChanged(TabViewModel? value)
@@ -137,7 +138,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public event EventHandler<EjectOutcome>? EjectCompleted;
 
     [RelayCommand]
-    private void NewTab() => AddTab(GetStartupPath());
+    private void NewTab() => AddTab(TabViewModel.HomeMarker);
 
     [RelayCommand]
     private void CloseTab(TabViewModel? tab)
@@ -203,7 +204,38 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (result.Outcome == EjectOutcome.Succeeded)
         {
-            await SelectedTab.NavigateAsync(GetStartupPath());
+            await SelectedTab.NavigateAsync(TabViewModel.HomeMarker);
+            RefreshDrives();
+        }
+
+        EjectCompleted?.Invoke(this, result.Outcome);
+    }
+
+    /// <summary>
+    /// Kiadás közvetlenül az oldalsáv meghajtó-sorának végén lévő ikonnal —
+    /// nem kell előbb megnyitni a meghajtót, mint az eszköztár Kiadás
+    /// gombjánál (<see cref="EjectCurrentDriveAsync"/>).
+    /// </summary>
+    [RelayCommand]
+    private async Task EjectDriveAsync(SidebarItemViewModel? item)
+    {
+        if (item?.Drive is not { } drive || !RemovableDriveService.IsEjectable(drive.DriveType))
+        {
+            return;
+        }
+
+        var result = RemovableDriveService.Eject(drive.Item.FullPath, drive.DriveType);
+
+        if (result.Outcome == EjectOutcome.Succeeded)
+        {
+            // Ha épp ezen a meghajtón állt egy fül, arról is el kell navigálni,
+            // különben egy érvénytelenné vált útvonalon maradna.
+            if (SelectedTab?.CurrentPath is { } path
+                && path.StartsWith(drive.Item.FullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                await SelectedTab.NavigateAsync(TabViewModel.HomeMarker);
+            }
+
             RefreshDrives();
         }
 
@@ -335,6 +367,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         await tab.RefreshCommand.ExecuteAsync(null);
+
+        // Azonnali átnevezés-mód, mint a Windows 11 Fájlkezelőben: az új elem
+        // létrejön alapnévvel, de rögtön szerkeszthető állapotban jelenik meg.
+        if (tab.Items.FirstOrDefault(i => string.Equals(i.FullPath, result.CreatedPath, StringComparison.OrdinalIgnoreCase)) is { } created)
+        {
+            tab.BeginRename(created);
+        }
     }
 
     /// <summary>
@@ -445,13 +484,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ = tab.NavigateAsync(path);
     }
 
-    /// <summary>
-    /// Az induló mappa. A felhasználói profil biztonságos alapértelmezés:
-    /// mindig létezik, és nem igényel emelt jogosultságot.
-    /// </summary>
-    private static string GetStartupPath() =>
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
     private void BuildSidebar()
     {
         Sections.Clear();
@@ -527,6 +559,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
         UpdateActiveSidebarItem();
     }
 
+    /// <summary>
+    /// A Gyors elérés szekció (benne a Lomtár „üres" jelzésének) frissítése —
+    /// a Lomtár-ablak bezárásakor hívva, hogy az ürítés/visszaállítás/törlés
+    /// után a sáv ne mutasson elavult állapotot.
+    /// </summary>
+    public void RefreshQuickAccess()
+    {
+        var quickAccessSection = Sections.FirstOrDefault(s => s.HeaderKey == "Nav_QuickAccess");
+
+        if (quickAccessSection is null)
+        {
+            return;
+        }
+
+        var index = Sections.IndexOf(quickAccessSection);
+
+        Sections[index] = new SidebarSection
+        {
+            HeaderKey = "Nav_QuickAccess",
+            Header = TranslationSource.Instance["Nav_QuickAccess"],
+            Items = BuildQuickAccess(),
+        };
+
+        UpdateActiveSidebarItem();
+    }
+
     [RelayCommand]
     private void RemoveFavorite(SidebarItemViewModel? item)
     {
@@ -534,6 +592,78 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             _metadata.SetFavorite(item.Path, false);
         }
+    }
+
+    /// <summary>
+    /// Egy mappa rögzítése a gyorselérésben — jobb klikkből („Rögzítés a
+    /// gyorseléréshez") vagy a mappa ráhúzásából a gyorselérés panelre.
+    /// Ha már rögzítve van, nem csinál semmit (nincs duplikáció).
+    /// </summary>
+    [RelayCommand]
+    private void PinToQuickAccess(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            return;
+        }
+
+        EnsureQuickAccessPinsSeeded();
+
+        var pins = _settings.Current.QuickAccessPins!;
+
+        if (pins.Any(p => string.Equals(p.Path, path, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        pins.Add(new PinnedFolder
+        {
+            Path = path,
+            CustomLabel = Path.GetFileName(Path.TrimEndingDirectorySeparator(path)),
+        });
+
+        _settings.Save();
+        RefreshQuickAccess();
+    }
+
+    /// <summary>Egy mappa leoldása a gyorselérésből — az „x" gomb a sajátrögzítésű soron.</summary>
+    [RelayCommand]
+    private void UnpinQuickAccess(SidebarItemViewModel? item)
+    {
+        if (item is null || _settings.Current.QuickAccessPins is not { } pins)
+        {
+            return;
+        }
+
+        pins.RemoveAll(p => string.Equals(p.Path, item.Path, StringComparison.OrdinalIgnoreCase));
+        _settings.Save();
+        RefreshQuickAccess();
+    }
+
+    /// <summary>
+    /// A gyorselérés átrendezése húzással: a <paramref name="sourcePath"/>
+    /// mappa a <paramref name="targetPath"/> mappa helyére kerül.
+    /// </summary>
+    public void ReorderQuickAccess(string sourcePath, string targetPath)
+    {
+        if (_settings.Current.QuickAccessPins is not { } pins || string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var source = pins.FirstOrDefault(p => string.Equals(p.Path, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var targetIndex = pins.FindIndex(p => string.Equals(p.Path, targetPath, StringComparison.OrdinalIgnoreCase));
+
+        if (source is null || targetIndex < 0)
+        {
+            return;
+        }
+
+        pins.Remove(source);
+        pins.Insert(targetIndex, source);
+
+        _settings.Save();
+        RefreshQuickAccess();
     }
 
     /// <summary>
@@ -587,33 +717,38 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private static List<SidebarItemViewModel> BuildQuickAccess()
+    /// <summary>Az alapértelmezett gyorselérés-mappák — csak első használatkor kerülnek be, lásd <see cref="EnsureQuickAccessPinsSeeded"/>.</summary>
+    private static (Environment.SpecialFolder Folder, string Key, string Icon)[] DefaultQuickAccessFolders =>
+    [
+        (Environment.SpecialFolder.Desktop, "Nav_Desktop", nameof(SymbolRegular.Desktop24)),
+        (Environment.SpecialFolder.MyDocuments, "Nav_Documents", nameof(SymbolRegular.Document24)),
+        (Environment.SpecialFolder.MyPictures, "Nav_Pictures", nameof(SymbolRegular.Image24)),
+        (Environment.SpecialFolder.MyMusic, "Nav_Music", nameof(SymbolRegular.MusicNote124)),
+        (Environment.SpecialFolder.MyVideos, "Nav_Videos", nameof(SymbolRegular.Video24)),
+    ];
+
+    /// <summary>
+    /// Első használatkor (amíg a felhasználó soha nem testreszabta) feltölti
+    /// a mentett gyorselérést az alapértelmezett hat mappával, és el is
+    /// menti — onnantól ez a mentett lista az igazság forrása, törlés/
+    /// rögzítés/átrendezés után soha nem áll vissza az alapértelmezésre.
+    /// </summary>
+    private void EnsureQuickAccessPinsSeeded()
     {
-        (Environment.SpecialFolder Folder, string Key, SymbolRegular Icon)[] entries =
-        [
-            (Environment.SpecialFolder.UserProfile, "Nav_Home", SymbolRegular.Home24),
-            (Environment.SpecialFolder.Desktop, "Nav_Desktop", SymbolRegular.Desktop24),
-            (Environment.SpecialFolder.MyDocuments, "Nav_Documents", SymbolRegular.Document24),
-            (Environment.SpecialFolder.MyPictures, "Nav_Pictures", SymbolRegular.Image24),
-            (Environment.SpecialFolder.MyMusic, "Nav_Music", SymbolRegular.MusicNote124),
-            (Environment.SpecialFolder.MyVideos, "Nav_Videos", SymbolRegular.Video24),
-        ];
+        if (_settings.Current.QuickAccessPins is not null)
+        {
+            return;
+        }
 
-        var items = new List<SidebarItemViewModel>();
+        var pins = new List<PinnedFolder>();
 
-        foreach (var (folder, key, icon) in entries)
+        foreach (var (folder, key, icon) in DefaultQuickAccessFolders)
         {
             var path = Environment.GetFolderPath(folder);
 
             if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
             {
-                items.Add(new SidebarItemViewModel
-                {
-                    LabelKey = key,
-                    Label = TranslationSource.Instance[key],
-                    Path = path,
-                    Icon = icon,
-                });
+                pins.Add(new PinnedFolder { Path = path, LabelKey = key, Icon = icon });
             }
         }
 
@@ -623,14 +758,67 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (Directory.Exists(downloads))
         {
-            items.Insert(Math.Min(2, items.Count), new SidebarItemViewModel
+            pins.Insert(Math.Min(2, pins.Count), new PinnedFolder
             {
-                LabelKey = "Nav_Downloads",
-                Label = TranslationSource.Instance["Nav_Downloads"],
                 Path = downloads,
-                Icon = SymbolRegular.ArrowDownload24,
+                LabelKey = "Nav_Downloads",
+                Icon = nameof(SymbolRegular.ArrowDownload24),
             });
         }
+
+        _settings.Current.QuickAccessPins = pins;
+        _settings.Save();
+    }
+
+    private List<SidebarItemViewModel> BuildQuickAccess()
+    {
+        EnsureQuickAccessPinsSeeded();
+
+        // A Kezdőlap a virtuális „Ez a gép"-nézetre mutat (lásd
+        // TabViewModel.HomeMarker/IsHome), nem egy valódi mappára — ezért
+        // ez itt, a rögzített mappáktól külön, elsőként kerül be, és nem
+        // old ki (nem IsUnpinnable).
+        var items = new List<SidebarItemViewModel>
+        {
+            new()
+            {
+                LabelKey = "Nav_Home",
+                Label = TranslationSource.Instance["Nav_Home"],
+                Path = TabViewModel.HomeMarker,
+                Icon = SymbolRegular.Home24,
+                IsHomeEntry = true,
+            },
+        };
+
+        foreach (var pin in _settings.Current.QuickAccessPins ?? [])
+        {
+            var label = pin.LabelKey is { } key
+                ? TranslationSource.Instance[key]
+                : pin.CustomLabel ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(pin.Path));
+
+            items.Add(new SidebarItemViewModel
+            {
+                LabelKey = pin.LabelKey,
+                Label = label,
+                Path = pin.Path,
+                Icon = ParseIcon(pin.Icon, SymbolRegular.Folder24),
+                IsMissing = !Directory.Exists(pin.Path),
+                IsUnpinnable = true,
+            });
+        }
+
+        // A Lomtárnak nincs valódi mappa-útvonala — kattintáskor a
+        // SidebarItemViewModel.IsRecycleBin jelzi, hogy navigálás helyett a
+        // Lomtár-ablakot kell megnyitni (lásd MainWindow.OnSidebarSelectionChanged).
+        items.Add(new SidebarItemViewModel
+        {
+            LabelKey = "Nav_RecycleBin",
+            Label = TranslationSource.Instance["Nav_RecycleBin"],
+            Path = string.Empty,
+            Icon = SymbolRegular.Delete24,
+            IsRecycleBin = true,
+            Detail = RecycleBinService.IsEmpty ? TranslationSource.Instance["RecycleBin_EmptyState"] : null,
+        });
 
         return items;
     }

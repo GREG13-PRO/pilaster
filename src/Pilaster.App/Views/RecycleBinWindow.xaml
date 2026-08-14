@@ -1,0 +1,151 @@
+<ui:FluentWindow
+    x:Class="Pilaster.App.Views.RecycleBinWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="clr-namespace:Pilaster.App.Localization"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:Pilaster.App.ViewModels"
+    Title="{loc:Loc RecycleBin_Title}"
+    Width="640"
+    Height="600"
+    MinWidth="480"
+    MinHeight="360"
+    d:DataContext="{d:DesignInstance vm:RecycleBinViewModel}"
+    mc:Ignorable="d"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica"
+    WindowCornerPreference="Round"
+    WindowStartupLocation="CenterOwner">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar
+            Grid.Row="0"
+            Title="{loc:Loc RecycleBin_Title}"
+            ShowMaximize="False">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="Delete24" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <StackPanel
+            Grid.Row="1"
+            Margin="16,4,16,10"
+            Orientation="Horizontal">
+            <ui:Button
+                Margin="0,0,8,0"
+                Command="{Binding RefreshCommand}"
+                Content="{loc:Loc Cmd_Refresh}">
+                <ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" />
+                </ui:Button.Icon>
+            </ui:Button>
+            <ui:Button
+                Appearance="Danger"
+                Click="OnEmptyClick"
+                Content="{loc:Loc Cmd_EmptyRecycleBin}"
+                IsEnabled="{Binding IsEmpty, Converter={StaticResource InvertBool}}">
+                <ui:Button.Icon>
+                    <ui:SymbolIcon Symbol="Delete24" />
+                </ui:Button.Icon>
+            </ui:Button>
+        </StackPanel>
+
+        <Grid Grid.Row="2" Margin="16,0,16,16">
+            <ListView
+                Background="Transparent"
+                BorderThickness="0"
+                ItemsSource="{Binding Items}"
+                SelectionMode="Single"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Padding" Value="8,6" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:RecycledItemViewModel}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ui:SymbolIcon
+                                Grid.Column="0"
+                                Margin="0,0,10,0"
+                                VerticalAlignment="Center"
+                                FontSize="18"
+                                Symbol="Document24">
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDirectory}" Value="True">
+                                                <Setter Property="Symbol" Value="Folder24" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                    Text="{Binding OriginalFolder}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <ui:Button
+                                Grid.Column="2"
+                                Margin="4,0"
+                                Padding="6"
+                                Appearance="Transparent"
+                                Command="{Binding DataContext.RestoreCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                CommandParameter="{Binding}"
+                                ToolTip="{loc:Loc Cmd_Restore}">
+                                <ui:SymbolIcon Symbol="ArrowUndo24" />
+                            </ui:Button>
+
+                            <ui:Button
+                                Grid.Column="3"
+                                Padding="6"
+                                Appearance="Transparent"
+                                Click="OnDeleteItemClick"
+                                ToolTip="{loc:Loc Cmd_DeletePermanently}">
+                                <ui:SymbolIcon Symbol="Delete24" />
+                            </ui:Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+                <ui:SymbolIcon
+                    HorizontalAlignment="Center"
+                    FontSize="40"
+                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                    Symbol="Delete24" />
+                <TextBlock
+                    Margin="0,10,0,0"
+                    HorizontalAlignment="Center"
+                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                    Text="{loc:Loc RecycleBin_EmptyState}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>
