@@ -1164,4 +1164,22 @@
   <data name="Settings_ResetCategory" xml:space="preserve">
     <value>Reset this category</value>
   </data>
+  <data name="ContextMenu_OtherApps" xml:space="preserve">
+    <value>Other apps</value>
+  </data>
+  <data name="Cmd_CopyName" xml:space="preserve">
+    <value>Copy name</value>
+  </data>
+  <data name="Cmd_OpenWith" xml:space="preserve">
+    <value>Open with…</value>
+  </data>
+  <data name="Cmd_CreateShortcut" xml:space="preserve">
+    <value>Create shortcut</value>
+  </data>
+  <data name="Cmd_OpenTerminal" xml:space="preserve">
+    <value>Open terminal here</value>
+  </data>
+  <data name="Cmd_EditWithPilaster" xml:space="preserve">
+    <value>Edit with Pilaster Editor</value>
+  </data>
 </root>

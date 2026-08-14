@@ -1164,4 +1164,22 @@
   <data name="Settings_ResetCategory" xml:space="preserve">
     <value>Kategória visszaállítása</value>
   </data>
+  <data name="ContextMenu_OtherApps" xml:space="preserve">
+    <value>Egyéb alkalmazások</value>
+  </data>
+  <data name="Cmd_CopyName" xml:space="preserve">
+    <value>Név másolása</value>
+  </data>
+  <data name="Cmd_OpenWith" xml:space="preserve">
+    <value>Megnyitás ezzel…</value>
+  </data>
+  <data name="Cmd_CreateShortcut" xml:space="preserve">
+    <value>Parancsikon létrehozása</value>
+  </data>
+  <data name="Cmd_OpenTerminal" xml:space="preserve">
+    <value>Terminál megnyitása itt</value>
+  </data>
+  <data name="Cmd_EditWithPilaster" xml:space="preserve">
+    <value>Szerkesztés Pilaster Editorral</value>
+  </data>
 </root>

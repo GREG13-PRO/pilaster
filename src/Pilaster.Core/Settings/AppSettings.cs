@@ -274,7 +274,18 @@ public sealed class AppSettings
     /// shell-elemek utólag csúsznak be — lásd a jobbklikk-menü aszinkron
     /// betöltését.
     /// </summary>
-    public int ShellMenuTimeoutMs { get; set; } = 400;
+    /// <remarks>
+    /// Az alapérték szándékosan bőkezű. A v1.0 specifikációja 400 ms-ot
+    /// javasolt, de MÉRÉS szerint az ELSŐ lekérdezés ennél lényegesen tovább
+    /// tart (ezen a fejlesztői gépen 2263 ms), mert ilyenkor indul a COM
+    /// apartment, és töltődnek be a bővítmény-DLL-ek; a további lekérdezések
+    /// már ezredmásodpercesek. 400 ms mellett tehát a shell elemek az első
+    /// használatkor SOSEM jelennének meg, ami pontosan az a hiba, amit ez a
+    /// funkció orvosolni hivatott. Hosszabb időkorlát semmibe nem kerül, ha a
+    /// lekérdezés gyors: a menü akkor is azonnal megnyílik, a shell elemek
+    /// pedig amint megérkeznek, becsúsznak.
+    /// </remarks>
+    public int ShellMenuTimeoutMs { get; set; } = 2500;
 
     /// <summary>
     /// Kikapcsolt shell-bővítmények neve vagy CLSID-je. A lassú vagy hibás

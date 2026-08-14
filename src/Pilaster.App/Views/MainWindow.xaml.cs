@@ -706,26 +706,160 @@ public partial class MainWindow : FluentWindow
             _ => [item.FullPath],
         };
 
-        var screenPoint = PointToScreen(e.GetPosition(this));
-        var ownerHandle = new WindowInteropHelper(this).Handle;
+        // A SAJÁT menü (spec F4): a mi designunk, de a telepített
+        // shell-bővítmények elemeivel együtt. A saját elemek azonnal
+        // megjelennek, a shell-elemek aszinkron, időkorláttal csúsznak be.
+        var extendedVerbs = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
 
-        _isNativeContextMenuOpen = true;
+        PilasterContextMenu.Show(
+            _services,
+            container,
+            BuildFileMenuEntries(item, selectedPaths, extendedVerbs),
+            (timeout, blacklist) => ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
+            _settings.Current);
 
-        bool shown;
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A saját menüelemek fájlokon/mappákon — MINDIG felül, a specifikált fix
+    /// sorrendben (spec F4).
+    /// </summary>
+    private IReadOnlyList<PilasterMenuEntry> BuildFileMenuEntries(
+        FileSystemItem item,
+        IReadOnlyList<string> selectedPaths,
+        bool shiftHeld)
+    {
+        var dual = _viewModel.DualPaneEnabled;
+        var single = selectedPaths.Count == 1;
+
+        return
+        [
+            new("Cmd_Open", SymbolRegular.Open24, () => _ = OpenItemAsync(item)),
+            new("Cmd_OpenNewTab", SymbolRegular.TabAdd24, () => _viewModel.ActivePane.AddTab(item.FullPath), item.IsNavigable),
+            new("QuickAccess_OpenOther", SymbolRegular.DualScreen24,
+                () => _ = _viewModel.InactivePane.NavigateAsync(item.FullPath), item.IsNavigable && dual),
+            new("Cmd_OpenWith", SymbolRegular.AppGeneric24, () => OpenWithDialog(item.FullPath), !item.IsNavigable),
+
+            new("Cmd_EditWithPilaster", SymbolRegular.Code24, () => OpenInEditor(item.FullPath), !item.IsNavigable),
+
+            PilasterMenuEntry.Separator,
+
+            new("Cmd_Cut", SymbolRegular.Cut24, () => _viewModel.CutSelectionCommand.Execute(selectedPaths)),
+            new("Cmd_Copy", SymbolRegular.DocumentCopy24, () => _viewModel.CopySelectionCommand.Execute(selectedPaths)),
+            new("Cmd_Paste", SymbolRegular.ClipboardPaste24, () => _viewModel.PasteCommand.Execute(null)),
+            new("Cmd_CreateShortcut", SymbolRegular.Link24, () => CreateShortcutsHere(selectedPaths)),
+
+            PilasterMenuEntry.Separator,
+
+            new("Keymap_Rename", SymbolRegular.Rename24, () => GetActiveTab()?.BeginRename(item), single),
+            new(shiftHeld ? "Cmd_DeletePermanently" : "Cmd_Delete", SymbolRegular.Delete24,
+                () => _viewModel.DeleteSelectionCommand.Execute((selectedPaths, shiftHeld))),
+
+            PilasterMenuEntry.Separator,
+
+            new("Cmd_CopyPath", SymbolRegular.Copy24, () => CopyTextToClipboard(item.FullPath)),
+            new("Cmd_CopyName", SymbolRegular.Copy24, () => CopyTextToClipboard(item.Name)),
+            new("Cmd_OpenTerminal", SymbolRegular.WindowConsole20, () => OpenTerminalAt(item)),
+            new("Cmd_PinToQuickAccess", SymbolRegular.Pin24,
+                () => _viewModel.PinToQuickAccessCommand.Execute(item.FullPath), item.IsNavigable),
+            new("Cmd_Tags", SymbolRegular.Tag24, () => ShowTagPickerFor(item, null)),
+
+            PilasterMenuEntry.Separator,
+
+            new("Cmd_ShowInExplorer", SymbolRegular.Folder24, () => ShowInExplorer(item.FullPath)),
+            new("Cmd_Properties", SymbolRegular.Info24, () => ShowProperties(item.FullPath)),
+        ];
+    }
+
+    private void CopyTextToClipboard(string text)
+    {
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // A vágólapot időnként egy másik folyamat zárolja — csendben kihagyjuk.
+        }
+    }
+
+    private void OpenWithDialog(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "openas" });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+    }
+
+    private void OpenInEditor(string path)
+    {
+        // A beépített szerkesztő a v1.0 F2 pontja; amíg nincs kész, a
+        // Beállításokban megadott külső szerkesztő indul — így a menüpont
+        // sosem néma.
+        try
+        {
+            Process.Start(new ProcessStartInfo(_settings.Current.ExternalEditorPath, $"\"{path}\"") { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+    }
+
+    private void CreateShortcutsHere(IReadOnlyList<string> paths)
+    {
+        if (GetActiveTab()?.CurrentPath is { } directory)
+        {
+            _viewModel.CreateShortcuts(paths, directory);
+        }
+    }
+
+    /// <summary>„Terminál megnyitása itt" — mappánál abban, fájlnál a tartalmazó mappában.</summary>
+    private void OpenTerminalAt(FileSystemItem item)
+    {
+        var directory = item.IsNavigable ? item.FullPath : System.IO.Path.GetDirectoryName(item.FullPath);
+
+        if (string.IsNullOrEmpty(directory))
+        {
+            return;
+        }
 
         try
         {
-            shown = await NativeContextMenuService.ShowAsync(selectedPaths, (int)screenPoint.X, (int)screenPoint.Y, ownerHandle);
+            Process.Start(new ProcessStartInfo(_settings.Current.ExternalTerminalPath)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = directory,
+            });
         }
-        finally
+        catch (System.ComponentModel.Win32Exception)
         {
-            _isNativeContextMenuOpen = false;
+            // A beállított terminál nem található — a Beállításokban javítható.
         }
+    }
 
-        if (!shown && TryFindResource("FileItemContextMenu") is System.Windows.Controls.ContextMenu fallbackMenu)
+    private void ShowInExplorer(string path)
+    {
+        try
         {
-            fallbackMenu.PlacementTarget = container;
-            fallbackMenu.IsOpen = true;
+            Process.Start("explorer.exe", $"/select,\"{path}\"");
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+    }
+
+    private void ShowProperties(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "properties" });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
         }
     }
 
@@ -742,11 +876,14 @@ public partial class MainWindow : FluentWindow
     /// </remarks>
     private void OnTagPickerClick(object sender, RoutedEventArgs e)
     {
-        if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
+        if (((FrameworkElement)sender).DataContext is FileSystemItem item)
         {
-            return;
+            ShowTagPickerFor(item, (UIElement)sender);
         }
+    }
 
+    private void ShowTagPickerFor(FileSystemItem item, UIElement? placementTarget)
+    {
         var metadata = _services.GetRequiredService<FileMetadataService>();
         var menu = new System.Windows.Controls.ContextMenu();
 
@@ -788,7 +925,7 @@ public partial class MainWindow : FluentWindow
             }
         }
 
-        menu.PlacementTarget = (UIElement)sender;
+        menu.PlacementTarget = placementTarget ?? this;
         menu.IsOpen = true;
     }
 
