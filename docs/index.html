@@ -79,12 +79,6 @@
   }
 
   .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-  /*
-    Az ikon-PNG saját maga már egy kerekített négyzetes "kártya" (fehér
-    kitöltéssel, a sarkokban valódi átlátszósággal) — NEM szabad rátenni még
-    egy, MÁS színű hátteret/keretet, mert az két, egymásba csúszott négyzetnek
-    látszana. A saját kártyája elég, csak a méretét adjuk meg.
-  */
   .nav-brand img { height: 28px; width: 28px; }
   .nav-brand span { height: 18px; }
   .nav-brand span img { height: 18px; width: auto; }
@@ -119,17 +113,10 @@
     text-align: center;
   }
 
-  /*
-    Az ikon-PNG saját maga már egy kerekített négyzetes "kártya" (fehér
-    kitöltéssel, a sarkokban valódi átlátszósággal) — lásd a .nav-brand img
-    megjegyzését. NEM kap még egy, MÁS színű hátteret (az két egymásba
-    csúszott, eltérő színű négyzetnek látszott — ezt jelezte a felhasználó
-    hibaként), csak lágy árnyékot és lebegő animációt.
-  */
   .hero-icon {
     display: block;
-    width: 132px;
-    height: 132px;
+    width: 176px;
+    height: 176px;
     margin: 0 auto 28px;
     filter: drop-shadow(0 18px 40px rgba(224, 164, 88, 0.35));
     animation: float 6s ease-in-out infinite;
@@ -346,7 +333,7 @@
 <header class="nav">
   <div class="wrap nav-inner">
     <a class="nav-brand" href="#top">
-      <img src="../assets/brand/png/icon-32-web.png" alt="">
+      <img src="../assets/brand/png/icon-32.png" alt="">
       <span><img src="../assets/brand/wordmark.png" alt="Pilaster"></span>
     </a>
     <nav class="nav-links">
@@ -365,7 +352,7 @@
 <main id="top">
 
   <section class="hero wrap">
-    <img class="hero-icon" src="../assets/brand/png/icon-256-web.png" alt="Pilaster ikon">
+    <img class="hero-icon" src="../assets/brand/png/icon-256.png" alt="Pilaster ikon">
     <img class="hero-wordmark" src="../assets/brand/wordmark.png" alt="Pilaster">
 
     <p class="tagline">Modern fájlkezelő Windows 11-re — kétablakos nézet, oszlopos nézet, saját másolásjelző, és sok minden, ami az Intézőből hiányzik.</p>
@@ -467,7 +454,7 @@
 <footer>
   <div class="wrap footer-inner">
     <div class="footer-brand">
-      <img src="../assets/brand/png/icon-24-web.png" alt="">
+      <img src="../assets/brand/png/icon-24.png" alt="">
       <span>© 2026 Pilaster — MIT licenc</span>
     </div>
     <div class="footer-links">
