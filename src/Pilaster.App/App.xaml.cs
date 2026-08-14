@@ -91,6 +91,11 @@ public partial class App : Application
         services.AddTransient<TransferConfirmWindow>();
         services.AddTransient<FilePreviewWindow>();
 
+        // A beépített szerkesztő EGYETLEN példány: a fülei így élik túl az
+        // ablak bezárását-újranyitását, és egy fájl sosem nyílik meg kétszer.
+        services.AddSingleton<EditorViewModel>();
+        services.AddSingleton<EditorWindow>();
+
         // A gyorselérés-szerkesztő minden megnyitáskor friss másolatokon dolgozik.
         services.AddTransient<QuickAccessEditorViewModel>();
         services.AddTransient<QuickAccessEditorWindow>();

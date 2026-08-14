@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  INI/konfigurációs fájlok kiemelése. Az AvalonEdit beépített készletében ez
+  sincs benne, a spec viszont kéri az .ini/.cfg/.conf/.properties kiterjesztéseket.
+-->
+<SyntaxDefinition name="INI" extensions=".ini;.cfg;.conf;.properties" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+  <Color name="Comment" foreground="#6A9955" />
+  <Color name="Section" foreground="#C586C0" fontWeight="bold" />
+  <Color name="Key" foreground="#569CD6" />
+  <Color name="String" foreground="#CE9178" />
+  <Color name="Number" foreground="#B5CEA8" />
+
+  <RuleSet ignoreCase="true">
+
+    <!-- Az INI mindkét megjegyzés-jelölőt használja: ; és # -->
+    <Span color="Comment">
+      <Begin>[;\#]</Begin>
+    </Span>
+
+    <Span color="String" multiline="false">
+      <Begin>"</Begin>
+      <End>"</End>
+    </Span>
+
+    <!-- [szekció] a sor elején -->
+    <Rule color="Section">^\s*\[[^\]]*\]</Rule>
+
+    <!-- kulcs = érték: csak a kulcs színeződik (lookahead az egyenlőségjelre) -->
+    <Rule color="Key">^\s*[\w\.\-]+(?=\s*[=:])</Rule>
+
+    <Rule color="Number">\b\d+(\.\d+)?\b</Rule>
+
+  </RuleSet>
+</SyntaxDefinition>

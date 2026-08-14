@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -32,6 +32,7 @@
     <SerilogFileSinkVersion>7.0.0</SerilogFileSinkVersion>
     <SqliteVersion>10.0.11</SqliteVersion>
     <VanaraVersion>5.0.5</VanaraVersion>
+    <AvalonEditVersion>6.3.1.120</AvalonEditVersion>
   </PropertyGroup>
 
 </Project>

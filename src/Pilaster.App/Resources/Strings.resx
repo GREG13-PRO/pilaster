@@ -1182,4 +1182,61 @@
   <data name="Cmd_EditWithPilaster" xml:space="preserve">
     <value>Edit with Pilaster Editor</value>
   </data>
+  <data name="Editor_New" xml:space="preserve">
+    <value>New file (Ctrl+N)</value>
+  </data>
+  <data name="Editor_SaveFailed" xml:space="preserve">
+    <value>Saving failed.</value>
+  </data>
+  <data name="Editor_BinaryRefused" xml:space="preserve">
+    <value>Binary file - the editor will not open it. Use the F3 preview or an external app.</value>
+  </data>
+  <data name="Editor_ConfirmClose" xml:space="preserve">
+    <value>Save the changes to "{0}"?</value>
+  </data>
+  <data name="Editor_PlainText" xml:space="preserve">
+    <value>Plain text</value>
+  </data>
+  <data name="Editor_Save" xml:space="preserve">
+    <value>Save (Ctrl+S)</value>
+  </data>
+  <data name="Editor_Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="Editor_FileReadOnly" xml:space="preserve">
+    <value>This file is read-only. Save as will create a copy.</value>
+  </data>
+  <data name="Editor_Title" xml:space="preserve">
+    <value>Pilaster Editor</value>
+  </data>
+  <data name="Editor_Untitled" xml:space="preserve">
+    <value>Untitled</value>
+  </data>
+  <data name="Editor_ReopenWith" xml:space="preserve">
+    <value>Reopen with encoding</value>
+  </data>
+  <data name="Editor_GoToLine" xml:space="preserve">
+    <value>Go to line (Ctrl+G)</value>
+  </data>
+  <data name="Editor_SaveWith" xml:space="preserve">
+    <value>Save with encoding</value>
+  </data>
+  <data name="Editor_ReadOnlySaveHint" xml:space="preserve">
+    <value>Read-only file - pick another location to save.</value>
+  </data>
+  <data name="Editor_ConfirmExit" xml:space="preserve">
+    <value>There are unsaved changes. Close the editor anyway?</value>
+  </data>
+  <data name="Editor_ExternalChange" xml:space="preserve">
+    <value>The file changed on disk while it was open.</value>
+  </data>
+  <data name="Editor_SaveAs" xml:space="preserve">
+    <value>Save as (Ctrl+Shift+S)</value>
+  </data>
+  <data name="Editor_Find" xml:space="preserve">
+    <value>Find and replace (Ctrl+F)</value>
+  </data>
+  <data name="Editor_TooLarge" xml:space="preserve">
+    <value>The file is larger than 50 MB, so it opened read-only.</value>
+  </data>
 </root>

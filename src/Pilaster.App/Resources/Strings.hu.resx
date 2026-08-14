@@ -1182,4 +1182,61 @@
   <data name="Cmd_EditWithPilaster" xml:space="preserve">
     <value>Szerkesztés Pilaster Editorral</value>
   </data>
+  <data name="Editor_New" xml:space="preserve">
+    <value>Új fájl (Ctrl+N)</value>
+  </data>
+  <data name="Editor_SaveFailed" xml:space="preserve">
+    <value>A mentés nem sikerült.</value>
+  </data>
+  <data name="Editor_BinaryRefused" xml:space="preserve">
+    <value>Bináris fájl — a szerkesztő nem nyitja meg. Használd az F3 előnézetet vagy egy külső programot.</value>
+  </data>
+  <data name="Editor_ConfirmClose" xml:space="preserve">
+    <value>Menti a(z) „{0}" módosításait?</value>
+  </data>
+  <data name="Editor_PlainText" xml:space="preserve">
+    <value>Sima szöveg</value>
+  </data>
+  <data name="Editor_Save" xml:space="preserve">
+    <value>Mentés (Ctrl+S)</value>
+  </data>
+  <data name="Editor_Reload" xml:space="preserve">
+    <value>Újratöltés</value>
+  </data>
+  <data name="Editor_FileReadOnly" xml:space="preserve">
+    <value>A fájl írásvédett. A Mentés másként másolatot készít.</value>
+  </data>
+  <data name="Editor_Title" xml:space="preserve">
+    <value>Pilaster Editor</value>
+  </data>
+  <data name="Editor_Untitled" xml:space="preserve">
+    <value>Névtelen</value>
+  </data>
+  <data name="Editor_ReopenWith" xml:space="preserve">
+    <value>Újranyitás ezzel a kódolással</value>
+  </data>
+  <data name="Editor_GoToLine" xml:space="preserve">
+    <value>Ugrás sorra (Ctrl+G)</value>
+  </data>
+  <data name="Editor_SaveWith" xml:space="preserve">
+    <value>Mentés ezzel a kódolással</value>
+  </data>
+  <data name="Editor_ReadOnlySaveHint" xml:space="preserve">
+    <value>Írásvédett fájl — válassz másik helyet a mentéshez.</value>
+  </data>
+  <data name="Editor_ConfirmExit" xml:space="preserve">
+    <value>Vannak nem mentett módosítások. Biztosan bezárja a szerkesztőt?</value>
+  </data>
+  <data name="Editor_ExternalChange" xml:space="preserve">
+    <value>A fájl megváltozott a lemezen, amíg nyitva volt.</value>
+  </data>
+  <data name="Editor_SaveAs" xml:space="preserve">
+    <value>Mentés másként (Ctrl+Shift+S)</value>
+  </data>
+  <data name="Editor_Find" xml:space="preserve">
+    <value>Keresés és csere (Ctrl+F)</value>
+  </data>
+  <data name="Editor_TooLarge" xml:space="preserve">
+    <value>A fájl nagyobb 50 MB-nál, ezért csak olvasható módban nyílt meg.</value>
+  </data>
 </root>

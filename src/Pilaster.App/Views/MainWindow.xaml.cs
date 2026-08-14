@@ -795,19 +795,35 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    private void OpenInEditor(string path)
+    /// <summary>
+    /// Megnyitás a BEÉPÍTETT szerkesztővel (F4 a Pilaster Classic
+    /// kiosztásban, Ctrl+E mindkettőben, és a jobbklikk-menü „Szerkesztés
+    /// Pilaster Editorral" pontja).
+    /// </summary>
+    private async Task OpenInEditorAsync(string path)
     {
-        // A beépített szerkesztő a v1.0 F2 pontja; amíg nincs kész, a
-        // Beállításokban megadott külső szerkesztő indul — így a menüpont
-        // sosem néma.
-        try
+        var editor = _services.GetRequiredService<EditorWindow>();
+
+        // Egyetlen példány: a fülei túlélik az ablak bezárását-újranyitását.
+        if (!editor.IsLoaded)
         {
-            Process.Start(new ProcessStartInfo(_settings.Current.ExternalEditorPath, $"\"{path}\"") { UseShellExecute = true });
+            editor.Owner = this;
+            editor.Show();
         }
-        catch (System.ComponentModel.Win32Exception)
+        else
         {
+            editor.Activate();
+        }
+
+        if (!await _services.GetRequiredService<EditorViewModel>().OpenAsync(path))
+        {
+            // Bináris tartalom: a szerkesztő nem nyitja meg — az F3 előnézet
+            // hexdumpja viszont igen (spec F2).
+            await ViewFileAsync(path);
         }
     }
+
+    private void OpenInEditor(string path) => _ = OpenInEditorAsync(path);
 
     private void CreateShortcutsHere(IReadOnlyList<string> paths)
     {
@@ -1090,12 +1106,22 @@ public partial class MainWindow : FluentWindow
     /// </remarks>
     private void OnMainPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (_settings.Current.Keymap != KeymapPreset.PilasterClassic)
+        if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             return;
         }
 
-        if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        // Ctrl+E MINDKÉT kiosztásban megnyitja a beépített szerkesztőt — csak
+        // az F4 az, ami a Pilaster Classic kiosztás sajátja (spec F2).
+        if (e.Key == System.Windows.Input.Key.E
+            && System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        {
+            e.Handled = true;
+            EditActiveSelection();
+            return;
+        }
+
+        if (_settings.Current.Keymap != KeymapPreset.PilasterClassic)
         {
             return;
         }
@@ -1140,6 +1166,7 @@ public partial class MainWindow : FluentWindow
                 e.Handled = true;
                 EditActiveSelection();
                 break;
+
 
             case System.Windows.Input.Key.F5:
                 e.Handled = true;
@@ -1329,23 +1356,33 @@ public partial class MainWindow : FluentWindow
         await _previewWindow.LoadAsync(item);
     }
 
-    /// <summary>F4 — a fókuszban lévő fájl megnyitása a Beállításokban megadott külső szerkesztővel.</summary>
+    /// <summary>F4 / Ctrl+E — a fókuszban lévő fájl megnyitása a beépített Pilaster Editorral.</summary>
     private void EditActiveSelection()
     {
-        if (GetActiveList() is not { } list || GetFocusedItem(list) is not { Kind: FileSystemItemKind.File } item)
+        if (GetActiveList() is { } list && GetFocusedItem(list) is { Kind: FileSystemItemKind.File } item)
+        {
+            _ = OpenInEditorAsync(item.FullPath);
+        }
+    }
+
+    /// <summary>Egy fájl megnyitása az F3 előnézetben — útvonal alapján.</summary>
+    private async Task ViewFileAsync(string path)
+    {
+        if (GetActiveTab()?.Items.FirstOrDefault(i =>
+                string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase)) is not { } item)
         {
             return;
         }
 
-        try
+        if (_previewWindow is not { IsLoaded: true })
         {
-            Process.Start(new ProcessStartInfo(_settings.Current.ExternalEditorPath, $"\"{item.FullPath}\"") { UseShellExecute = true });
+            _previewWindow = _services.GetRequiredService<FilePreviewWindow>();
+            _previewWindow.Owner = this;
+            _previewWindow.Closed += (_, _) => _previewWindow = null;
+            _previewWindow.Show();
         }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            // A megadott szerkesztő nem található vagy nem indítható —
-            // nincs jobb teendő, mint csendben kihagyni.
-        }
+
+        await _previewWindow.LoadAsync(item);
     }
 
     /// <summary>F5/F6 — megerősítő párbeszéd a célmappáról, majd a tényleges átvitel indítása, lásd <see cref="MainWindowViewModel.BeginTransfer"/>.</summary>

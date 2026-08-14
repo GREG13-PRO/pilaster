@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -26,6 +26,13 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(ExtensionsVersion)" />
     <PackageReference Include="Serilog" Version="$(SerilogVersion)" />
     <PackageReference Include="Serilog.Sinks.File" Version="$(SerilogFileSinkVersion)" />
+
+    <!--
+      A beépített szövegszerkesztő motorja. Szándékosan NEM saját motor: a
+      szintaxiskiemelés, a virtualizált renderelés, a kereső panel és a
+      többszörös kurzor mind kész, jól bejáratott funkció itt.
+    -->
+    <PackageReference Include="AvalonEdit" Version="$(AvalonEditVersion)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -57,6 +64,9 @@
 
     <!-- A képek nem kerülnek be automatikusan; a pack:// URI ehhez kell. -->
     <Resource Include="Assets\**\*.png" />
+
+    <!-- Saját szintaxis-definíciók a beépített szerkesztőhöz (lásd HighlightingRegistry). -->
+    <Resource Include="Resources\Highlighting\*.xshd" />
 
     <!--
       Ugyanaz a multi-resolution .ico, ami az exe erőforrásába is bekerül

@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  YAML-szerű szintaxiskiemelés. Az AvalonEdit beépített készletében nincs YAML,
+  a spec viszont a .yml-t ÉS a .sk-t (Skript) kiemelten kéri — a kettő
+  szerkezete gyakorlatilag azonos: behúzásfüggő blokkok, "kulcs:" fejlécek,
+  kettőskeresztes megjegyzés, listaelemek kötőjellel.
+-->
+<SyntaxDefinition name="YAML" extensions=".yml;.yaml;.sk" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+  <Color name="Comment" foreground="#6A9955" />
+  <Color name="Key" foreground="#569CD6" fontWeight="bold" />
+  <Color name="String" foreground="#CE9178" />
+  <Color name="Number" foreground="#B5CEA8" />
+  <Color name="Constant" foreground="#C586C0" />
+  <Color name="ListMarker" foreground="#D7BA7D" fontWeight="bold" />
+  <Color name="Anchor" foreground="#4EC9B0" />
+  <Color name="DocumentMarker" foreground="#808080" fontWeight="bold" />
+
+  <RuleSet ignoreCase="false">
+
+    <Span color="Comment">
+      <Begin>\#</Begin>
+    </Span>
+
+    <Span color="String" multiline="false">
+      <Begin>"</Begin>
+      <End>"</End>
+    </Span>
+
+    <Span color="String" multiline="false">
+      <Begin>'</Begin>
+      <End>'</End>
+    </Span>
+
+    <!-- Dokumentum-határolók (három kötőjel, illetve három pont) -->
+    <Rule color="DocumentMarker">^(---|\.\.\.)\s*$</Rule>
+
+    <!--
+      Kulcs a sor elején (tetszőleges behúzással), kettősponttal lezárva. A
+      lookahead miatt a kettőspont utáni ÉRTÉK nem kerül a kulcs színébe.
+    -->
+    <Rule color="Key">^\s*[\w\.\-/\$\{\}%]+(?=\s*:)</Rule>
+
+    <!-- Listaelem-jelölő a sor elején -->
+    <Rule color="ListMarker">^\s*-\s</Rule>
+
+    <!-- Horgony és hivatkozás -->
+    <Rule color="Anchor">[&amp;\*][\w\-]+</Rule>
+
+    <Keywords color="Constant">
+      <Word>true</Word>
+      <Word>false</Word>
+      <Word>null</Word>
+      <Word>yes</Word>
+      <Word>no</Word>
+      <Word>on</Word>
+      <Word>off</Word>
+      <Word>~</Word>
+    </Keywords>
+
+    <Rule color="Number">\b0[xX][0-9a-fA-F]+|\b\d+(\.\d+)?</Rule>
+
+  </RuleSet>
+</SyntaxDefinition>
