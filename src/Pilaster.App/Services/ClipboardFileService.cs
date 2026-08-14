@@ -1,51 +1,59 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
-using Pilaster.Core.Templates;
 
 namespace Pilaster.App.Services;
 
-public enum ClipboardPasteOutcome
-{
-    Succeeded,
-    NoFilesOnClipboard,
-    PartiallyFailed,
-    TargetInvalid,
-}
-
-/// <param name="Outcome">Az eredmény.</param>
-/// <param name="SucceededCount">Hány elem másolódott/mozgott sikeresen.</param>
-/// <param name="FailedCount">Hány elemnél hiúsult meg a művelet.</param>
-public readonly record struct ClipboardPasteResult(
-    ClipboardPasteOutcome Outcome,
-    int SucceededCount,
-    int FailedCount);
-
 /// <summary>
-/// Fájlok beillesztése a Windows vágólapról.
+/// Fájlok vágólapra írása/olvasása a Windows Intéző saját formátumában.
 /// </summary>
 /// <remarks>
-/// Ugyanazt a <c>CF_HDROP</c> + „Preferred DropEffect" formátumpárt olvassa,
-/// amit az Intéző ír másoláskor/kivágáskor — ezért Explorerből másolt vagy
-/// kivágott fájlok közvetlenül beilleszthetők a Pilasterbe, saját
-/// vágólap-formátum bevezetése nélkül. A Pilaster egyelőre nem ír a
-/// vágólapra saját másolás/kivágás parancsból (azok a jövőbeli másolómotor/
-/// aktivitás-központ mérföldkőhöz tartoznak) — ez a szolgáltatás kizárólag a
-/// beillesztést valósítja meg, ami önmagában is teljes értékű: bármi, amit a
-/// felhasználó máshol (jellemzően az Intézőben) másolt vagy kivágott, itt
-/// beilleszthető.
+/// Ugyanazt a <c>CF_HDROP</c> + „Preferred DropEffect" formátumpárt írja/
+/// olvassa, amit az Intéző használ másoláskor/kivágáskor — ezért Explorerből
+/// másolt/kivágott fájlok közvetlenül beilleszthetők a Pilasterbe, és
+/// fordítva, a Pilasterben másolt/kivágott fájlok is beilleszthetők az
+/// Intézőbe. A tényleges fájlműveletet (másolás/áthelyezés) NEM ez a
+/// szolgáltatás végzi — az a <see cref="FileOperations.FileOperationEngine"/>
+/// feladata, ez csak a vágólap-interopot adja hozzá.
 /// </remarks>
 public static class ClipboardFileService
 {
     /// <summary>DROPEFFECT_MOVE — lásd a Win32 <c>ole2.h</c>-t.</summary>
     private const int DropEffectMove = 2;
 
-    public static ClipboardPasteResult Paste(string? targetDirectory)
+    /// <summary>DROPEFFECT_COPY — lásd a Win32 <c>ole2.h</c>-t.</summary>
+    private const int DropEffectCopy = 1;
+
+    /// <summary>Fájlok vágólapra írása — Ctrl+C/Ctrl+X esetén hívva.</summary>
+    public static void SetClipboard(IReadOnlyList<string> paths, bool isCut)
     {
-        if (string.IsNullOrWhiteSpace(targetDirectory) || !Directory.Exists(targetDirectory))
+        if (paths.Count == 0)
         {
-            return new ClipboardPasteResult(ClipboardPasteOutcome.TargetInvalid, 0, 0);
+            return;
         }
+
+        var files = new System.Collections.Specialized.StringCollection();
+        files.AddRange([.. paths]);
+
+        var data = new DataObject();
+        data.SetFileDropList(files);
+        data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(isCut ? DropEffectMove : DropEffectCopy)));
+
+        try
+        {
+            Clipboard.SetDataObject(data, copy: true);
+        }
+        catch (COMException)
+        {
+            // A vágólapot időnként egy másik folyamat zárolja — nincs jobb teendő, mint csendben eldobni a kísérletet.
+        }
+    }
+
+    /// <summary>A vágólapon lévő fájlok kiolvasása, ha vannak — a beillesztés parancs hívja.</summary>
+    public static bool TryGetClipboardFiles(out IReadOnlyList<string> paths, out bool isCut)
+    {
+        paths = [];
+        isCut = false;
 
         System.Collections.Specialized.StringCollection? files;
 
@@ -53,7 +61,7 @@ public static class ClipboardFileService
         {
             if (!Clipboard.ContainsFileDropList())
             {
-                return new ClipboardPasteResult(ClipboardPasteOutcome.NoFilesOnClipboard, 0, 0);
+                return false;
             }
 
             files = Clipboard.GetFileDropList();
@@ -61,33 +69,32 @@ public static class ClipboardFileService
         catch (COMException)
         {
             // A vágólapot időnként egy másik folyamat zárolja.
-            return new ClipboardPasteResult(ClipboardPasteOutcome.NoFilesOnClipboard, 0, 0);
+            return false;
         }
 
         if (files is null || files.Count == 0)
         {
-            return new ClipboardPasteResult(ClipboardPasteOutcome.NoFilesOnClipboard, 0, 0);
+            return false;
         }
 
-        var move = IsCutOperation();
-        var succeeded = 0;
-        var failed = 0;
+        var list = new List<string>(files.Count);
 
-        foreach (var sourcePath in files)
+        foreach (var path in files)
         {
-            if (sourcePath is not null && TryCopyOrMove(sourcePath, targetDirectory, move))
+            if (path is not null && (File.Exists(path) || Directory.Exists(path)))
             {
-                succeeded++;
-            }
-            else
-            {
-                failed++;
+                list.Add(path);
             }
         }
 
-        var outcome = failed == 0 ? ClipboardPasteOutcome.Succeeded : ClipboardPasteOutcome.PartiallyFailed;
+        if (list.Count == 0)
+        {
+            return false;
+        }
 
-        return new ClipboardPasteResult(outcome, succeeded, failed);
+        paths = list;
+        isCut = IsCutOperation();
+        return true;
     }
 
     /// <summary>
@@ -112,70 +119,6 @@ public static class ClipboardFileService
         catch (COMException)
         {
             return false;
-        }
-    }
-
-    private static bool TryCopyOrMove(string sourcePath, string targetDirectory, bool move)
-    {
-        try
-        {
-            var isDirectory = Directory.Exists(sourcePath);
-            var isFile = !isDirectory && File.Exists(sourcePath);
-
-            if (!isDirectory && !isFile)
-            {
-                return false;
-            }
-
-            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(sourcePath));
-            var extension = isFile ? Path.GetExtension(name).TrimStart('.') : string.Empty;
-            var baseName = isFile ? Path.GetFileNameWithoutExtension(name) : name;
-
-            // Ütközésnél az Explorer szokása szerint " (2)", " (3)" — csak ha
-            // a cél mappában már létezik ugyanaz a név, egyébként érintetlen.
-            var destinationName = NameTemplate.ResolveUnique(targetDirectory, baseName, extension);
-            var destinationPath = Path.Combine(targetDirectory, destinationName);
-
-            if (isDirectory)
-            {
-                if (move)
-                {
-                    Directory.Move(sourcePath, destinationPath);
-                }
-                else
-                {
-                    CopyDirectory(sourcePath, destinationPath);
-                }
-            }
-            else if (move)
-            {
-                File.Move(sourcePath, destinationPath);
-            }
-            else
-            {
-                File.Copy(sourcePath, destinationPath);
-            }
-
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
-
-    private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
-    {
-        Directory.CreateDirectory(destinationDirectory);
-
-        foreach (var file in Directory.EnumerateFiles(sourceDirectory))
-        {
-            File.Copy(file, Path.Combine(destinationDirectory, Path.GetFileName(file)));
-        }
-
-        foreach (var subdirectory in Directory.EnumerateDirectories(sourceDirectory))
-        {
-            CopyDirectory(subdirectory, Path.Combine(destinationDirectory, Path.GetFileName(subdirectory)));
         }
     }
 }

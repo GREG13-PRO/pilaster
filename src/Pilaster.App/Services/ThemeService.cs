@@ -50,7 +50,7 @@ public sealed class ThemeService(ISettingsService settings)
         settings.Current.Theme = mode;
         settings.NotifyChanged();
 
-        var animate = settings.Current.AnimationsEnabled && window?.Content is UIElement;
+        var animate = settings.Current.Animations != AnimationLevel.Off && window?.Content is UIElement;
 
         if (!animate)
         {

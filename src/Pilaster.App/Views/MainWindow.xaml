@@ -3,10 +3,12 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:Pilaster.App.Controls"
+    xmlns:fileOps="clr-namespace:Pilaster.App.Services.FileOperations"
     xmlns:fs="clr-namespace:Pilaster.Core.FileSystem;assembly=Pilaster.Core"
     xmlns:loc="clr-namespace:Pilaster.App.Localization"
     xmlns:metadata="clr-namespace:Pilaster.Core.Metadata;assembly=Pilaster.Core"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:views="clr-namespace:Pilaster.App.Views"
     xmlns:vm="clr-namespace:Pilaster.App.ViewModels"
     Title="Pilaster"
     Width="1280"
@@ -18,6 +20,7 @@
     xmlns:d1p1="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DataContext="{d:DesignInstance vm:MainWindowViewModel}"
     ExtendsContentIntoTitleBar="True"
+    PreviewKeyDown="OnMainPreviewKeyDown"
     WindowBackdropType="Mica"
     WindowCornerPreference="Round"
     WindowStartupLocation="CenterScreen">
@@ -61,7 +64,7 @@
                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
                 From="14"
                 To="0"
-                Duration="{StaticResource ContentSlideDuration}">
+                Duration="{DynamicResource ContentSlideDuration}">
                 <DoubleAnimation.EasingFunction>
                     <CubicEase EasingMode="EaseOut" />
                 </DoubleAnimation.EasingFunction>
@@ -70,7 +73,7 @@
                 Storyboard.TargetProperty="Opacity"
                 From="0.4"
                 To="1"
-                Duration="{StaticResource ContentSlideDuration}" />
+                Duration="{DynamicResource ContentSlideDuration}" />
         </Storyboard>
 
         <!--
@@ -166,6 +169,16 @@
                 </MenuItem.Icon>
             </MenuItem>
             <Separator />
+            <MenuItem Click="OnCopyItemClick" Header="{loc:Loc Cmd_Copy}" InputGestureText="Ctrl+C">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="DocumentCopy24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Click="OnCutItemClick" Header="{loc:Loc Cmd_Cut}" InputGestureText="Ctrl+X">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Cut24" />
+                </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Click="OnCopyPathClick" Header="{loc:Loc Cmd_CopyPath}">
                 <MenuItem.Icon>
                     <ui:SymbolIcon Symbol="Copy24" />
@@ -174,6 +187,12 @@
             <MenuItem Click="OnShowInExplorerClick" Header="{loc:Loc Cmd_ShowInExplorer}">
                 <MenuItem.Icon>
                     <ui:SymbolIcon Symbol="Folder24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Click="OnDeleteItemClick" Header="{loc:Loc Cmd_Delete}" InputGestureText="Del">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Delete24" />
                 </MenuItem.Icon>
             </MenuItem>
             <Separator />
@@ -260,12 +279,25 @@
                                 Opacity="0" />
                             <Border
                                 x:Name="Selected"
-                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                Background="{DynamicResource AccentSelectionBrush}"
                                 CornerRadius="7"
                                 Opacity="0" />
                             <Border Padding="{TemplateBinding Padding}">
                                 <ContentPresenter />
                             </Border>
+                            <!--
+                                Vékony akcentus-sáv a bal szélen — ez teszi
+                                egyértelművé elsőre az aktuálisan megnyitott
+                                mappát, a Windows 11 navigációs mintáját követve.
+                            -->
+                            <Border
+                                x:Name="ActiveBar"
+                                Width="3"
+                                Margin="0,4"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource SystemAccentBrush}"
+                                CornerRadius="2"
+                                Opacity="0" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -278,6 +310,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Selected" Property="Opacity" Value="1" />
+                                <Setter TargetName="ActiveBar" Property="Opacity" Value="1" />
                             </Trigger>
 
                             <!--
@@ -292,6 +325,7 @@
                             -->
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter TargetName="Selected" Property="Opacity" Value="1" />
+                                <Setter TargetName="ActiveBar" Property="Opacity" Value="1" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -500,7 +534,7 @@
                                 Opacity="0" />
                             <Border
                                 x:Name="Selected"
-                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                Background="{DynamicResource AccentSelectionBrush}"
                                 CornerRadius="6"
                                 Opacity="0" />
                             <Border Padding="{TemplateBinding Padding}">
@@ -552,7 +586,7 @@
                                 Opacity="0" />
                             <Border
                                 x:Name="Selected"
-                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                Background="{DynamicResource AccentSelectionBrush}"
                                 CornerRadius="8"
                                 Opacity="0" />
                             <Border Padding="6,10">
@@ -594,7 +628,7 @@
                                 Opacity="0" />
                             <Border
                                 x:Name="Selected"
-                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                Background="{DynamicResource AccentSelectionBrush}"
                                 CornerRadius="6"
                                 Opacity="0" />
                             <Border Padding="{TemplateBinding Padding}">
@@ -853,10 +887,12 @@
             </Border>
 
             <ui:TextBox
+                x:Name="QuickFilterBox"
                 Grid.Column="2"
                 Width="240"
                 Margin="8,0,8,0"
-                PlaceholderText="{loc:Loc Search_Placeholder}">
+                PlaceholderText="{loc:Loc Search_Placeholder}"
+                Text="{Binding SelectedTab.QuickFilterText, UpdateSourceTrigger=PropertyChanged}">
                 <ui:TextBox.Icon>
                     <ui:SymbolIcon Symbol="Search24" />
                 </ui:TextBox.Icon>
@@ -890,6 +926,15 @@
                                 IsChecked="{Binding SelectedTab.ShowHiddenItems, Mode=TwoWay}" />
                         </ContextMenu>
                     </ui:Button.ContextMenu>
+                </ui:Button>
+
+                <!--  Egyablakos / Kétablakos (Total Commander-stílusú) nézet váltása  -->
+                <ui:Button
+                    Appearance="{Binding DualPaneEnabled, Converter={StaticResource DualPaneAppearance}}"
+                    Click="OnToggleDualPaneClick"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="{loc:Loc Cmd_ToggleDualPane}">
+                    <ui:SymbolIcon Symbol="DualScreen24" />
                 </ui:Button>
 
                 <!--  Téma-kapcsoló: az ikon azt mutatja, amire váltani fog  -->
@@ -1185,7 +1230,8 @@
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="9"
-                RenderTransformOrigin="0.5,0.5">
+                RenderTransformOrigin="0.5,0.5"
+                Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                 <Border.RenderTransform>
                     <TranslateTransform X="0" />
                 </Border.RenderTransform>
@@ -1195,7 +1241,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <Grid x:Name="FileListHost" Grid.Column="0">
+                    <Grid x:Name="FileListHost" Grid.Column="0" PreviewKeyDown="OnFileListHostPreviewKeyDown">
 
                     <!--  Részletes nézet  -->
                     <ListView
@@ -1634,6 +1680,120 @@
                     </Border>
                 </Grid>
             </Border>
+
+            <!--
+                Kétablakos (Total Commander-stílusú) nézet — a fülrendszertől
+                FÜGGETLEN két panel (LeftPaneTab/RightPaneTab), csak akkor
+                látszik, ha a felhasználó bekapcsolta. Lásd FilePaneView.
+            -->
+            <Grid Grid.Column="2" Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid x:Name="DualPaneGrid" Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="DualPaneLeftColumn" Width="*" />
+                        <ColumnDefinition x:Name="DualPaneSplitterColumn" Width="Auto" />
+                        <ColumnDefinition x:Name="DualPaneRightColumn" Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="DualPaneTopRow" Height="*" />
+                        <RowDefinition x:Name="DualPaneSplitterRow" Height="Auto" />
+                        <RowDefinition x:Name="DualPaneBottomRow" Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <views:FilePaneView
+                        x:Name="LeftPaneView"
+                        Grid.Column="0"
+                        Grid.Row="0"
+                        Activated="OnLeftPaneActivated"
+                        DataContext="{Binding LeftPaneTab}"
+                        DeleteRequested="OnPaneDeleteRequested"
+                        FilesDropped="OnPaneFilesDropped" />
+
+                    <GridSplitter
+                        x:Name="DualPaneSplitter"
+                        Grid.Column="1"
+                        Grid.Row="0"
+                        Grid.RowSpan="3"
+                        Width="6"
+                        HorizontalAlignment="Center"
+                        Background="Transparent"
+                        MouseDoubleClick="OnDualPaneSplitterDoubleClick" />
+
+                    <views:FilePaneView
+                        x:Name="RightPaneView"
+                        Grid.Column="2"
+                        Grid.Row="0"
+                        Activated="OnRightPaneActivated"
+                        DataContext="{Binding RightPaneTab}"
+                        DeleteRequested="OnPaneDeleteRequested"
+                        FilesDropped="OnPaneFilesDropped" />
+
+                    <!--  Szinkronizálás gomb: a másik panelt az aktív panel útvonalára navigálja  -->
+                    <ui:Button
+                        Grid.Column="0"
+                        Grid.ColumnSpan="3"
+                        Grid.Row="0"
+                        Width="30"
+                        Height="30"
+                        Margin="0,10,0,0"
+                        Padding="0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Appearance="Secondary"
+                        Command="{Binding SyncPanesCommand}"
+                        CornerRadius="15"
+                        ToolTip="{loc:Loc Cmd_SyncPanes}">
+                        <ui:SymbolIcon FontSize="14" Symbol="ArrowSync24" />
+                    </ui:Button>
+                </Grid>
+
+                <!--
+                    Diszkrét funkcióbillentyű-sáv — kattintható megfelelője a
+                    Total Commander-billentyűkiosztásnak (lásd MainWindow.xaml.cs
+                    OnMainPreviewKeyDown), csak akkor látszik, ha a felhasználó
+                    mindkettőt (kétablakos nézet + a billentyűkiosztás) bekapcsolta.
+                -->
+                <Border
+                    Grid.Row="1"
+                    Margin="0,8,0,0"
+                    Padding="4"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Visibility="{Binding ShowFunctionKeyBar, Converter={StaticResource BoolToVisibility}}">
+                    <UniformGrid Columns="6" Rows="1">
+                        <ui:Button
+                            Margin="2"
+                            Click="OnFKeyViewClick"
+                            Content="{loc:Loc FKey_View}" />
+                        <ui:Button
+                            Margin="2"
+                            Click="OnFKeyEditClick"
+                            Content="{loc:Loc FKey_Edit}" />
+                        <ui:Button
+                            Margin="2"
+                            Click="OnFKeyCopyClick"
+                            Content="{loc:Loc FKey_Copy}" />
+                        <ui:Button
+                            Margin="2"
+                            Click="OnFKeyMoveClick"
+                            Content="{loc:Loc FKey_Move}" />
+                        <ui:Button
+                            Margin="2"
+                            Click="OnFKeyNewFolderClick"
+                            Content="{loc:Loc FKey_NewFolder}" />
+                        <ui:Button
+                            Margin="2"
+                            Click="OnFKeyDeleteClick"
+                            Content="{loc:Loc FKey_Delete}" />
+                    </UniformGrid>
+                </Border>
+            </Grid>
             </Grid>
         </Grid>
 
@@ -1645,6 +1805,204 @@
                 FontSize="12"
                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                 Text="{Binding SelectedTab.StatusText}" />
+        </Border>
+
+        <!--
+            Aktivitás-központ: saját másolás/áthelyezés/törlés folyamatjelzője
+            — NEM a Windows beépített másoló-párbeszédablaka. Lebeg a tartalom
+            fölött, jobbra lent, mint a Chrome letöltés-panelje — összecsukható,
+            több egyidejű művelet egymás alatt. Lásd FileOperationEngine.
+        -->
+        <Border
+            Grid.Row="3"
+            Grid.RowSpan="2"
+            Margin="0,0,16,16"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Background="{DynamicResource GlassPanelBrush}"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Visibility="{Binding FileOperationJobs.Count, Converter={StaticResource CountToVisibility}}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" Opacity="0.3" ShadowDepth="2" />
+            </Border.Effect>
+            <StackPanel Width="360">
+                <ToggleButton
+                    x:Name="ActivityHeaderToggle"
+                    Padding="14,10"
+                    HorizontalContentAlignment="Stretch"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    IsChecked="True">
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ToggleButton.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            FontWeight="SemiBold">
+                            <Run Text="{loc:Loc FileOps_ActivityCenter}" />
+                            <Run Text="(" /><Run Text="{Binding FileOperationJobs.Count, Mode=OneWay}" /><Run Text=")" />
+                        </TextBlock>
+                        <ui:SymbolIcon
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            FontSize="14"
+                            Symbol="ChevronDown24" />
+                    </Grid>
+                </ToggleButton>
+
+                <ItemsControl
+                    MaxHeight="420"
+                    Margin="0,0,0,8"
+                    ItemsSource="{Binding FileOperationJobs}"
+                    Visibility="{Binding IsChecked, ElementName=ActivityHeaderToggle, Converter={StaticResource BoolToVisibility}}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type fileOps:FileOperationJob}">
+                            <Border Margin="10,0,10,10" Padding="12" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding CurrentFileName}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Margin="0,2,0,0"
+                                                FontSize="11"
+                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                Text="{Binding ProgressText}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <ui:Button
+                                                Width="26"
+                                                Height="26"
+                                                Padding="0"
+                                                Appearance="Transparent"
+                                                Command="{Binding PauseCommand}"
+                                                ToolTip="Szünet"
+                                                Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                                                <ui:SymbolIcon FontSize="13" Symbol="Pause24" />
+                                            </ui:Button>
+                                            <ui:Button
+                                                Width="26"
+                                                Height="26"
+                                                Padding="0"
+                                                Appearance="Transparent"
+                                                Command="{Binding ResumeCommand}"
+                                                ToolTip="Folytatás"
+                                                Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}">
+                                                <ui:SymbolIcon FontSize="13" Symbol="Play24" />
+                                            </ui:Button>
+                                            <ui:Button
+                                                Width="26"
+                                                Height="26"
+                                                Padding="0"
+                                                Appearance="Transparent"
+                                                Command="{Binding CancelCommand}"
+                                                ToolTip="Megszakítás"
+                                                Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}">
+                                                <ui:SymbolIcon FontSize="13" Symbol="Dismiss24" />
+                                            </ui:Button>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <ProgressBar
+                                        Height="4"
+                                        Margin="0,8,0,0"
+                                        Maximum="1"
+                                        Value="{Binding ProgressFraction, Mode=OneWay}"
+                                        Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}" />
+
+                                    <TextBlock
+                                        Margin="0,4,0,0"
+                                        FontSize="11"
+                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                        Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}">
+                                        <Run Text="{Binding SpeedText, Mode=OneWay}" />
+                                        <Run Text="{Binding EtaText, Mode=OneWay, StringFormat=' · {0}'}" />
+                                    </TextBlock>
+
+                                    <!--  Névütközés — Felülírás / Kihagyás / Mindkettő megtartása / Alkalmazás az összesre  -->
+                                    <Border
+                                        Margin="0,8,0,0"
+                                        Padding="10,8"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="6"
+                                        Visibility="{Binding PendingConflict, Converter={StaticResource NullToCollapsed}}">
+                                        <StackPanel DataContext="{Binding PendingConflict}">
+                                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="{loc:Loc FileOps_ConflictTitle}" TextWrapping="Wrap" />
+                                            <TextBlock
+                                                Margin="0,4,0,0"
+                                                FontSize="11"
+                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                TextWrapping="Wrap">
+                                                <Run Text="{loc:Loc FileOps_ConflictDestination}" />
+                                                <Run Text=":" />
+                                                <Run Text="{Binding DestinationSizeText, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <CheckBox
+                                                Margin="0,6,0,0"
+                                                Content="{loc:Loc FileOps_ApplyToAll}"
+                                                IsChecked="{Binding ApplyToAll, Mode=TwoWay}" />
+                                            <UniformGrid Margin="0,8,0,0" Columns="3">
+                                                <ui:Button
+                                                    Margin="0,0,4,0"
+                                                    Command="{Binding ResolveCommand}"
+                                                    CommandParameter="{x:Static fileOps:FileConflictAction.Overwrite}"
+                                                    Content="{loc:Loc FileOps_Overwrite}"
+                                                    FontSize="11" />
+                                                <ui:Button
+                                                    Margin="4,0,4,0"
+                                                    Command="{Binding ResolveCommand}"
+                                                    CommandParameter="{x:Static fileOps:FileConflictAction.Skip}"
+                                                    Content="{loc:Loc FileOps_Skip}"
+                                                    FontSize="11" />
+                                                <ui:Button
+                                                    Margin="4,0,0,0"
+                                                    Command="{Binding ResolveCommand}"
+                                                    CommandParameter="{x:Static fileOps:FileConflictAction.KeepBoth}"
+                                                    Content="{loc:Loc FileOps_KeepBoth}"
+                                                    FontSize="11" />
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock
+                                        Margin="0,6,0,0"
+                                        FontSize="11"
+                                        Foreground="#E81123"
+                                        Text="{Binding ErrorSummary}"
+                                        TextWrapping="Wrap"
+                                        Visibility="{Binding ErrorSummary, Converter={StaticResource NullToCollapsed}}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </Border>
     </Grid>
 </ui:FluentWindow>

@@ -247,11 +247,89 @@
   <data name="Settings_ThemeHint" xml:space="preserve">
     <value>A rendszerbeállítás követése esetén a Windows váltásakor magától átvált.</value>
   </data>
+  <data name="Settings_Accent" xml:space="preserve">
+    <value>Akcentus szín</value>
+  </data>
+  <data name="Settings_AccentHint" xml:space="preserve">
+    <value>Kijelölések, az aktív mappa és a folyamatsávok színe. Előre definiált paletta vagy egyedi hex érték.</value>
+  </data>
+  <data name="Settings_AccentUseSystem" xml:space="preserve">
+    <value>Rendszer akcentus szín</value>
+  </data>
+  <data name="Accent_InvalidHex" xml:space="preserve">
+    <value>Érvénytelen szín — hex formátum, pl. #0078D4</value>
+  </data>
+  <data name="Cmd_Apply" xml:space="preserve">
+    <value>Alkalmaz</value>
+  </data>
   <data name="Settings_Animations" xml:space="preserve">
     <value>Animációk</value>
   </data>
   <data name="Settings_AnimationsHint" xml:space="preserve">
     <value>Átúsztatások és egérrel érintéskori visszajelzés. Kikapcsolva a lehető leggyorsabb a válasz.</value>
+  </data>
+  <data name="Settings_ShellIntegration" xml:space="preserve">
+    <value>Rendszerintegráció</value>
+  </data>
+  <data name="Settings_ShellIntegrationHint" xml:space="preserve">
+    <value>Opcionális, egyenként kapcsolható beállítások az Intéző kiváltásához. Alapból minden ki van kapcsolva, és semmi nem módosul, amíg te be nem kapcsolod.</value>
+  </data>
+  <data name="ShellIntegration_FolderOpen" xml:space="preserve">
+    <value>Mappák megnyitása ebben az appban</value>
+  </data>
+  <data name="ShellIntegration_FolderOpenHint" xml:space="preserve">
+    <value>Mappák és meghajtók dupla kattintásra a Pilaster-ben nyílnak meg, nem az Intézőben.</value>
+  </data>
+  <data name="ShellIntegration_WinE" xml:space="preserve">
+    <value>Win+E átirányítása</value>
+  </data>
+  <data name="ShellIntegration_WinEHint" xml:space="preserve">
+    <value>A Win+E billentyűkombináció a Pilastert nyitja meg. Csak addig hat, amíg a Pilaster fut.</value>
+  </data>
+  <data name="ShellIntegration_ContextMenu" xml:space="preserve">
+    <value>Jobb klikk menü bejegyzés</value>
+  </data>
+  <data name="ShellIntegration_ContextMenuHint" xml:space="preserve">
+    <value>„Megnyitás Pilaster-ben" opció jelenik meg mappák jobbklikk-menüjében, a szokásos „Megnyitás" mellett.</value>
+  </data>
+  <data name="ShellIntegration_ContextMenuLabel" xml:space="preserve">
+    <value>Megnyitás Pilaster-ben</value>
+  </data>
+  <data name="ShellIntegration_ResetAll" xml:space="preserve">
+    <value>Minden visszaállítása alapértelmezettre</value>
+  </data>
+  <data name="ShellIntegration_ResetAllHint" xml:space="preserve">
+    <value>Az összes fenti kapcsoló kikapcsolása, és az Intéző eredeti viselkedésének pontos visszaállítása.</value>
+  </data>
+  <data name="ShellIntegration_ConfirmTitle" xml:space="preserve">
+    <value>Rendszerintegráció bekapcsolása</value>
+  </data>
+  <data name="ShellIntegration_ConfirmFolderOpen" xml:space="preserve">
+    <value>Ez módosítja, hogy a Windows mivel nyitja meg a mappákat és meghajtókat: mostantól a Pilaster indul az Intéző helyett, minden alkalmazásban. Bármikor visszavonható ugyanezzel a kapcsolóval, vagy a „Minden visszaállítása" gombbal.</value>
+  </data>
+  <data name="ShellIntegration_ConfirmWinE" xml:space="preserve">
+    <value>Ez elfogja a Win+E billentyűkombinációt, amíg a Pilaster fut, és az Intéző helyett a Pilastert nyitja meg vele. Bármikor visszavonható ugyanezzel a kapcsolóval.</value>
+  </data>
+  <data name="ShellIntegration_ConfirmContextMenu" xml:space="preserve">
+    <value>Ez egy „Megnyitás Pilaster-ben" bejegyzést ad a mappák jobbklikk-menüjéhez, a meglévők mellé. Bármikor visszavonható ugyanezzel a kapcsolóval.</value>
+  </data>
+  <data name="Cmd_Reset" xml:space="preserve">
+    <value>Visszaállítás</value>
+  </data>
+  <data name="Cmd_ToggleDualPane" xml:space="preserve">
+    <value>Egyablakos / Kétablakos nézet</value>
+  </data>
+  <data name="Cmd_SyncPanes" xml:space="preserve">
+    <value>Szinkronizálás — a másik panel ugyanide navigál</value>
+  </data>
+  <data name="Animations_Full" xml:space="preserve">
+    <value>Teljes</value>
+  </data>
+  <data name="Animations_Reduced" xml:space="preserve">
+    <value>Csökkentett</value>
+  </data>
+  <data name="Animations_Off" xml:space="preserve">
+    <value>Kikapcsolva</value>
   </data>
   <data name="Settings_LiquidGlass" xml:space="preserve">
     <value>Áttetsző hatás</value>
@@ -385,6 +463,63 @@
   <data name="Cmd_Delete" xml:space="preserve">
     <value>Törlés</value>
   </data>
+  <data name="Cmd_Copy" xml:space="preserve">
+    <value>Másolás</value>
+  </data>
+  <data name="Cmd_Cut" xml:space="preserve">
+    <value>Kivágás</value>
+  </data>
+  <data name="Cmd_DeletePermanentlyShort" xml:space="preserve">
+    <value>Végleges törlés</value>
+  </data>
+  <data name="FileOps_Copying" xml:space="preserve">
+    <value>Másolás</value>
+  </data>
+  <data name="FileOps_Moving" xml:space="preserve">
+    <value>Áthelyezés</value>
+  </data>
+  <data name="FileOps_Deleting" xml:space="preserve">
+    <value>Törlés</value>
+  </data>
+  <data name="FileOps_Completed" xml:space="preserve">
+    <value>Kész</value>
+  </data>
+  <data name="FileOps_CompletedWithErrors" xml:space="preserve">
+    <value>Kész, hibákkal</value>
+  </data>
+  <data name="FileOps_Cancelled" xml:space="preserve">
+    <value>Megszakítva</value>
+  </data>
+  <data name="FileOps_Paused" xml:space="preserve">
+    <value>Szüneteltetve</value>
+  </data>
+  <data name="FileOps_ConflictTitle" xml:space="preserve">
+    <value>Már létezik egy elem ezzel a névvel</value>
+  </data>
+  <data name="FileOps_ConflictSource" xml:space="preserve">
+    <value>Másolandó</value>
+  </data>
+  <data name="FileOps_ConflictDestination" xml:space="preserve">
+    <value>Már itt van</value>
+  </data>
+  <data name="FileOps_Overwrite" xml:space="preserve">
+    <value>Felülírás</value>
+  </data>
+  <data name="FileOps_Skip" xml:space="preserve">
+    <value>Kihagyás</value>
+  </data>
+  <data name="FileOps_KeepBoth" xml:space="preserve">
+    <value>Mindkettő megtartása</value>
+  </data>
+  <data name="FileOps_ApplyToAll" xml:space="preserve">
+    <value>Alkalmazás az összesre</value>
+  </data>
+  <data name="FileOps_ClearCompleted" xml:space="preserve">
+    <value>Befejezettek törlése</value>
+  </data>
+  <data name="FileOps_ActivityCenter" xml:space="preserve">
+    <value>Aktivitás</value>
+  </data>
   <data name="Cmd_Add" xml:space="preserve">
     <value>Hozzáadás</value>
   </data>
@@ -499,5 +634,63 @@
   </data>
   <data name="RecycleBin_DeleteFailed" xml:space="preserve">
     <value>Nem sikerült véglegesen törölni: „{0}"</value>
+  </data>
+
+  <data name="Cmd_Cancel" xml:space="preserve">
+    <value>Mégse</value>
+  </data>
+  <data name="Cmd_Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="TC_MoveTitle" xml:space="preserve">
+    <value>Áthelyezés</value>
+  </data>
+  <data name="TC_CopyTitle" xml:space="preserve">
+    <value>Másolás</value>
+  </data>
+  <data name="TC_TransferSummary" xml:space="preserve">
+    <value>{0} elem — cél mappa:</value>
+  </data>
+  <data name="TC_TransferHint" xml:space="preserve">
+    <value>Szükség esetén szerkeszd a célútvonalat, majd nyomj Entert vagy kattints az OK-ra.</value>
+  </data>
+  <data name="Settings_TotalCommander" xml:space="preserve">
+    <value>Total Commander billentyűkiosztás</value>
+  </data>
+  <data name="Settings_TotalCommanderHint" xml:space="preserve">
+    <value>F3 Megtekintés, F4 Szerkesztés, F5 Másolás, F6 Áthelyezés, F7 Új mappa, F8/Delete Törlés, Tab paneváltás. Kikapcsolva a hagyományos, Intéző-szerű billentyűk maradnak érvényben.</value>
+  </data>
+  <data name="Settings_ExternalEditor" xml:space="preserve">
+    <value>Külső szerkesztő (F4)</value>
+  </data>
+  <data name="Settings_ExternalEditorHint" xml:space="preserve">
+    <value>Ezzel a programmal nyílik meg a kijelölt fájl F4-re.</value>
+  </data>
+  <data name="Cmd_Browse" xml:space="preserve">
+    <value>Tallózás…</value>
+  </data>
+  <data name="Viewer_Unavailable" xml:space="preserve">
+    <value>Az előnézet nem érhető el ehhez a fájlhoz.</value>
+  </data>
+  <data name="Viewer_HexTruncated" xml:space="preserve">
+    <value>… (csak az első 4 KB látszik)</value>
+  </data>
+  <data name="FKey_View" xml:space="preserve">
+    <value>F3 Megtekintés</value>
+  </data>
+  <data name="FKey_Edit" xml:space="preserve">
+    <value>F4 Szerkesztés</value>
+  </data>
+  <data name="FKey_Copy" xml:space="preserve">
+    <value>F5 Másolás</value>
+  </data>
+  <data name="FKey_Move" xml:space="preserve">
+    <value>F6 Áthelyezés</value>
+  </data>
+  <data name="FKey_NewFolder" xml:space="preserve">
+    <value>F7 Új mappa</value>
+  </data>
+  <data name="FKey_Delete" xml:space="preserve">
+    <value>F8 Törlés</value>
   </data>
 </root>

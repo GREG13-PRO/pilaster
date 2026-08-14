@@ -247,11 +247,89 @@
   <data name="Settings_ThemeHint" xml:space="preserve">
     <value>Following the system setting also switches automatically when Windows does.</value>
   </data>
+  <data name="Settings_Accent" xml:space="preserve">
+    <value>Accent color</value>
+  </data>
+  <data name="Settings_AccentHint" xml:space="preserve">
+    <value>Color of selections, the active folder, and progress bars. Preset palette or a custom hex value.</value>
+  </data>
+  <data name="Settings_AccentUseSystem" xml:space="preserve">
+    <value>System accent color</value>
+  </data>
+  <data name="Accent_InvalidHex" xml:space="preserve">
+    <value>Invalid color — use hex format, e.g. #0078D4</value>
+  </data>
+  <data name="Cmd_Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
   <data name="Settings_Animations" xml:space="preserve">
     <value>Animations</value>
   </data>
   <data name="Settings_AnimationsHint" xml:space="preserve">
     <value>Fades and hover feedback. Turn off for the fastest possible response.</value>
+  </data>
+  <data name="Settings_ShellIntegration" xml:space="preserve">
+    <value>System integration</value>
+  </data>
+  <data name="Settings_ShellIntegrationHint" xml:space="preserve">
+    <value>Optional, individually toggleable settings for replacing Explorer. Everything is off by default, and nothing changes until you turn it on.</value>
+  </data>
+  <data name="ShellIntegration_FolderOpen" xml:space="preserve">
+    <value>Open folders in this app</value>
+  </data>
+  <data name="ShellIntegration_FolderOpenHint" xml:space="preserve">
+    <value>Folders and drives open in Pilaster on double-click, instead of Explorer.</value>
+  </data>
+  <data name="ShellIntegration_WinE" xml:space="preserve">
+    <value>Redirect Win+E</value>
+  </data>
+  <data name="ShellIntegration_WinEHint" xml:space="preserve">
+    <value>The Win+E shortcut opens Pilaster. Only works while Pilaster is running.</value>
+  </data>
+  <data name="ShellIntegration_ContextMenu" xml:space="preserve">
+    <value>Context menu entry</value>
+  </data>
+  <data name="ShellIntegration_ContextMenuHint" xml:space="preserve">
+    <value>An "Open in Pilaster" option appears in folders' right-click menu, alongside the usual "Open".</value>
+  </data>
+  <data name="ShellIntegration_ContextMenuLabel" xml:space="preserve">
+    <value>Open in Pilaster</value>
+  </data>
+  <data name="ShellIntegration_ResetAll" xml:space="preserve">
+    <value>Reset everything to default</value>
+  </data>
+  <data name="ShellIntegration_ResetAllHint" xml:space="preserve">
+    <value>Turns off all the toggles above and restores Explorer's original behavior exactly.</value>
+  </data>
+  <data name="ShellIntegration_ConfirmTitle" xml:space="preserve">
+    <value>Enable system integration</value>
+  </data>
+  <data name="ShellIntegration_ConfirmFolderOpen" xml:space="preserve">
+    <value>This changes what Windows uses to open folders and drives: Pilaster will launch instead of Explorer, in every application. You can undo this anytime with the same toggle, or with "Reset everything".</value>
+  </data>
+  <data name="ShellIntegration_ConfirmWinE" xml:space="preserve">
+    <value>This intercepts the Win+E shortcut while Pilaster is running, and opens Pilaster instead of Explorer. You can undo this anytime with the same toggle.</value>
+  </data>
+  <data name="ShellIntegration_ConfirmContextMenu" xml:space="preserve">
+    <value>This adds an "Open in Pilaster" entry to folders' right-click menu, alongside the existing ones. You can undo this anytime with the same toggle.</value>
+  </data>
+  <data name="Cmd_Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Cmd_ToggleDualPane" xml:space="preserve">
+    <value>Single pane / Dual pane view</value>
+  </data>
+  <data name="Cmd_SyncPanes" xml:space="preserve">
+    <value>Sync — navigates the other pane to the same place</value>
+  </data>
+  <data name="Animations_Full" xml:space="preserve">
+    <value>Full</value>
+  </data>
+  <data name="Animations_Reduced" xml:space="preserve">
+    <value>Reduced</value>
+  </data>
+  <data name="Animations_Off" xml:space="preserve">
+    <value>Off</value>
   </data>
   <data name="Settings_LiquidGlass" xml:space="preserve">
     <value>Glass effect</value>
@@ -385,6 +463,63 @@
   <data name="Cmd_Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="Cmd_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Cmd_Cut" xml:space="preserve">
+    <value>Cut</value>
+  </data>
+  <data name="Cmd_DeletePermanentlyShort" xml:space="preserve">
+    <value>Delete permanently</value>
+  </data>
+  <data name="FileOps_Copying" xml:space="preserve">
+    <value>Copying</value>
+  </data>
+  <data name="FileOps_Moving" xml:space="preserve">
+    <value>Moving</value>
+  </data>
+  <data name="FileOps_Deleting" xml:space="preserve">
+    <value>Deleting</value>
+  </data>
+  <data name="FileOps_Completed" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="FileOps_CompletedWithErrors" xml:space="preserve">
+    <value>Done, with errors</value>
+  </data>
+  <data name="FileOps_Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="FileOps_Paused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="FileOps_ConflictTitle" xml:space="preserve">
+    <value>An item with this name already exists</value>
+  </data>
+  <data name="FileOps_ConflictSource" xml:space="preserve">
+    <value>To copy</value>
+  </data>
+  <data name="FileOps_ConflictDestination" xml:space="preserve">
+    <value>Already here</value>
+  </data>
+  <data name="FileOps_Overwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="FileOps_Skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="FileOps_KeepBoth" xml:space="preserve">
+    <value>Keep both</value>
+  </data>
+  <data name="FileOps_ApplyToAll" xml:space="preserve">
+    <value>Apply to all</value>
+  </data>
+  <data name="FileOps_ClearCompleted" xml:space="preserve">
+    <value>Clear completed</value>
+  </data>
+  <data name="FileOps_ActivityCenter" xml:space="preserve">
+    <value>Activity</value>
+  </data>
   <data name="Cmd_Add" xml:space="preserve">
     <value>Add</value>
   </data>
@@ -499,5 +634,63 @@
   </data>
   <data name="RecycleBin_DeleteFailed" xml:space="preserve">
     <value>Couldn't permanently delete "{0}"</value>
+  </data>
+
+  <data name="Cmd_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Cmd_Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="TC_MoveTitle" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="TC_CopyTitle" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="TC_TransferSummary" xml:space="preserve">
+    <value>{0} item(s) — target folder:</value>
+  </data>
+  <data name="TC_TransferHint" xml:space="preserve">
+    <value>Edit the target path if needed, then press Enter or click OK.</value>
+  </data>
+  <data name="Settings_TotalCommander" xml:space="preserve">
+    <value>Total Commander keybindings</value>
+  </data>
+  <data name="Settings_TotalCommanderHint" xml:space="preserve">
+    <value>F3 View, F4 Edit, F5 Copy, F6 Move, F7 New folder, F8/Delete Delete, Tab switches panes. Turned off, traditional Explorer-like shortcuts remain in effect.</value>
+  </data>
+  <data name="Settings_ExternalEditor" xml:space="preserve">
+    <value>External editor (F4)</value>
+  </data>
+  <data name="Settings_ExternalEditorHint" xml:space="preserve">
+    <value>The selected file opens with this program on F4.</value>
+  </data>
+  <data name="Cmd_Browse" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="Viewer_Unavailable" xml:space="preserve">
+    <value>No preview available for this file.</value>
+  </data>
+  <data name="Viewer_HexTruncated" xml:space="preserve">
+    <value>… (only the first 4 KB is shown)</value>
+  </data>
+  <data name="FKey_View" xml:space="preserve">
+    <value>F3 View</value>
+  </data>
+  <data name="FKey_Edit" xml:space="preserve">
+    <value>F4 Edit</value>
+  </data>
+  <data name="FKey_Copy" xml:space="preserve">
+    <value>F5 Copy</value>
+  </data>
+  <data name="FKey_Move" xml:space="preserve">
+    <value>F6 Move</value>
+  </data>
+  <data name="FKey_NewFolder" xml:space="preserve">
+    <value>F7 New folder</value>
+  </data>
+  <data name="FKey_Delete" xml:space="preserve">
+    <value>F8 Delete</value>
   </data>
 </root>

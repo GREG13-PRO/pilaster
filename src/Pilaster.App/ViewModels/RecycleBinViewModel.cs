@@ -57,23 +57,28 @@ public sealed partial class RecycleBinViewModel : ObservableObject
 
     /// <summary>Elem visszaállítása az eredeti helyére.</summary>
     [RelayCommand]
-    private async Task RestoreAsync(RecycledItemViewModel? item)
+    private Task RestoreAsync(RecycledItemViewModel? item)
     {
         if (item is null)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         try
         {
-            await Task.Run(() => RecycleBinService.Restore(item.Model)).ConfigureAwait(true);
+            // NEM Task.Run: a Shell COM műveletek (IFileOperation) STA szálat
+            // követelnek meg, a WPF UI-szál STA, egy háttér-Task viszont MTA —
+            // onnan hívva ThreadStateException-nel szállna el minden alkalommal.
+            RecycleBinService.Restore(item.Model);
             Items.Remove(item);
             IsEmpty = Items.Count == 0;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException or ThreadStateException)
         {
             StatusMessage = string.Format(TranslationSource.Instance["RecycleBin_RestoreFailed"], item.Name);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -81,32 +86,39 @@ public sealed partial class RecycleBinViewModel : ObservableObject
     /// be, mielőtt ezt a parancsot meghívná — lásd <c>RecycleBinWindow</c>.
     /// </summary>
     [RelayCommand]
-    private async Task DeleteAsync(RecycledItemViewModel? item)
+    private Task DeleteAsync(RecycledItemViewModel? item)
     {
         if (item is null)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         try
         {
-            await Task.Run(() => RecycleBinService.Delete(item.Model)).ConfigureAwait(true);
+            // Lásd a RestoreAsync megjegyzését: a Shell COM törlés STA szálat
+            // követel, ezért nem Task.Run-nal, hanem közvetlenül a hívó
+            // (UI) szálon fut.
+            RecycleBinService.Delete(item.Model);
             Items.Remove(item);
             IsEmpty = Items.Count == 0;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException or ThreadStateException)
         {
             StatusMessage = string.Format(TranslationSource.Instance["RecycleBin_DeleteFailed"], item.Name);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>A teljes Lomtár ürítése — a megerősítést szintén a nézet kéri be előbb.</summary>
     [RelayCommand]
-    private async Task EmptyAsync()
+    private Task EmptyAsync()
     {
-        await Task.Run(RecycleBinService.Empty).ConfigureAwait(true);
+        // Lásd a RestoreAsync megjegyzését: STA-t igénylő Shell COM hívás.
+        RecycleBinService.Empty();
         Items.Clear();
         IsEmpty = true;
+        return Task.CompletedTask;
     }
 
     [ObservableProperty]

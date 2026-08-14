@@ -147,6 +147,26 @@ public sealed class HiddenItemOpacityConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Igaz → kiemelt (Primary) gombmegjelenés — bekapcsolt kapcsolók vizuális jelzésére.</summary>
+public sealed class BoolToAppearanceConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Transparent;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Elemszám → láthatóság: 0 esetén összecsukva, egyébként látható.</summary>
+public sealed class CountToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is int count && count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Logikai érték megfordítása (csak megjelenítéshez).</summary>
 public sealed class InvertBoolConverter : IValueConverter
 {
@@ -217,6 +237,24 @@ public sealed class ThemeModeConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+public sealed class AnimationLevelConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var strings = TranslationSource.Instance;
+
+        return value switch
+        {
+            Core.Settings.AnimationLevel.Reduced => strings["Animations_Reduced"],
+            Core.Settings.AnimationLevel.Off => strings["Animations_Off"],
+            _ => strings["Animations_Full"],
+        };
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Címkeszín → tömör ecset a színes pöttyökhöz/sávokhoz.</summary>
 public sealed class TagColorConverter : IValueConverter
 {
@@ -248,6 +286,16 @@ public sealed class TagColorConverter : IValueConverter
         brush.Freeze();
         return brush;
     }
+}
+
+/// <summary>Szín → tömör ecset — az akcentus-paletta swatch-jeihez.</summary>
+public sealed class ColorToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is Color color ? new SolidColorBrush(color) : Brushes.Transparent;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
 }
 
 /// <summary>Erőforráskulcs → lefordított felirat.</summary>

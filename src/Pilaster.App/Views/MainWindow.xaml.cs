@@ -13,6 +13,7 @@ using Pilaster.App.Localization;
 using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
 using Pilaster.Core.FileSystem;
+using Pilaster.Core.Settings;
 using Pilaster.Shell.Devices;
 using Pilaster.Shell.Menus;
 using Wpf.Ui.Controls;
@@ -34,12 +35,16 @@ public partial class MainWindow : FluentWindow
     private readonly MainWindowViewModel _viewModel;
     private readonly IServiceProvider _services;
     private readonly ThemeService _theme;
+    private readonly ISettingsService _settings;
 
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
 
     /// <summary>A Lomtár-ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private RecycleBinWindow? _recycleBinWindow;
+
+    /// <summary>Az F3 (Megtekintés) előnézeti ablaka, amíg nyitva van — hogy ne nyíljon kettő.</summary>
+    private FilePreviewWindow? _previewWindow;
 
     /// <summary>
     /// Igaz, amíg a natív jobbklikk-menü (<see cref="NativeContextMenuService"/>)
@@ -70,6 +75,7 @@ public partial class MainWindow : FluentWindow
         _viewModel = viewModel;
         _services = services;
         _theme = theme;
+        _settings = services.GetRequiredService<ISettingsService>();
         DataContext = viewModel;
 
         viewModel.SettingsRequested += OnSettingsRequested;
@@ -98,6 +104,7 @@ public partial class MainWindow : FluentWindow
         // tartozó nézetet kell megjeleníteni, nem a XAML-ben alapértelmezett
         // Részleteset.
         SyncViewModeVisuals(_viewModel.SelectedTab);
+        ApplyDualPaneOrientation(_viewModel.DualPaneVertical);
     }
 
     /// <summary>
@@ -329,7 +336,106 @@ public partial class MainWindow : FluentWindow
             TrackTab(_viewModel.SelectedTab);
             SyncViewModeVisuals(_viewModel.SelectedTab);
         }
+        else if (e.PropertyName == nameof(MainWindowViewModel.DualPaneVertical))
+        {
+            ApplyDualPaneOrientation(_viewModel.DualPaneVertical);
+        }
     }
+
+    private void OnToggleDualPaneClick(object sender, RoutedEventArgs e) =>
+        _viewModel.DualPaneEnabled = !_viewModel.DualPaneEnabled;
+
+    /// <summary>
+    /// Egymás mellett (vízszintes) vagy egymás alatt (függőleges) — a
+    /// panelek/elválasztó Grid.Row/Column-ját közvetlenül állítjuk át,
+    /// mert a XAML-nek nincs deklaratív módja "vagy oszlopok, vagy sorok"
+    /// elrendezés-váltásra ugyanazon rács belül.
+    /// </summary>
+    private void ApplyDualPaneOrientation(bool vertical)
+    {
+        if (vertical)
+        {
+            DualPaneLeftColumn.Width = new GridLength(1, GridUnitType.Star);
+            DualPaneRightColumn.Width = new GridLength(0);
+            DualPaneSplitterColumn.Width = new GridLength(0);
+            DualPaneTopRow.Height = new GridLength(1, GridUnitType.Star);
+            DualPaneBottomRow.Height = new GridLength(1, GridUnitType.Star);
+            DualPaneSplitterRow.Height = GridLength.Auto;
+
+            System.Windows.Controls.Grid.SetColumn(LeftPaneView, 0);
+            System.Windows.Controls.Grid.SetRow(LeftPaneView, 0);
+            System.Windows.Controls.Grid.SetColumn(RightPaneView, 0);
+            System.Windows.Controls.Grid.SetRow(RightPaneView, 2);
+
+            System.Windows.Controls.Grid.SetColumn(DualPaneSplitter, 0);
+            System.Windows.Controls.Grid.SetRow(DualPaneSplitter, 1);
+            System.Windows.Controls.Grid.SetColumnSpan(DualPaneSplitter, 1);
+            System.Windows.Controls.Grid.SetRowSpan(DualPaneSplitter, 1);
+            DualPaneSplitter.Width = double.NaN;
+            DualPaneSplitter.Height = 6;
+            DualPaneSplitter.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            DualPaneSplitter.VerticalAlignment = VerticalAlignment.Center;
+            DualPaneSplitter.ResizeDirection = System.Windows.Controls.GridResizeDirection.Rows;
+        }
+        else
+        {
+            DualPaneLeftColumn.Width = new GridLength(1, GridUnitType.Star);
+            DualPaneRightColumn.Width = new GridLength(1, GridUnitType.Star);
+            DualPaneSplitterColumn.Width = GridLength.Auto;
+            DualPaneTopRow.Height = new GridLength(1, GridUnitType.Star);
+            DualPaneBottomRow.Height = new GridLength(0);
+            DualPaneSplitterRow.Height = new GridLength(0);
+
+            System.Windows.Controls.Grid.SetColumn(LeftPaneView, 0);
+            System.Windows.Controls.Grid.SetRow(LeftPaneView, 0);
+            System.Windows.Controls.Grid.SetColumn(RightPaneView, 2);
+            System.Windows.Controls.Grid.SetRow(RightPaneView, 0);
+
+            System.Windows.Controls.Grid.SetColumn(DualPaneSplitter, 1);
+            System.Windows.Controls.Grid.SetRow(DualPaneSplitter, 0);
+            System.Windows.Controls.Grid.SetColumnSpan(DualPaneSplitter, 1);
+            System.Windows.Controls.Grid.SetRowSpan(DualPaneSplitter, 3);
+            DualPaneSplitter.Width = 6;
+            DualPaneSplitter.Height = double.NaN;
+            DualPaneSplitter.HorizontalAlignment = System.Windows.HorizontalAlignment.Center;
+            DualPaneSplitter.VerticalAlignment = VerticalAlignment.Stretch;
+            DualPaneSplitter.ResizeDirection = System.Windows.Controls.GridResizeDirection.Columns;
+        }
+    }
+
+    /// <summary>Dupla kattintás az elválasztóra: 50/50 arány visszaállítása.</summary>
+    private void OnDualPaneSplitterDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_viewModel.DualPaneVertical)
+        {
+            DualPaneTopRow.Height = new GridLength(1, GridUnitType.Star);
+            DualPaneBottomRow.Height = new GridLength(1, GridUnitType.Star);
+        }
+        else
+        {
+            DualPaneLeftColumn.Width = new GridLength(1, GridUnitType.Star);
+            DualPaneRightColumn.Width = new GridLength(1, GridUnitType.Star);
+        }
+    }
+
+    private void OnLeftPaneActivated(object? sender, EventArgs e) => _viewModel.IsLeftPaneActive = true;
+
+    private void OnRightPaneActivated(object? sender, EventArgs e) => _viewModel.IsLeftPaneActive = false;
+
+    private void OnPaneFilesDropped(object? sender, (IReadOnlyList<string> Paths, string DestinationDir, bool IsCopy) e)
+    {
+        if (e.IsCopy)
+        {
+            _viewModel.StartPaneCopy(e.Paths, e.DestinationDir);
+        }
+        else
+        {
+            _viewModel.StartPaneMove(e.Paths, e.DestinationDir);
+        }
+    }
+
+    private void OnPaneDeleteRequested(object? sender, (IReadOnlyList<string> Paths, bool Permanent) e) =>
+        _viewModel.StartPaneDelete(e.Paths, e.Permanent);
 
     /// <summary>
     /// A csúszó átmenet forrását a mindenkori aktív fülre állítja át.
@@ -670,6 +776,470 @@ public partial class MainWindow : FluentWindow
             await OpenItemAsync(item);
         }
     }
+
+    /// <summary>
+    /// A jelenleg látható nézet (Részletes/Rács) teljes kijelölése — a
+    /// Másolás/Kivágás/Törlés a teljes kijelölésen dolgozik, nem csak azon az
+    /// elemen, amire jobbklikkeltek (ahogy az Intézőben is).
+    /// </summary>
+    private List<string> GetSelectedFilePaths()
+    {
+        if (DetailsView.Visibility == Visibility.Visible)
+        {
+            return [.. DetailsView.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath)];
+        }
+
+        if (GridViewList.Visibility == Visibility.Visible)
+        {
+            return [.. GridViewList.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath)];
+        }
+
+        if (_viewModel.SelectedTab?.ColumnsSelectedFile is { } columnsFile)
+        {
+            return [columnsFile.FullPath];
+        }
+
+        return [];
+    }
+
+    private void OnCopyItemClick(object sender, RoutedEventArgs e) =>
+        _viewModel.CopySelectionCommand.Execute(GetSelectedFilePaths());
+
+    private void OnCutItemClick(object sender, RoutedEventArgs e) =>
+        _viewModel.CutSelectionCommand.Execute(GetSelectedFilePaths());
+
+    private void OnDeleteItemClick(object sender, RoutedEventArgs e) =>
+        _viewModel.DeleteSelectionCommand.Execute((GetSelectedFilePaths(), false));
+
+    /// <summary>
+    /// Ctrl+C/Ctrl+X/Ctrl+V/Delete/Shift+Delete — a fájllista területén
+    /// bárhol működik, a jelenlegi kijelölésen. Szándékosan a fájlterület
+    /// Gridjén (nem az egész ablakon), hogy szövegmezőkben (keresés,
+    /// átnevezés, útvonalszerkesztő) a Ctrl+C/V a normál szövegműveletet
+    /// végezze, ne fájlműveletet indítson.
+    /// </summary>
+    private void OnFileListHostPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (_viewModel.SelectedTab is not { IsHome: false })
+        {
+            return;
+        }
+
+        var ctrl = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control);
+        var shift = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
+
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.C when ctrl:
+                e.Handled = true;
+                _viewModel.CopySelectionCommand.Execute(GetSelectedFilePaths());
+                break;
+
+            case System.Windows.Input.Key.X when ctrl:
+                e.Handled = true;
+                _viewModel.CutSelectionCommand.Execute(GetSelectedFilePaths());
+                break;
+
+            case System.Windows.Input.Key.V when ctrl:
+                e.Handled = true;
+                _viewModel.PasteCommand.Execute(null);
+                break;
+
+            case System.Windows.Input.Key.Delete:
+                e.Handled = true;
+                _viewModel.DeleteSelectionCommand.Execute((GetSelectedFilePaths(), shift));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Total Commander-stílusú billentyűkiosztás — csak akkor avatkozik be,
+    /// ha a felhasználó a Beállításokban bekapcsolta (lásd
+    /// <see cref="AppSettings.TotalCommanderKeybindingsEnabled"/>). Kikapcsolva
+    /// a hagyományos, Intéző-szerű gyorsbillentyűk (lásd
+    /// <see cref="OnFileListHostPreviewKeyDown"/> és a többi meglévő kezelő)
+    /// változatlanul működnek, ez a metódus el sem éri a switch-et.
+    /// </summary>
+    /// <remarks>
+    /// Ablakszintű, bealagcsövező (Preview) esemény: a fájllista/szövegmezők
+    /// saját kezelőinél KORÁBBAN fut le. Ezért itt a legelső lépés kizárni a
+    /// szövegszerkesztés alatt álló mezőket (átnevezés, útvonalszerkesztő,
+    /// gyorsszűrő) — különben pl. egy F2 közben begépelt szöveg helyett a
+    /// billentyűkiosztás próbálná értelmezni a lenyomott billentyűt.
+    /// </remarks>
+    private void OnMainPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (!_settings.Current.TotalCommanderKeybindingsEnabled)
+        {
+            return;
+        }
+
+        if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        {
+            return;
+        }
+
+        var ctrl = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control);
+        var shift = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
+        var alt = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt);
+
+        // Alt+F7 — az Alt-tal lenyomott billentyűt a rendszer e.SystemKey-ben
+        // adja át, e.Key ilyenkor System marad, ezért ez külön ág.
+        if (alt && e.SystemKey == System.Windows.Input.Key.F7)
+        {
+            e.Handled = true;
+            QuickFilterBox.Focus();
+            QuickFilterBox.SelectAll();
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.Tab when _viewModel.DualPaneEnabled && !ctrl && !alt:
+                e.Handled = true;
+                _viewModel.IsLeftPaneActive = !_viewModel.IsLeftPaneActive;
+                FocusActivePaneList();
+                break;
+
+            case System.Windows.Input.Key.F3:
+                e.Handled = true;
+                _ = ViewActiveSelectionAsync();
+                break;
+
+            case System.Windows.Input.Key.F4:
+                e.Handled = true;
+                EditActiveSelection();
+                break;
+
+            case System.Windows.Input.Key.F5:
+                e.Handled = true;
+                _ = StartTcTransferAsync(isMove: false);
+                break;
+
+            case System.Windows.Input.Key.F6:
+                e.Handled = true;
+                _ = StartTcTransferAsync(isMove: true);
+                break;
+
+            case System.Windows.Input.Key.F7:
+                e.Handled = true;
+                CreateFolderInActivePane();
+                break;
+
+            case System.Windows.Input.Key.F8:
+                e.Handled = true;
+                DeleteActiveSelection(permanent: false);
+                break;
+
+            case System.Windows.Input.Key.Delete:
+                e.Handled = true;
+                DeleteActiveSelection(permanent: shift);
+                break;
+
+            case System.Windows.Input.Key.F2:
+                e.Handled = true;
+                RenameActiveSelection();
+                break;
+
+            case System.Windows.Input.Key.Insert:
+                e.Handled = true;
+                MarkCurrentAndAdvance();
+                break;
+
+            case System.Windows.Input.Key.Space:
+                e.Handled = true;
+                ToggleCurrentSelection();
+                break;
+
+            case System.Windows.Input.Key.A when ctrl:
+                e.Handled = true;
+                GetActiveList()?.SelectAll();
+                break;
+
+            case System.Windows.Input.Key.D when ctrl:
+            case System.Windows.Input.Key.Subtract:
+                e.Handled = true;
+                GetActiveList()?.UnselectAll();
+                break;
+
+            case System.Windows.Input.Key.Multiply:
+                e.Handled = true;
+                InvertActiveSelection();
+                break;
+
+            case System.Windows.Input.Key.R when ctrl:
+                e.Handled = true;
+                RefreshActiveTab();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Az „aktív" fájllista — egyablakos nézetben a látható Részletes/Rács
+    /// nézet, kétablakos nézetben az aktív panel belső listája. Oszlopos
+    /// nézetben (Columns) szándékosan <c>null</c>-t ad: a Total Commander
+    /// billentyűk ott nem értelmezettek.
+    /// </summary>
+    private ListBox? GetActiveList()
+    {
+        if (_viewModel.DualPaneEnabled)
+        {
+            return _viewModel.IsLeftPaneActive ? LeftPaneView.SelectionList : RightPaneView.SelectionList;
+        }
+
+        if (DetailsView.Visibility == Visibility.Visible)
+        {
+            return DetailsView;
+        }
+
+        if (GridViewList.Visibility == Visibility.Visible)
+        {
+            return GridViewList;
+        }
+
+        return null;
+    }
+
+    private TabViewModel? GetActiveTab() =>
+        _viewModel.DualPaneEnabled ? _viewModel.ActivePaneTab : _viewModel.SelectedTab is { IsHome: false } tab ? tab : null;
+
+    /// <summary>
+    /// A billentyűzet-fókusz alatt álló („kurzor alatti") elem — Total
+    /// Commanderben ez a keret, ami függetlenül mozog a tényleges (be- vagy
+    /// kijelölt) kijelöléstől. Ha semmi nincs fókuszban (pl. a lista most
+    /// kapta a fókuszt), a jelenlegi kijelölésre esik vissza.
+    /// </summary>
+    private static FileSystemItem? GetFocusedItem(ListBox list)
+    {
+        if (System.Windows.Input.Keyboard.FocusedElement is DependencyObject focused
+            && FindVisualAncestor<System.Windows.Controls.ListBoxItem>(focused) is { DataContext: FileSystemItem item })
+        {
+            return item;
+        }
+
+        return list.SelectedItem as FileSystemItem;
+    }
+
+    private static T? FindVisualAncestor<T>(DependencyObject? source) where T : DependencyObject
+    {
+        while (source is not null and not T)
+        {
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return source as T;
+    }
+
+    private void FocusActivePaneList()
+    {
+        var paneView = _viewModel.IsLeftPaneActive ? LeftPaneView : RightPaneView;
+        paneView.SelectionList.Focus();
+    }
+
+    /// <summary>F3 — csak olvasható előnézet a fókuszban lévő fájlról, lásd <see cref="FilePreviewWindow"/>.</summary>
+    private async Task ViewActiveSelectionAsync()
+    {
+        if (GetActiveList() is not { } list || GetFocusedItem(list) is not { Kind: FileSystemItemKind.File } item)
+        {
+            return;
+        }
+
+        if (_previewWindow is not { IsLoaded: true })
+        {
+            _previewWindow = _services.GetRequiredService<FilePreviewWindow>();
+            _previewWindow.Owner = this;
+            _previewWindow.Closed += (_, _) => _previewWindow = null;
+            _previewWindow.Show();
+        }
+        else
+        {
+            _previewWindow.Activate();
+        }
+
+        await _previewWindow.LoadAsync(item);
+    }
+
+    /// <summary>F4 — a fókuszban lévő fájl megnyitása a Beállításokban megadott külső szerkesztővel.</summary>
+    private void EditActiveSelection()
+    {
+        if (GetActiveList() is not { } list || GetFocusedItem(list) is not { Kind: FileSystemItemKind.File } item)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(_settings.Current.ExternalEditorPath, $"\"{item.FullPath}\"") { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // A megadott szerkesztő nem található vagy nem indítható —
+            // nincs jobb teendő, mint csendben kihagyni.
+        }
+    }
+
+    /// <summary>F5/F6 — megerősítő párbeszéd a célmappáról, majd a tényleges átvitel indítása, lásd <see cref="MainWindowViewModel.BeginTransfer"/>.</summary>
+    private async Task StartTcTransferAsync(bool isMove)
+    {
+        if (GetActiveTab() is not { } tab || GetActiveList() is not { } list)
+        {
+            return;
+        }
+
+        var paths = list.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath).ToList();
+
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
+        var initialTarget = _viewModel.DualPaneEnabled
+            ? _viewModel.InactivePaneTab.CurrentPath ?? tab.CurrentPath
+            : tab.CurrentPath;
+
+        if (initialTarget is null)
+        {
+            return;
+        }
+
+        var dialog = _services.GetRequiredService<TransferConfirmWindow>();
+        dialog.Owner = this;
+        dialog.Initialize(isMove, paths.Count, initialTarget);
+
+        if (dialog.ShowDialog() == true && dialog.ConfirmedTarget is { } target)
+        {
+            _viewModel.BeginTransfer(tab, paths, target, isMove);
+        }
+    }
+
+    /// <summary>F7 — új mappa az aktív panelben/fülben, a v0.8-as azonnali átnevezéssel.</summary>
+    private void CreateFolderInActivePane()
+    {
+        if (GetActiveTab() is { } tab)
+        {
+            _ = _viewModel.CreateNewFolderInTabAsync(tab);
+        }
+    }
+
+    /// <summary>F8 (Lomtárba)/Delete/Shift+Delete (véglegesen) — a fókuszban lévő panel/fül teljes kijelölésén.</summary>
+    private void DeleteActiveSelection(bool permanent)
+    {
+        if (GetActiveList() is not { } list)
+        {
+            return;
+        }
+
+        var paths = list.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath).ToList();
+
+        if (paths.Count > 0)
+        {
+            _viewModel.StartPaneDelete(paths, permanent);
+        }
+    }
+
+    /// <summary>F2 — a fókuszban lévő elem helyben-átnevezése.</summary>
+    private void RenameActiveSelection()
+    {
+        if (GetActiveTab() is not { } tab || GetActiveList() is not { } list || GetFocusedItem(list) is not { } item)
+        {
+            return;
+        }
+
+        tab.BeginRename(item);
+    }
+
+    /// <summary>Insert — a fókuszban lévő elem kijelölése (ha még nem az), majd a fókusz a következőre lép.</summary>
+    private void MarkCurrentAndAdvance()
+    {
+        if (GetActiveList() is not { } list || GetFocusedItem(list) is not { } item)
+        {
+            return;
+        }
+
+        if (!list.SelectedItems.Contains(item))
+        {
+            list.SelectedItems.Add(item);
+        }
+
+        var index = list.Items.IndexOf(item);
+
+        if (index < 0 || index + 1 >= list.Items.Count)
+        {
+            return;
+        }
+
+        var next = list.Items[index + 1];
+        list.ScrollIntoView(next);
+
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (list.ItemContainerGenerator.ContainerFromItem(next) is System.Windows.Controls.ListBoxItem container)
+            {
+                container.Focus();
+            }
+        });
+    }
+
+    /// <summary>Space — a fókuszban lévő elem kijelölésének átbillentése, a fókusz mozgatása nélkül.</summary>
+    private void ToggleCurrentSelection()
+    {
+        if (GetActiveList() is not { } list || GetFocusedItem(list) is not { } item)
+        {
+            return;
+        }
+
+        if (list.SelectedItems.Contains(item))
+        {
+            list.SelectedItems.Remove(item);
+        }
+        else
+        {
+            list.SelectedItems.Add(item);
+        }
+    }
+
+    /// <summary>Num* — a kijelölés megfordítása: minden kijelölt kijelöletlenné válik, és fordítva.</summary>
+    private void InvertActiveSelection()
+    {
+        if (GetActiveList() is not { } list)
+        {
+            return;
+        }
+
+        var currentlySelected = list.SelectedItems.Cast<object>().ToList();
+        var toSelect = list.Items.Cast<object>().Where(i => !currentlySelected.Contains(i)).ToList();
+
+        list.SelectedItems.Clear();
+
+        foreach (var item in toSelect)
+        {
+            list.SelectedItems.Add(item);
+        }
+    }
+
+    /// <summary>Ctrl+R — kifejezett frissítés, szándékosan külön az F5-től (ami a billentyűkiosztásban Másolás).</summary>
+    private void RefreshActiveTab()
+    {
+        if (GetActiveTab() is { } tab)
+        {
+            _ = tab.RefreshCommand.ExecuteAsync(null);
+        }
+    }
+
+    // A kétablakos nézet alján megjelenő funkcióbillentyű-sáv gombjai —
+    // ugyanazokat a metódusokat hívják, mint a billentyűzet-lenyomás, lásd
+    // OnMainPreviewKeyDown/ShowFunctionKeyBar.
+    private void OnFKeyViewClick(object sender, RoutedEventArgs e) => _ = ViewActiveSelectionAsync();
+
+    private void OnFKeyEditClick(object sender, RoutedEventArgs e) => EditActiveSelection();
+
+    private void OnFKeyCopyClick(object sender, RoutedEventArgs e) => _ = StartTcTransferAsync(isMove: false);
+
+    private void OnFKeyMoveClick(object sender, RoutedEventArgs e) => _ = StartTcTransferAsync(isMove: true);
+
+    private void OnFKeyNewFolderClick(object sender, RoutedEventArgs e) => CreateFolderInActivePane();
+
+    private void OnFKeyDeleteClick(object sender, RoutedEventArgs e) => DeleteActiveSelection(permanent: false);
 
     private void OnCopyPathClick(object sender, RoutedEventArgs e)
     {

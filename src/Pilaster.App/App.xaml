@@ -23,10 +23,14 @@
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:HiddenItemOpacityConverter x:Key="HiddenOpacity" />
             <conv:ThemeModeConverter x:Key="ThemeMode" />
+            <conv:AnimationLevelConverter x:Key="AnimationLevel" />
             <conv:LocalizeKeyConverter x:Key="LocalizeKey" />
             <conv:InvertBoolConverter x:Key="InvertBool" />
+            <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
+            <conv:BoolToAppearanceConverter x:Key="DualPaneAppearance" />
             <conv:EnumToBoolConverter x:Key="EnumToBool" />
             <conv:TagColorConverter x:Key="TagColorBrush" />
+            <conv:ColorToBrushConverter x:Key="ColorToBrush" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

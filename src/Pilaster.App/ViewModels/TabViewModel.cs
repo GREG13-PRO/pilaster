@@ -50,6 +50,8 @@ public sealed partial class TabViewModel : ObservableObject
     private CancellationTokenSource? _loadCancellation;
     private bool _suppressResort;
     private int _pathCopiedGeneration;
+    private FileSystemItem[]? _sizeWatchedItems;
+    private CancellationTokenSource? _sizeResortDebounce;
 
     public TabViewModel(IFileSystemProvider provider, FolderSizeService folderSizes, FileMetadataService metadata)
     {
@@ -75,7 +77,11 @@ public sealed partial class TabViewModel : ObservableObject
     /// fül bezárásakor és oszlop eldobásakor kell hívni, különben a
     /// singleton szolgáltatás örökre él tartaná a már elhagyott példányt.
     /// </summary>
-    public void Detach() => _metadata.Changed -= _metadataChangedHandler;
+    public void Detach()
+    {
+        _metadata.Changed -= _metadataChangedHandler;
+        UnwatchFolderSizes();
+    }
 
     /// <summary>Az aktuálisan betöltött elemek címkéinek/kedvenc-jelölésének frissítése — metaadat-változás után.</summary>
     private void RefreshMetadataOnItems()
@@ -180,13 +186,34 @@ public sealed partial class TabViewModel : ObservableObject
     [ObservableProperty]
     public partial string? ActiveTagFilterId { get; set; }
 
-    partial void OnActiveTagFilterIdChanged(string? value)
+    partial void OnActiveTagFilterIdChanged(string? value) => ApplyItemFilter();
+
+    /// <summary>
+    /// Gyors, élő szöveges szűrő a névre — az Alt+F7 (Total Commander
+    /// „Keresés a mappában") ezzel tölti ki. A címkeszűrővel EGYÜTT
+    /// érvényesül (lásd <see cref="ApplyItemFilter"/>), nem cseréli le.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? QuickFilterText { get; set; }
+
+    partial void OnQuickFilterTextChanged(string? value) => ApplyItemFilter();
+
+    private void ApplyItemFilter()
     {
         var view = CollectionViewSource.GetDefaultView(Items);
+        var tagId = ActiveTagFilterId;
+        var text = QuickFilterText;
 
-        view.Filter = value is null
-            ? null
-            : candidate => candidate is FileSystemItem item && item.Tags.Any(t => t.Id == value);
+        if (tagId is null && string.IsNullOrWhiteSpace(text))
+        {
+            view.Filter = null;
+            return;
+        }
+
+        view.Filter = candidate =>
+            candidate is FileSystemItem item
+            && (tagId is null || item.Tags.Any(t => t.Id == tagId))
+            && (string.IsNullOrWhiteSpace(text) || item.Name.Contains(text, StringComparison.CurrentCultureIgnoreCase));
     }
 
     /// <summary>Kedvenc jelölés váltása — a szív ikon és a jobbklikk-menü közös belépési pontja.</summary>
@@ -626,6 +653,8 @@ public sealed partial class TabViewModel : ObservableObject
 
         var token = cancellation.Token;
 
+        UnwatchFolderSizes();
+
         await OnUiAsync(() =>
         {
             CurrentPath = path;
@@ -636,6 +665,15 @@ public sealed partial class TabViewModel : ObservableObject
             Items.Clear();
             RebuildBreadcrumbs(path);
             RaiseNavigationState();
+
+            // Az Alt+F7 gyorsszűrő MAPPÁNKÉNTI, ideiglenes szűrésnek készült —
+            // enélkül egy másik mappába lépve a régi szűrőszöveg némán
+            // eltüntethetné az új mappa elemeit, ami üres/hiányos mappának
+            // tűnne, holott csak a felejtett szűrő rejti el őket.
+            if (QuickFilterText is not null)
+            {
+                QuickFilterText = null;
+            }
         }).ConfigureAwait(false);
 
         var collected = new List<FileSystemItem>();
@@ -722,9 +760,82 @@ public sealed partial class TabViewModel : ObservableObject
         // Mappánként háttérben induló, korlátozott párhuzamosságú számítás —
         // lásd FolderSizeService. A token elnavigáláskor megszakítja a még
         // futó, immár érdektelen számításokat.
+        List<FileSystemItem>? directories = null;
+
         foreach (var item in sorted)
         {
+            if (item.Kind == FileSystemItemKind.Directory)
+            {
+                item.PropertyChanged += OnWatchedItemPropertyChanged;
+                (directories ??= []).Add(item);
+            }
+
             _folderSizes.EnsureComputed(item, token);
+        }
+
+        _sizeWatchedItems = directories?.ToArray();
+    }
+
+    /// <summary>
+    /// Leiratkozás minden, az előző mappabetöltés óta figyelt mappa
+    /// <see cref="FileSystemItem.ComputedFolderSize"/> változásáról — új
+    /// betöltés indulásakor és a fül/oszlop bezárásakor kell hívni, különben
+    /// a régi elemek örökre életben tartanák ezt a példányt.
+    /// </summary>
+    private void UnwatchFolderSizes()
+    {
+        _sizeResortDebounce?.Cancel();
+        _sizeResortDebounce = null;
+
+        if (_sizeWatchedItems is not { } watched)
+        {
+            return;
+        }
+
+        foreach (var item in watched)
+        {
+            item.PropertyChanged -= OnWatchedItemPropertyChanged;
+        }
+
+        _sizeWatchedItems = null;
+    }
+
+    /// <summary>
+    /// Amíg Méret szerint rendezünk, a háttérben kiszámolt mappaméretek
+    /// beérkezése módosíthatja a helyes sorrendet — enélkül minden mappa
+    /// holtversenyben maradna a kiinduló (kiszámolatlan) értékkel, és
+    /// gyakorlatilag névsorban jelenne meg. A rövid késleltetés több,
+    /// egymás után gyorsan beérkező méretet egyetlen újrarendezésbe fog
+    /// össze, hogy nagy mappánál ne rendezzünk újra elemenként.
+    /// </summary>
+    private void OnWatchedItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(FileSystemItem.ComputedFolderSize) || SortKey != SortKey.Size)
+        {
+            return;
+        }
+
+        _sizeResortDebounce?.Cancel();
+
+        var cts = new CancellationTokenSource();
+        _sizeResortDebounce = cts;
+        _ = DebouncedResortForSizeAsync(cts.Token);
+    }
+
+    private async Task DebouncedResortForSizeAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(200), token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (!token.IsCancellationRequested)
+        {
+            await OnUiAsync(ResortInPlace).ConfigureAwait(false);
         }
     }
 

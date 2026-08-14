@@ -49,7 +49,7 @@ public sealed class FileSystemItemComparer(SortKey key, bool descending)
 
         var result = key switch
         {
-            SortKey.Size => x.SizeBytes.CompareTo(y.SizeBytes),
+            SortKey.Size => GetEffectiveSize(x).CompareTo(GetEffectiveSize(y)),
             SortKey.Type => string.Compare(x.Extension, y.Extension, StringComparison.OrdinalIgnoreCase),
             SortKey.Modified => x.ModifiedUtc.CompareTo(y.ModifiedUtc),
             SortKey.Created => x.CreatedUtc.CompareTo(y.CreatedUtc),
@@ -64,4 +64,15 @@ public sealed class FileSystemItemComparer(SortKey key, bool descending)
 
         return descending ? -result : result;
     }
+
+    /// <summary>
+    /// A méret szerinti rendezéshez használt nyers érték: fájlnál
+    /// <see cref="FileSystemItem.SizeBytes"/>, mappánál a háttérben számolt
+    /// <see cref="FileSystemItem.ComputedFolderSize"/> — <see cref="FileSystemItem.SizeBytes"/>
+    /// mappáknál mindig -1 marad, tehát ezzel rendezve minden mappa holtversenyben
+    /// lenne, és a rendezés névre esne vissza. Ugyanezt a megkülönböztetést
+    /// használja a méret oszlop megjelenítése is.
+    /// </summary>
+    private static long GetEffectiveSize(FileSystemItem item) =>
+        item.Kind == FileSystemItemKind.Directory ? item.ComputedFolderSize : item.SizeBytes;
 }

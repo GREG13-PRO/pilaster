@@ -83,4 +83,26 @@ public static class RecycleBinService
 
     /// <summary>A teljes Lomtár ürítése.</summary>
     public static void Empty() => RecycleBin.Empty();
+
+    /// <summary>
+    /// Egy még nem törölt fájl/mappa Lomtárba küldése — ugyanaz, mint az
+    /// Intéző Delete billentyűje. A <see cref="ShellFileOperations"/> alap
+    /// beállítása (<c>AllowUndo</c>) már Lomtárba küld, tehát nincs szükség
+    /// extra jelzőre.
+    /// </summary>
+    public static void SendToRecycleBin(string path) =>
+        ShellFileOperations.Delete(
+            path,
+            ShellFileOperations.OperationFlags.AllowUndo
+                | ShellFileOperations.OperationFlags.Silent
+                | ShellFileOperations.OperationFlags.NoConfirmation
+                | ShellFileOperations.OperationFlags.NoErrorUI);
+
+    /// <summary>Egy még nem törölt fájl/mappa AZONNALI, végleges törlése (Shift+Delete).</summary>
+    public static void DeletePermanently(string path) =>
+        ShellFileOperations.Delete(
+            path,
+            ShellFileOperations.OperationFlags.Silent
+                | ShellFileOperations.OperationFlags.NoConfirmation
+                | ShellFileOperations.OperationFlags.NoErrorUI);
 }

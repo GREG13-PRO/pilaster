@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pilaster.App.Localization;
 using Pilaster.App.Services;
+using Pilaster.App.Services.FileOperations;
 using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
 using Pilaster.Core.Settings;
@@ -23,6 +24,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly QuickActionService _quickActions;
     private readonly FolderSizeService _folderSizes;
     private readonly FileMetadataService _metadata;
+    private readonly FileOperationEngine _fileOperations;
+
+    /// <summary>Az Aktivitás-központ paneljéhez közvetlenül köthető, futó/befejezett műveletek.</summary>
+    public ObservableCollection<FileOperationJob> FileOperationJobs => _fileOperations.Jobs;
 
     public MainWindowViewModel(
         IFileSystemProvider provider,
@@ -31,7 +36,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         QuickActionService quickActions,
         UpdateViewModel updates,
         FolderSizeService folderSizes,
-        FileMetadataService metadata)
+        FileMetadataService metadata,
+        FileOperationEngine fileOperations)
     {
         _provider = provider;
         _settings = settings;
@@ -40,12 +46,29 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Updates = updates;
         _folderSizes = folderSizes;
         _metadata = metadata;
+        _fileOperations = fileOperations;
 
         Tabs = [];
         Sections = [];
 
         BuildSidebar();
         RefreshQuickActions();
+
+        // Egy másolás/áthelyezés/törlés befejeztével frissítjük azokat a
+        // nyitott füleket, amiket érinthetett — enélkül a felhasználónak
+        // kézzel kellene frissítenie, hogy lássa az új/eltűnt elemeket.
+        _fileOperations.Jobs.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems is null)
+            {
+                return;
+            }
+
+            foreach (FileOperationJob job in e.NewItems)
+            {
+                job.PropertyChanged += OnFileOperationJobPropertyChanged;
+            }
+        };
 
         // A beállítások bárhonnan módosulhatnak (pl. a Beállítások ablakból),
         // ezért a felső sáv gombjai eseményre frissülnek, nem közvetlen hívásra.
@@ -55,6 +78,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             RefreshSidebarDetails();
             OnPropertyChanged(nameof(IsDarkTheme));
             OnPropertyChanged(nameof(ThemeIcon));
+            OnPropertyChanged(nameof(ShowFunctionKeyBar));
         };
 
         // Kedvenc/címke hozzáadása/eltávolítása bárhonnan jöhet (fájlsor szív
@@ -69,6 +93,117 @@ public sealed partial class MainWindowViewModel : ObservableObject
         RefreshTagFilters();
 
         AddTab(TabViewModel.HomeMarker);
+
+        // A két panel a fülrendszertől FÜGGETLEN, saját TabViewModel-pár —
+        // nem kerülnek be a Tabs-ba, nem jelennek meg fülként. Ez a
+        // legegyszerűbb módja annak, hogy mindegyiknek saját útvonala,
+        // előzménye, kijelölése és nézetmódja legyen: maga a TabViewModel már
+        // eleve ezt nyújtja (lásd az oszlopos nézet is ugyanígy épül fel
+        // önálló TabViewModel-ekből).
+        LeftPaneTab = new TabViewModel(_provider, _folderSizes, _metadata);
+        RightPaneTab = new TabViewModel(_provider, _folderSizes, _metadata);
+        _ = LeftPaneTab.NavigateAsync(TabViewModel.HomeMarker);
+        _ = RightPaneTab.NavigateAsync(TabViewModel.HomeMarker);
+
+        // A tulajdonságon keresztül állítjuk (nem közvetlen mezőn — a
+        // forrásgenerált mező neve nem elérhető innen), ami az OnXChanged
+        // miatt visszaírja a beállításba ugyanazt az értéket, amit épp
+        // onnan olvasott — ártalmatlan, csak egy felesleges mentés induláskor.
+        DualPaneEnabled = _settings.Current.DualPaneEnabled;
+        DualPaneVertical = _settings.Current.DualPaneVertical;
+    }
+
+    /// <summary>A bal panel — a fülrendszertől független, csak Kétablakos nézetben látszik.</summary>
+    public TabViewModel LeftPaneTab { get; }
+
+    /// <summary>A jobb panel — a fülrendszertől független, csak Kétablakos nézetben látszik.</summary>
+    public TabViewModel RightPaneTab { get; }
+
+    /// <summary>Igaz, ha a bal panel az aktív (kiemelt, a Szinkronizálás és a majdani gyorsbillentyűk erre céloznak).</summary>
+    [ObservableProperty]
+    public partial bool IsLeftPaneActive { get; set; } = true;
+
+    /// <summary>A jelenleg aktív panel — a majdani Total Commander-billentyűzet (F5/F6/Tab) ezen dolgozik.</summary>
+    public TabViewModel ActivePaneTab => IsLeftPaneActive ? LeftPaneTab : RightPaneTab;
+
+    public TabViewModel InactivePaneTab => IsLeftPaneActive ? RightPaneTab : LeftPaneTab;
+
+    [ObservableProperty]
+    public partial bool DualPaneEnabled { get; set; }
+
+    partial void OnDualPaneEnabledChanged(bool value)
+    {
+        _settings.Current.DualPaneEnabled = value;
+        _settings.NotifyChanged();
+        OnPropertyChanged(nameof(ShowFunctionKeyBar));
+    }
+
+    /// <summary>
+    /// A kétablakos nézet alján megjelenő, kattintható funkcióbillentyű-sáv
+    /// csak akkor látszik, ha MINDKÉT beállítás be van kapcsolva — kétablakos
+    /// nézet nélkül nincs értelme (F5/F6 a másik panelre céloz), a Total
+    /// Commander-billentyűkiosztás nélkül pedig zavaró lenne, ha a gombok
+    /// funkciója nem egyezik a megszokott billentyűkkel.
+    /// </summary>
+    public bool ShowFunctionKeyBar => DualPaneEnabled && _settings.Current.TotalCommanderKeybindingsEnabled;
+
+    [ObservableProperty]
+    public partial bool DualPaneVertical { get; set; }
+
+    partial void OnDualPaneVerticalChanged(bool value)
+    {
+        _settings.Current.DualPaneVertical = value;
+        _settings.NotifyChanged();
+    }
+
+    /// <summary>A másik panel az aktív panel útvonalára navigál — a Kétablakos nézet „Szinkronizálás" gombja.</summary>
+    [RelayCommand]
+    private async Task SyncPanesAsync()
+    {
+        if (ActivePaneTab.CurrentPath is { } path)
+        {
+            await InactivePaneTab.NavigateCommand.ExecuteAsync(path);
+        }
+    }
+
+    /// <summary>Panel-ről panelre húzás/beillesztés — lásd FilePaneView.FilesDropped.</summary>
+    public void StartPaneCopy(IReadOnlyList<string> paths, string destinationDir) => _fileOperations.StartCopy(paths, destinationDir);
+
+    public void StartPaneMove(IReadOnlyList<string> paths, string destinationDir) => _fileOperations.StartMove(paths, destinationDir);
+
+    public void StartPaneDelete(IReadOnlyList<string> paths, bool permanent) => _fileOperations.StartDelete(paths, permanent);
+
+    /// <summary>
+    /// Total Commander F5 (másolás)/F6 (áthelyezés) — a felhasználó által a
+    /// <c>TransferConfirmWindow</c>-ban megerősített célmappa alapján indítja
+    /// a műveletet. Kivétel: pontosan egy kijelölt elem és VÁLTOZATLAN
+    /// célmappa esetén ez gyakorlatilag átnevezés — ilyenkor nem indul
+    /// másolási/áthelyezési feladat, hanem a szokásos helyben-átnevezés
+    /// (<see cref="TabViewModel.BeginRename"/>) nyílik meg, ahogy az F2 is.
+    /// </summary>
+    public void BeginTransfer(TabViewModel sourceTab, IReadOnlyList<string> sourcePaths, string confirmedTargetDirectory, bool isMove)
+    {
+        var normalizedTarget = confirmedTargetDirectory.TrimEnd('\\', '/');
+
+        if (sourcePaths.Count == 1
+            && string.Equals(Path.GetDirectoryName(sourcePaths[0]), normalizedTarget, StringComparison.OrdinalIgnoreCase))
+        {
+            if (sourceTab.Items.FirstOrDefault(i => string.Equals(i.FullPath, sourcePaths[0], StringComparison.OrdinalIgnoreCase)) is { } item)
+            {
+                sourceTab.BeginRename(item);
+            }
+
+            return;
+        }
+
+        if (isMove)
+        {
+            _fileOperations.StartMove(sourcePaths, confirmedTargetDirectory);
+        }
+        else
+        {
+            _fileOperations.StartCopy(sourcePaths, confirmedTargetDirectory);
+        }
     }
 
     partial void OnSelectedTabChanged(TabViewModel? value)
@@ -122,7 +257,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// Igaz, ha az átúsztatások engedélyezettek. A nézet ez alapján dönti el,
     /// lejátssza-e a mappaváltáskori csúszó átmenetet.
     /// </summary>
-    public bool AnimationsEnabled => _settings.Current.AnimationsEnabled;
+    public bool AnimationsEnabled => _settings.Current.Animations != AnimationLevel.Off;
 
     /// <summary>
     /// Igaz, ha az aktív fül jelenlegi mappája egy cserélhető vagy optikai
@@ -334,14 +469,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// Explorerben is — mindig egyszerű, üres mappát/fájlt hoz létre.
     /// </remarks>
     [RelayCommand]
-    private async Task CreateNewFolderAsync() => await CreateNewItemAsync(QuickActionKind.Folder);
+    private async Task CreateNewFolderAsync() => await CreateNewItemAsync(QuickActionKind.Folder, SelectedTab);
 
     [RelayCommand]
-    private async Task CreateNewFileAsync() => await CreateNewItemAsync(QuickActionKind.File);
+    private async Task CreateNewFileAsync() => await CreateNewItemAsync(QuickActionKind.File, SelectedTab);
 
-    private async Task CreateNewItemAsync(QuickActionKind kind)
+    /// <summary>Total Commander F7 — új mappa a MEGADOTT (aktív egy- vagy kétablakos) panelben, nem feltétlenül a fülrendszer aktuális fülében.</summary>
+    public async Task CreateNewFolderInTabAsync(TabViewModel tab) => await CreateNewItemAsync(QuickActionKind.Folder, tab);
+
+    private async Task CreateNewItemAsync(QuickActionKind kind, TabViewModel? tab)
     {
-        if (SelectedTab is not { } tab)
+        if (tab is null)
         {
             return;
         }
@@ -376,42 +514,106 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Fájlok beillesztése a vágólapról az üres terület helyi menüjéből.
-    /// </summary>
-    /// <remarks>
-    /// Lásd <see cref="ClipboardFileService"/>: az Intéző saját
-    /// másolás/kivágás-formátumát olvassa, tehát onnan másolt vagy kivágott
-    /// elemek közvetlenül beilleszthetők.
-    /// </remarks>
+    /// <summary>Kijelölt elemek másolása a vágólapra (Ctrl+C, vagy a jobbklikk-menü).</summary>
     [RelayCommand]
-    private async Task PasteAsync()
+    private void CopySelection(IReadOnlyList<string>? paths)
     {
-        if (SelectedTab is not { } tab)
+        if (paths is { Count: > 0 })
+        {
+            ClipboardFileService.SetClipboard(paths, isCut: false);
+        }
+    }
+
+    /// <summary>Kijelölt elemek kivágása a vágólapra (Ctrl+X, vagy a jobbklikk-menü).</summary>
+    [RelayCommand]
+    private void CutSelection(IReadOnlyList<string>? paths)
+    {
+        if (paths is { Count: > 0 })
+        {
+            ClipboardFileService.SetClipboard(paths, isCut: true);
+        }
+    }
+
+    /// <summary>
+    /// Fájlok beillesztése a vágólapról — a tényleges másolást/áthelyezést a
+    /// <see cref="FileOperationEngine"/> végzi, saját folyamatjelzővel; ez a
+    /// parancs csak elindítja és a Kezdőlapon jelzi, ha nincs mit beilleszteni.
+    /// </summary>
+    [RelayCommand]
+    private void Paste()
+    {
+        if (SelectedTab is not { } tab || tab.IsHome || tab.CurrentPath is not { } targetDirectory)
         {
             return;
         }
 
-        var result = ClipboardFileService.Paste(tab.CurrentPath);
-
-        if (result.Outcome is ClipboardPasteOutcome.TargetInvalid)
-        {
-            return;
-        }
-
-        if (result.Outcome is ClipboardPasteOutcome.NoFilesOnClipboard)
+        if (!ClipboardFileService.TryGetClipboardFiles(out var paths, out var isCut))
         {
             tab.EmptyMessage = TranslationSource.Instance["Paste_NoFiles"];
             return;
         }
 
-        // A frissítés törli az EmptyMessage-et, ezért a részleges hibát csak
-        // utána állítjuk be, különben a felhasználó sosem látná.
-        await tab.RefreshCommand.ExecuteAsync(null);
+        // Nincs értelme egy elemet önmagába másolni/áthelyezni.
+        var filtered = paths.Where(p => !string.Equals(Path.GetDirectoryName(p), targetDirectory, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        if (result.Outcome is ClipboardPasteOutcome.PartiallyFailed)
+        if (filtered.Count == 0)
         {
-            tab.EmptyMessage = TranslationSource.Instance["Paste_Failed"];
+            return;
+        }
+
+        if (isCut)
+        {
+            _fileOperations.StartMove(filtered, targetDirectory);
+        }
+        else
+        {
+            _fileOperations.StartCopy(filtered, targetDirectory);
+        }
+    }
+
+    /// <summary>Kijelölt elemek törlése — alapból Lomtárba (Delete), <paramref name="permanent"/>-tel véglegesen (Shift+Delete).</summary>
+    [RelayCommand]
+    private void DeleteSelection((IReadOnlyList<string> Paths, bool Permanent) args)
+    {
+        if (args.Paths.Count > 0)
+        {
+            _fileOperations.StartDelete(args.Paths, args.Permanent);
+        }
+    }
+
+    /// <summary>
+    /// Egy másolás/áthelyezés/törlés befejeztével frissíti azokat a nyitott
+    /// füleket, amiket a művelet érintett — a célmappát (másolás/áthelyezés),
+    /// vagy a törölt elemek szülőmappáit (törlés).
+    /// </summary>
+    private async void OnFileOperationJobPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(FileOperationJob.State) || sender is not FileOperationJob job)
+        {
+            return;
+        }
+
+        if (job.State is not (FileOperationState.Completed or FileOperationState.CompletedWithErrors))
+        {
+            return;
+        }
+
+        // Törlésnél nem tudjuk olcsón eldönteni, melyik nyitott fület
+        // érintette (a törölt elemek szülőmappái eltérhetnek egymástól is) —
+        // ezért egyszerűen minden nyitott fület frissítünk. Másolásnál/
+        // áthelyezésnél csak a tényleges célmappát mutató fület. A Kétablakos
+        // nézet két panelje a Tabs-tól KÜLÖN gyűjtemény (lásd LeftPaneTab/
+        // RightPaneTab) — enélkül a bennük végzett húzásos másolás/áthelyezés
+        // után a panel nem mutatná az új/eltűnt elemeket.
+        foreach (var tab in Tabs.Append(LeftPaneTab).Append(RightPaneTab))
+        {
+            var affected = job.Kind == FileOperationKind.Delete
+                || string.Equals(tab.CurrentPath, job.DestinationDirectory, StringComparison.OrdinalIgnoreCase);
+
+            if (affected)
+            {
+                await tab.RefreshCommand.ExecuteAsync(null);
+            }
         }
     }
 

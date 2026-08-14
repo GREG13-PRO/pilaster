@@ -144,4 +144,26 @@ public class FileSystemItemComparerTests
 
         Assert.Equal("kicsi", items[0].Name);
     }
+
+    /// <summary>
+    /// Mappáknál a <see cref="FileSystemItem.SizeBytes"/> mindig -1 (amíg ki
+    /// nem számoltuk), ezért a méret szerinti rendezésnek a háttérben számolt
+    /// <see cref="FileSystemItem.ComputedFolderSize"/>-ot kell használnia —
+    /// enélkül minden mappa holtversenyben lenne, és a rendezés névre esne
+    /// vissza a valódi méret helyett.
+    /// </summary>
+    [Fact]
+    public void MappaMeretSzerintiRendezesSzamoltMeretetHasznal()
+    {
+        var kicsi = Folder("kicsi");
+        kicsi.ComputedFolderSize = 10;
+
+        var nagy = Folder("nagy");
+        nagy.ComputedFolderSize = 900;
+
+        var items = new List<FileSystemItem> { nagy, kicsi };
+        items.Sort(new FileSystemItemComparer(SortKey.Size, descending: false));
+
+        Assert.Equal(["kicsi", "nagy"], items.Select(i => i.Name));
+    }
 }

@@ -38,10 +38,15 @@ public partial class App : Application
         services.AddSingleton<IShellImageService, ShellImageService>();
         services.AddSingleton<ISettingsService, JsonSettingsService>();
         services.AddSingleton<ThemeService>();
+        services.AddSingleton<AccentColorService>();
+        services.AddSingleton<AnimationService>();
+        services.AddSingleton<ShellIntegrationCoordinator>();
+        services.AddSingleton<Services.FileOperations.FileOperationEngine>();
         services.AddSingleton<GlassEffectService>();
         services.AddSingleton<QuickActionService>();
         services.AddSingleton<FolderSizeService>();
         services.AddSingleton<FileMetadataService>();
+        services.AddSingleton<FilePreviewService>();
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
         services.AddSingleton<IBugReportService, DiscordBugReportService>();
         services.AddSingleton<IUpdateService, GitHubUpdateService>();
@@ -57,13 +62,23 @@ public partial class App : Application
         services.AddTransient<RecycleBinViewModel>();
         services.AddTransient<RecycleBinWindow>();
 
+        // Total Commander-billentyűkiosztás: F5/F6 megerősítő párbeszéd és
+        // F3 előnézet-ablak — mindkettő minden megnyitáskor friss példány.
+        services.AddTransient<TransferConfirmWindow>();
+        services.AddTransient<FilePreviewWindow>();
+
         _services = services.BuildServiceProvider();
 
         var settings = _services.GetRequiredService<ISettingsService>();
 
         ApplyStartupCulture(settings.Current);
         _services.GetRequiredService<ThemeService>().ApplyInitial();
+        _services.GetRequiredService<AccentColorService>().ApplyInitial();
+        _services.GetRequiredService<AnimationService>().ApplyInitial();
         _services.GetRequiredService<GlassEffectService>().ApplyInitial();
+
+        var shellIntegration = _services.GetRequiredService<ShellIntegrationCoordinator>();
+        shellIntegration.ApplyInitial();
 
         ShellIconImage.Initialize(_services.GetRequiredService<IShellImageService>());
 
@@ -75,13 +90,55 @@ public partial class App : Application
             RuntimeInformation.OSDescription,
             RuntimeInformation.FrameworkDescription);
 
-        _services.GetRequiredService<MainWindow>().Show();
+        var mainWindow = _services.GetRequiredService<MainWindow>();
+
+        // A Win+E hook (amíg a felhasználó bekapcsolta) így hozza előtérbe az
+        // ablakot — lásd ShellIntegrationCoordinator/WinEHookService. Csak
+        // addig működik, amíg ez a folyamat fut.
+        shellIntegration.ActivationRequested += (_, _) => ActivateMainWindow(mainWindow);
+
+        mainWindow.Show();
+
+        // Más programok (jobbklikk-menü, parancssor) egy mappa útvonalával
+        // hívhatják meg az appot — lásd a "Mappák megnyitása ebben az appban"
+        // rendszerintegrációs kapcsolót. args[0] a saját exe útvonala, a
+        // tényleges paraméter az [1]-től kezdődik.
+        var args = Environment.GetCommandLineArgs();
+
+        if (args.Length > 1 && Directory.Exists(args[1]))
+        {
+            var vm = _services.GetRequiredService<MainWindowViewModel>();
+
+            if (vm.SelectedTab is { } tab)
+            {
+                _ = tab.NavigateCommand.ExecuteAsync(args[1]);
+            }
+        }
 
         // Csendes, nem blokkoló frissítés-ellenőrzés induláskor: a hidegindítás
         // idejét nem szabad terhelnie, ezért az ablak megjelenítése UTÁN, meg
         // sem várva indul — hálózati hiba vagy naprakész állapot esetén nem
         // jelenik meg semmi, csak elérhető frissítésnél (lásd UpdateViewModel).
         _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
+    }
+
+    /// <summary>
+    /// Az ablak előtérbe hozása háttérből — a sima <c>Activate()</c> a
+    /// Windows „előtér-zár" (foreground lock) védelme miatt nem mindig elég,
+    /// ha épp egy másik alkalmazásé a fókusz. A <c>Topmost</c> rövid
+    /// felvillantása megkerüli ezt, anélkül hogy tartósan legfelül maradna.
+    /// </summary>
+    private static void ActivateMainWindow(Window window)
+    {
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Show();
+        window.Topmost = true;
+        window.Topmost = false;
+        window.Activate();
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -11,6 +11,62 @@ public enum ThemeMode
     Dark,
 }
 
+/// <summary>Az akcentus szín forrása.</summary>
+public enum AccentColorMode
+{
+    /// <summary>A Windows Személyre szabás beállításából vett szín, élőben követve.</summary>
+    System,
+
+    /// <summary>Előre definiált paletta vagy egyedi hex érték — lásd <see cref="AppSettings.AccentColorHex"/>.</summary>
+    Custom,
+}
+
+/// <summary>Az animációk mennyisége.</summary>
+public enum AnimationLevel
+{
+    /// <summary>Teljes, a tervezett időzítésekkel.</summary>
+    Full,
+
+    /// <summary>Rövidebb, visszafogottabb átmenetek — a rendszer „csökkentett mozgás" szándékát követi.</summary>
+    Reduced,
+
+    /// <summary>Nincs animáció — minden állapotváltás azonnali.</summary>
+    Off,
+}
+
+/// <summary>
+/// A „Rendszerintegráció" beállítások — mindegyik alapból KIKAPCSOLVA, és
+/// egyenként, függetlenül kapcsolható. A <c>*BackupCaptured</c>/<c>*BackupValue</c>
+/// párok a bekapcsolás előtti registry-állapotot őrzik, hogy a kikapcsolás
+/// PONTOSAN visszaállítsa azt (ne csak törölje) — lásd
+/// <c>Pilaster.Shell.Integration.ShellIntegrationService</c>. Szándékosan
+/// primitív mezők (nem a Shell projekt <c>RegistryBackup</c> típusa), mert a
+/// Core réteg nem hivatkozhat a Shell rétegre.
+/// </summary>
+public sealed class ShellIntegrationSettings
+{
+    /// <summary>Mappák/meghajtók dupla kattintásra ebben az appban nyíljanak meg.</summary>
+    public bool FolderOpenRedirectEnabled { get; set; }
+
+    public bool DirectoryBackupCaptured { get; set; }
+
+    public bool DirectoryBackupExisted { get; set; }
+
+    public string? DirectoryBackupValue { get; set; }
+
+    public bool DriveBackupCaptured { get; set; }
+
+    public bool DriveBackupExisted { get; set; }
+
+    public string? DriveBackupValue { get; set; }
+
+    /// <summary>Win+E ezt az appot nyissa meg — csak addig hat, amíg a Pilaster fut.</summary>
+    public bool WinERedirectEnabled { get; set; }
+
+    /// <summary>„Megnyitás Pilaster-ben" bejegyzés mappák jobbklikk-menüjében.</summary>
+    public bool ContextMenuEntryEnabled { get; set; }
+}
+
 /// <summary>Mit hozzon létre egy gyorsgomb.</summary>
 public enum QuickActionKind
 {
@@ -93,6 +149,21 @@ public sealed class AppSettings
 
     public ThemeMode Theme { get; set; } = ThemeMode.System;
 
+    public AccentColorMode AccentColor { get; set; } = AccentColorMode.System;
+
+    /// <summary>
+    /// Egyedi akcentus szín <c>"#RRGGBB"</c> alakban — csak akkor számít, ha
+    /// <see cref="AccentColor"/> értéke <see cref="AccentColorMode.Custom"/>.
+    /// Rendszerszínnél <c>null</c>, hogy visszaváltáskor ne maradjon elavult érték.
+    /// </summary>
+    public string? AccentColorHex { get; set; }
+
+    /// <summary>
+    /// A rendszerintegráció (Explorer-kiváltás) beállításai — alapból minden
+    /// kapcsoló kikapcsolva, lásd <see cref="ShellIntegrationSettings"/>.
+    /// </summary>
+    public ShellIntegrationSettings ShellIntegration { get; set; } = new();
+
     /// <summary>
     /// A felület nyelve kultúrakóddal, vagy <c>null</c>, ha a rendszernyelvet
     /// kell követni. A <c>null</c> nem ugyanaz, mint egy konkrét kód: ha a
@@ -103,7 +174,14 @@ public sealed class AppSettings
 
     public bool ShowHiddenItems { get; set; }
 
-    public bool AnimationsEnabled { get; set; } = true;
+    /// <summary>
+    /// <c>null</c> = még sosem lett testreszabva — ilyenkor a rendszer
+    /// „csökkentett mozgás" beállítása dönti el az induló értéket (lásd
+    /// <c>AnimationService</c>), utána explicit értékként el is mentődik,
+    /// hogy a döntés stabil maradjon a rendszerbeállítás későbbi váltásaitól
+    /// függetlenül.
+    /// </summary>
+    public AnimationLevel? Animations { get; set; }
 
     /// <summary>
     /// Áttetsző „liquid glass" felület — az oldalsáv, a felső sáv, a
@@ -114,6 +192,22 @@ public sealed class AppSettings
 
     /// <summary>Az utoljára használt nézetmód — új fül ezzel nyílik.</summary>
     public Pilaster.Core.FileSystem.ViewMode LastViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
+
+    /// <summary>Kétablakos (Total Commander-stílusú) nézet be van-e kapcsolva.</summary>
+    public bool DualPaneEnabled { get; set; }
+
+    /// <summary>Igaz = a két panel egymás alatt (függőleges elrendezés), hamis = egymás mellett.</summary>
+    public bool DualPaneVertical { get; set; }
+
+    /// <summary>
+    /// Total Commander-stílusú billentyűkiosztás (F3 Megtekint, F4 Szerkeszt,
+    /// F5 Másol, F6 Áthelyez, F7 Új mappa, F8/Delete Töröl stb.). Kikapcsolva
+    /// a hagyományos Intéző-szerű működés marad (F5 nincs lefoglalva).
+    /// </summary>
+    public bool TotalCommanderKeybindingsEnabled { get; set; }
+
+    /// <summary>Az F4 (Szerkesztés) ezt a programot indítja — alapból Jegyzettömb.</summary>
+    public string ExternalEditorPath { get; set; } = "notepad.exe";
 
     /// <summary>
     /// A gyorselérés rögzített mappái, sorrendben. <c>null</c> = még sosem

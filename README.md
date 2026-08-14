@@ -20,8 +20,15 @@ A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötle
 
 ## Állapot
 
-**v0.8.0 — korai fejlesztés.** Ami már működik:
+**v0.9.0 — korai fejlesztés.** Ami már működik:
 
+- **Színtémák**: kész paletta (kék, lila, zöld, piros, narancs, rózsaszín, türkiz, grafit) vagy egyedi hex akcentus szín, vagy kövesd automatikusan a Windows saját színét — érvényes a kijelöléseken, az oldalsáv aktív elemén, a gombokon és a fókuszgyűrűkön, világos és sötét témában egyaránt, kontrasztigazítással
+- **Animációfokozatok**: Teljes / Csökkentett / Kikapcsolva a Beállításokban, alapból a Windows „csökkentett mozgás" rendszerbeállítását követve
+- **Rendszerintegráció** (opcionális, alapból MINDEN kikapcsolva): mappák/meghajtók megnyitása Pilaster-ben, Win+E átirányítás, „Megnyitás Pilaster-ben" jobbklikk-menü bejegyzés — mindegyik egyenként kapcsolható, és a kikapcsolás pontosan (nem csak törléssel) visszaállítja az eredeti Intéző-viselkedést
+- **Saját másolási/áthelyezési/törlési motor**: nem az Intéző zöld sávja — szüneteltethető, folytatható, megszakítható műveletek, átviteli sebesség és hátralévő idő, egyszerre több művelet az Aktivitás-központ panelen, ütközéskezelés (felülírás/kihagyás/mindkettő megtartása/mindre alkalmaz), hiba esetén a többi fájl másolása folytatódik
+- **Kétablakos nézet** (Total Commander-stílus, modern kivitelben): két teljesen független panel — saját előzménnyel, kijelöléssel, nézetmóddal; „Szinkronizálás" gomb, húzható elválasztó, vízszintes/függőleges elrendezés
+- **Total Commander billentyűkiosztás** (opcionálisan bekapcsolható, alapból az Intéző-szerű gyorsbillentyűk maradnak): F3 Megtekintés, F4 Szerkesztés, F5 Másolás, F6 Áthelyezés, F7 Új mappa, F8/Delete Törlés, Tab paneváltás, Insert/Space/Ctrl+A/Ctrl+D/Num*/Num- kijelölés-kezelés, Alt+F7 gyorsszűrés
+- **Rendezési sorrend javítva**: mappák mindig a fájlok előtt bármely rendezési szempontnál, természetes sorrend (`fájl2` a `fájl10` előtt), ékezet- és nagybetű-független, méret/dátum a valódi érték (nem a megjelenített szöveg) szerint rendez
 - **Kezdőlap fül**: „Ez a gép"-stílusú áttekintés — gyorsmappák (Asztal, Dokumentumok, Letöltések, Képek, Zene, Videók) és a meghajtók csempézve, kihasználtság-sávval, a felület saját liquid glass dizájnjában
 - **Szerkeszthető gyorselérés**: saját mappák rögzítése jobbklikkel vagy húzással a panelre, alapértelmezett elemek eltávolítása, sorrend húzással átrendezve — minden mentve, újraindítás után is megmarad
 - **Kuka a gyorselérésben**: tartalom megtekintése, elemek visszaállítása vagy végleges törlése, „Kuka ürítése", üres állapot jelzése
@@ -126,12 +133,13 @@ A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak
 | **v0.6.1** ✅ | Publikus hibabejelentő e-mail + rejtett fejlesztői panel, bot-biztonsági frissítés (multer 2.x) |
 | **v0.7.0** ✅ | Liquid glass felület, natív jobbklikk-fagyás javítása, üres terület natív menüje, címkék, kedvencek, breadcrumb-szerkesztés |
 | **v0.8.0** ✅ | Új alkalmazás ikon, azonnali átnevezés létrehozáskor, Kuka a gyorselérésben, Kezdőlap „Ez a gép" nézet, szerkeszthető gyorselérés, meghajtó-kiadás ikon az oldalsávban |
-| v0.9 | **Előnézeti panel bővítése + Quick Look** (kép/kód/PDF előnézet, Space-re lebegő nézet) — lásd [docs/ROADMAP-columns.md](docs/ROADMAP-columns.md) |
-| v1.0 | Másolómotor + **aktivitás-központ** (szüneteltetés, ütközéskezelés, visszavonás) |
-| v1.1 | Azonnali keresés (NTFS MFT-index), parancspaletta |
-| v1.2 | Osztott panelek, munkaterek, polc, tömeges átnevezés |
-| v1.3 | Terminál, Git-integráció, archívum mappaként, szabálymotor, alapértelmezett fájlkezelő |
-| v1.4 | Csiszolás, dokumentáció, 30+ nyelv |
+| **v0.9.0** ✅ | Színtémák (akcentus szín), animációfokozatok, saját másolási/áthelyezési motor + Aktivitás-központ, kétablakos nézet, Total Commander billentyűkiosztás + F3 előnézet, rendezési sorrend javítása, opcionális rendszerintegráció (Explorer-kiváltás), letöltő weboldal |
+| v1.0 | Azonnali keresés (NTFS MFT-index), parancspaletta, gyorsugrás |
+| v1.1 | Munkaterek, Polc, tömeges átnevezés, duplikátumkereső |
+| v1.2 | Terminál, Git-integráció, archívum mappaként, szabálymotor |
+| v1.3 | Alapértelmezett fájlkezelővé állítás (teljes körű), lemeztérkép, mappa-szinkronizálás |
+| v1.4 | Távoli providerek (FTP/SFTP/S3/WebDAV), plugin SDK |
+| v1.5 | Csiszolás, dokumentáció, 30+ nyelv |
 
 ## Fordítás más nyelvre
 
