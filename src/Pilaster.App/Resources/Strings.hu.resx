@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
@@ -692,5 +692,131 @@
   </data>
   <data name="FKey_Delete" xml:space="preserve">
     <value>F8 Törlés</value>
+  </data>
+  <data name="Tags_CustomColor" xml:space="preserve">
+    <value>Egyedi szín</value>
+  </data>
+  <data name="Tags_PickColor" xml:space="preserve">
+    <value>Szín módosítása</value>
+  </data>
+  <data name="Folder_VanishedFallback" xml:space="preserve">
+    <value>A(z) „{0}" hely már nem érhető el — a legközelebbi elérhető mappa nyílt meg.</value>
+  </data>
+  <data name="Settings_RestoreSessionHint" xml:space="preserve">
+    <value>Kilépéskor mindkét panel összes füle mentődik, és induláskor visszaáll.</value>
+  </data>
+  <data name="Cmd_PaneLayout" xml:space="preserve">
+    <value>Elrendezés váltása</value>
+  </data>
+  <data name="Settings_RestoreSession" xml:space="preserve">
+    <value>Munkamenet visszaállítása</value>
+  </data>
+  <data name="Settings_DualPaneVertical" xml:space="preserve">
+    <value>Vízszintes elrendezés (egymás alatt)</value>
+  </data>
+  <data name="Settings_Panes" xml:space="preserve">
+    <value>Panelek</value>
+  </data>
+  <data name="Cmd_SwapPanes" xml:space="preserve">
+    <value>Panelek cseréje (Ctrl+U)</value>
+  </data>
+  <data name="Settings_DualPaneVerticalHint" xml:space="preserve">
+    <value>Bekapcsolva a két panel egymás alatt jelenik meg, kikapcsolva egymás mellett.</value>
+  </data>
+  <data name="Shortcut_Suffix" xml:space="preserve">
+    <value>parancsikon</value>
+  </data>
+  <data name="QuickAccess_DefaultColor" xml:space="preserve">
+    <value>Alapértelmezett szín</value>
+  </data>
+  <data name="QuickAccess_Unreachable" xml:space="preserve">
+    <value>Az útvonal nem érhető el</value>
+  </data>
+  <data name="QuickAccess_ExportFailed" xml:space="preserve">
+    <value>Az exportálás nem sikerült.</value>
+  </data>
+  <data name="QuickAccess_Export" xml:space="preserve">
+    <value>Exportálás…</value>
+  </data>
+  <data name="QuickAccess_Edit" xml:space="preserve">
+    <value>Gyorselérés szerkesztése…</value>
+  </data>
+  <data name="QuickAccess_ResetDone" xml:space="preserve">
+    <value>Az alapértelmezett gyorselérés visszaállt.</value>
+  </data>
+  <data name="QuickAccess_Path" xml:space="preserve">
+    <value>Útvonal</value>
+  </data>
+  <data name="QuickAccess_ResetDefaults" xml:space="preserve">
+    <value>Alapértelmezettek</value>
+  </data>
+  <data name="QuickAccess_ClearRecent" xml:space="preserve">
+    <value>Legutóbbiak törlése</value>
+  </data>
+  <data name="QuickAccess_ImportFailed" xml:space="preserve">
+    <value>A fájl nem olvasható vagy nem érvényes.</value>
+  </data>
+  <data name="QuickAccess_ExportDone" xml:space="preserve">
+    <value>Az exportálás sikerült.</value>
+  </data>
+  <data name="QuickAccess_Label" xml:space="preserve">
+    <value>Megjelenő név</value>
+  </data>
+  <data name="QuickAccess_MoveDown" xml:space="preserve">
+    <value>Lejjebb</value>
+  </data>
+  <data name="Cmd_OpenNewTab" xml:space="preserve">
+    <value>Megnyitás új fülön</value>
+  </data>
+  <data name="QuickAccess_Visible" xml:space="preserve">
+    <value>Megjelenítés az oldalsávban</value>
+  </data>
+  <data name="QuickAccess_AddFolder" xml:space="preserve">
+    <value>Mappa hozzáadása</value>
+  </data>
+  <data name="QuickAccess_RecentCleared" xml:space="preserve">
+    <value>A legutóbbi mappák törölve.</value>
+  </data>
+  <data name="QuickAccess_RecentEnabled" xml:space="preserve">
+    <value>Legutóbbi mappák gyűjtése</value>
+  </data>
+  <data name="QuickAccess_EditTitle" xml:space="preserve">
+    <value>Gyorselérés szerkesztése</value>
+  </data>
+  <data name="QuickAccess_Icon" xml:space="preserve">
+    <value>Ikon</value>
+  </data>
+  <data name="QuickAccess_OpenOther" xml:space="preserve">
+    <value>Megnyitás a másik panelen</value>
+  </data>
+  <data name="QuickAccess_Import" xml:space="preserve">
+    <value>Importálás…</value>
+  </data>
+  <data name="QuickAccess_ChangeIcon" xml:space="preserve">
+    <value>Ikon módosítása</value>
+  </data>
+  <data name="QuickAccess_RecentLimit" xml:space="preserve">
+    <value>Megjelenő elemek:</value>
+  </data>
+  <data name="QuickAccess_Color" xml:space="preserve">
+    <value>Szín</value>
+  </data>
+  <data name="QuickAccess_ImportDone" xml:space="preserve">
+    <value>Az importálás sikerült.</value>
+  </data>
+  <data name="QuickAccess_Recent" xml:space="preserve">
+    <value>Legutóbbi</value>
+  </data>
+  <data name="QuickAccess_Rename" xml:space="preserve">
+    <value>Átnevezés</value>
+  </data>
+  <data name="QuickAccess_Group" xml:space="preserve">
+    <value>Csoport</value>
+  </data>
+  <data name="QuickAccess_MoveUp" xml:space="preserve">
+    <value>Feljebb</value>
+  </data>
+  <data name="QuickAccess_AddSeparator" xml:space="preserve">
+    <value>Elválasztó</value>
   </data>
 </root>

@@ -57,6 +57,16 @@
 
     <!-- A képek nem kerülnek be automatikusan; a pack:// URI ehhez kell. -->
     <Resource Include="Assets\**\*.png" />
+
+    <!--
+      Ugyanaz a multi-resolution .ico, ami az exe erőforrásába is bekerül
+      (ApplicationIcon fent) — de itt pack:// URI-ként is elérhetővé válik,
+      hogy a Window.Icon EXPLICIT módon beállítható legyen. A WPF ebből
+      állítja be a WM_SETICON ICON_SMALL és ICON_BIG rétegét is, a
+      megfelelő méretű képet kiválasztva; enélkül a rendszer a 256-os
+      réteget skálázná le a 16 pixeles címsor-ikonra.
+    -->
+    <Resource Include="..\..\assets\brand\app.ico" Link="Assets\app.ico" />
   </ItemGroup>
 
 </Project>

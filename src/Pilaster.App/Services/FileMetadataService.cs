@@ -104,12 +104,40 @@ public sealed class FileMetadataService : IDisposable
         NotifyChanged();
     }
 
-    public TagDefinition CreateTag(string name, TagColor color)
+    public TagDefinition CreateTag(string name, TagColor color, string? colorHex = null)
     {
-        var tag = new TagDefinition { Id = Guid.NewGuid().ToString("N"), Name = name, Color = color };
+        var tag = new TagDefinition
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = name,
+            Color = color,
+            ColorHex = colorHex,
+        };
+
         _document.Tags.Add(tag);
         NotifyChanged();
         return tag;
+    }
+
+    /// <summary>
+    /// Egy meglévő címke színének módosítása — paletta-érték és/vagy egyedi
+    /// hex. A <c>null</c> hex a paletta-színre való visszatérést jelenti.
+    /// </summary>
+    public void SetTagColor(string tagId, TagColor color, string? colorHex)
+    {
+        if (_document.Tags.FirstOrDefault(t => t.Id == tagId) is not { } tag)
+        {
+            return;
+        }
+
+        if (tag.Color == color && tag.ColorHex == colorHex)
+        {
+            return;
+        }
+
+        tag.Color = color;
+        tag.ColorHex = colorHex;
+        NotifyChanged();
     }
 
     public void RenameTag(string tagId, string name)

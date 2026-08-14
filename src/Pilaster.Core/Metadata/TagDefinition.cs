@@ -1,14 +1,35 @@
 namespace Pilaster.Core.Metadata;
 
-/// <summary>Előre definiált címkeszínek — macOS Finder mintájára.</summary>
+/// <summary>
+/// Az előre definiált címkeszínek — 12 érték, a Beállítások színválasztójának
+/// rácsa pontosan ezt tükrözi.
+/// </summary>
+/// <remarks>
+/// A tagok NEVE szerializálódik (lásd <c>UseStringEnumConverter</c> a
+/// <c>FileMetadataJsonContext</c>-ben), nem a sorszáma — ezért az eredeti hét
+/// név (Red, Orange, Yellow, Green, Blue, Purple, Gray) változatlanul itt
+/// marad, és a régebbi <c>metadata.json</c> további migráció nélkül betöltődik.
+/// Az új tagok bárhová beszúrhatók.
+/// </remarks>
 public enum TagColor
 {
     Red,
     Orange,
+    Amber,
     Yellow,
+    Lime,
     Green,
+    Teal,
+    Cyan,
     Blue,
+    Indigo,
     Purple,
+    Pink,
+
+    /// <summary>
+    /// Az egyedi hex értékek gyűjtőhelye is: ha a <see cref="TagDefinition.ColorHex"/>
+    /// ki van töltve, az élvez elsőbbséget ezzel a taggal szemben.
+    /// </summary>
     Gray,
 }
 
@@ -21,6 +42,17 @@ public sealed class TagDefinition
     public required string Name { get; set; }
 
     public TagColor Color { get; set; }
+
+    /// <summary>
+    /// Egyedi szín <c>"#RRGGBB"</c> alakban, vagy <c>null</c>, ha a
+    /// <see cref="Color"/> paletta-értéke érvényes.
+    /// </summary>
+    /// <remarks>
+    /// Kitöltve MINDIG felülírja a <see cref="Color"/>-t. Így a paletta
+    /// bővítése sosem írja felül a felhasználó egyedi választását, és a
+    /// visszaváltás a palettára egyszerűen ennek nullázása.
+    /// </remarks>
+    public string? ColorHex { get; set; }
 }
 
 /// <summary>Egyetlen fájl/mappa metaadata: rajta lévő címkék és kedvenc-jelölés.</summary>

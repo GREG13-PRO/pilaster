@@ -30,6 +30,11 @@
             <conv:BoolToAppearanceConverter x:Key="DualPaneAppearance" />
             <conv:EnumToBoolConverter x:Key="EnumToBool" />
             <conv:TagColorConverter x:Key="TagColorBrush" />
+            <conv:TagBrushConverter x:Key="TagBrush" />
+            <conv:HexToBrushConverter x:Key="HexToBrush" />
+            <conv:IconNameConverter x:Key="IconName" />
+            <conv:NotNullConverter x:Key="NotNull" />
+            <conv:VisibleFlagOpacityConverter x:Key="HiddenOpacityInverse" />
             <conv:ColorToBrushConverter x:Key="ColorToBrush" />
         </ResourceDictionary>
     </Application.Resources>

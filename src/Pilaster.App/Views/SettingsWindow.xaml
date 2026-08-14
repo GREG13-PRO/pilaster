@@ -2,6 +2,7 @@
     x:Class="Pilaster.App.Views.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:Pilaster.App.Controls"
     xmlns:loc="clr-namespace:Pilaster.App.Localization"
     xmlns:media="clr-namespace:System.Windows.Media;assembly=PresentationCore"
     xmlns:metadata="clr-namespace:Pilaster.Core.Metadata;assembly=Pilaster.Core"
@@ -13,6 +14,7 @@
     Height="760"
     MinWidth="520"
     MinHeight="480"
+    Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
     ExtendsContentIntoTitleBar="True"
     WindowBackdropType="Mica"
     WindowCornerPreference="Round"
@@ -174,7 +176,7 @@
                         </Grid>
                         <TextBlock
                             Margin="0,6,0,0"
-                            Foreground="#E81123"
+                            Foreground="{DynamicResource TokenDanger}"
                             Text="{Binding AccentHexError}"
                             Visibility="{Binding AccentHexError, Converter={StaticResource NullToCollapsed}}" />
                     </StackPanel>
@@ -303,7 +305,7 @@
                         </Grid>
                         <TextBlock
                             Margin="0,10,0,0"
-                            Foreground="#E81123"
+                            Foreground="{DynamicResource TokenDanger}"
                             Text="{Binding ShellIntegrationError}"
                             TextWrapping="Wrap"
                             Visibility="{Binding ShellIntegrationError, Converter={StaticResource NullToCollapsed}}" />
@@ -485,13 +487,98 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <Ellipse
+
+                                        <!--
+                                            Színminta ÉS színválasztó gomb egyben — lásd
+                                            Controls/TagSwatch.cs. A minta a címke saját
+                                            színével van kitöltve (egyedi hexszel is), és
+                                            mindig kap szegélyt, hogy világos témában egy
+                                            fehér címke se olvadjon bele a háttérbe.
+                                        -->
+                                        <ui:Button
+                                            x:Name="ColorButton"
                                             Grid.Column="0"
-                                            Width="12"
-                                            Height="12"
                                             Margin="0,0,10,0"
+                                            Padding="5"
                                             VerticalAlignment="Center"
-                                            Fill="{Binding Color, Converter={StaticResource TagColorBrush}}" />
+                                            Appearance="Transparent"
+                                            Command="{Binding TogglePickerCommand}"
+                                            ToolTip="{loc:Loc Tags_PickColor}">
+                                            <controls:TagSwatch ColorHex="{Binding ColorHex}" TagColor="{Binding Color}" />
+                                        </ui:Button>
+
+                                        <Popup
+                                            Grid.Column="0"
+                                            AllowsTransparency="True"
+                                            IsOpen="{Binding IsPickerOpen, Mode=TwoWay}"
+                                            Placement="Bottom"
+                                            PlacementTarget="{Binding ElementName=ColorButton}"
+                                            StaysOpen="False">
+                                            <Border
+                                                Padding="12"
+                                                Background="{DynamicResource TokenBgElevated}"
+                                                BorderBrush="{DynamicResource TokenBorder}"
+                                                BorderThickness="1"
+                                                CornerRadius="8">
+                                                <StackPanel Width="216">
+                                                    <ItemsControl ItemsSource="{Binding Presets}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <UniformGrid Columns="6" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type metadata:TagColor}">
+                                                                <ui:Button
+                                                                    Margin="2"
+                                                                    Padding="4"
+                                                                    Appearance="Transparent"
+                                                                    Command="{Binding DataContext.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}">
+                                                                    <controls:TagSwatch
+                                                                        Width="20"
+                                                                        Height="20"
+                                                                        TagColor="{Binding}" />
+                                                                </ui:Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock
+                                                        Margin="2,10,0,4"
+                                                        FontSize="12"
+                                                        Foreground="{DynamicResource TokenTextSecondary}"
+                                                        Text="{loc:Loc Tags_CustomColor}" />
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <!--  Élő előnézet: a beírt hex azonnal látszik, még alkalmazás előtt.  -->
+                                                        <controls:TagSwatch
+                                                            Grid.Column="0"
+                                                            Width="24"
+                                                            Height="24"
+                                                            Margin="0,0,8,0"
+                                                            VerticalAlignment="Center"
+                                                            ColorHex="{Binding CustomHexInput}"
+                                                            TagColor="{Binding Color}" />
+                                                        <ui:TextBox
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            PlaceholderText="#RRGGBB"
+                                                            Text="{Binding CustomHexInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <ui:Button
+                                                            Grid.Column="2"
+                                                            Margin="8,0,0,0"
+                                                            Command="{Binding ApplyCustomHexCommand}"
+                                                            Content="{loc:Loc Cmd_Apply}" />
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </Popup>
+
                                         <ui:TextBox
                                             Grid.Column="1"
                                             Margin="0,0,8,0"
@@ -519,16 +606,13 @@
                             </Grid.ColumnDefinitions>
                             <ComboBox
                                 Grid.Column="0"
-                                Width="52"
+                                Width="62"
                                 Margin="0,0,8,0"
                                 ItemsSource="{Binding TagColors}"
                                 SelectedItem="{Binding NewTagColor, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate DataType="{x:Type metadata:TagColor}">
-                                        <Ellipse
-                                            Width="14"
-                                            Height="14"
-                                            Fill="{Binding Converter={StaticResource TagColorBrush}}" />
+                                        <controls:TagSwatch TagColor="{Binding}" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
@@ -685,13 +769,13 @@
                                 <ui:SymbolIcon
                                     Margin="0,0,8,0"
                                     VerticalAlignment="Top"
-                                    Foreground="#22C55E"
+                                    Foreground="{DynamicResource TokenSuccess}"
                                     Symbol="CheckmarkCircle24"
                                     Visibility="{Binding StatusIsError, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
                                 <ui:SymbolIcon
                                     Margin="0,0,8,0"
                                     VerticalAlignment="Top"
-                                    Foreground="#EF4444"
+                                    Foreground="{DynamicResource TokenDanger}"
                                     Symbol="ErrorCircle24"
                                     Visibility="{Binding StatusIsError, Converter={StaticResource BoolToVisibility}}" />
                                 <TextBlock

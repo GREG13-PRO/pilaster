@@ -487,6 +487,34 @@ public sealed partial class TabViewModel : ObservableObject
     [ObservableProperty]
     public partial string Title { get; set; }
 
+    /// <summary>Igaz, ha ez a fül a saját paneljének aktív füle — a fülsáv ez alapján emeli ki.</summary>
+    /// <remarks>
+    /// Szándékosan a modellen él, nem a fülsáv <c>ListBox</c>-ának
+    /// <c>IsSelected</c> állapotán: két panel két fülsávot rajzol, és a
+    /// kiemelésnek akkor is helyesnek kell maradnia, amikor az egyik panel
+    /// épp nem az aktív (lásd <see cref="PaneViewModel"/>).
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsActiveInPane { get; set; }
+
+    /// <summary>
+    /// A fájllista függőleges görgetési pozíciója — fülenként megőrzött
+    /// állapot, hogy nézetváltás és fülváltás után ugyanoda térjen vissza.
+    /// A nézet írja és olvassa (lásd <c>FilePaneView</c>).
+    /// </summary>
+    [ObservableProperty]
+    public partial double ScrollOffset { get; set; }
+
+    /// <summary>
+    /// A fülben legutóbb kijelölt elemek útvonalai — fülváltáskor ebből áll
+    /// vissza a kijelölés. Útvonal, nem elem-hivatkozás: egy frissítés után
+    /// az elemek új példányok, a hivatkozások elavulnának.
+    /// </summary>
+    public IReadOnlyList<string> SelectedPaths { get; set; } = [];
+
+    /// <summary>A billentyűzet-kurzor alatti elem útvonala — lásd <see cref="SelectedPaths"/>.</summary>
+    public string? FocusedPath { get; set; }
+
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
@@ -545,8 +573,74 @@ public sealed partial class TabViewModel : ObservableObject
             return;
         }
 
-        History.Navigate(path);
-        await LoadAsync(path).ConfigureAwait(false);
+        // Egy kihúzott pendrive vagy leválasztott hálózati megosztás után az
+        // útvonal érvénytelenné válik. Ilyenkor a legközelebbi LÉTEZŐ szülőre
+        // lépünk hibaüzenettel, nem hagyjuk némán kiürülni a panelt — lásd
+        // ResolveReachablePath.
+        var target = ResolveReachablePath(path, out var vanished);
+
+        History.Navigate(target);
+        await LoadAsync(target).ConfigureAwait(false);
+
+        if (vanished)
+        {
+            await OnUiAsync(() =>
+                EmptyMessage = string.Format(
+                    TranslationSource.Instance["Folder_VanishedFallback"],
+                    path)).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// A megadott útvonal, ha elérhető; egyébként a legközelebbi létező szülő.
+    /// Ha egyetlen szülő sem elérhető, a Kezdőlap.
+    /// </summary>
+    /// <remarks>
+    /// Csak akkor lép működésbe, ha az útvonal egy VALÓDI mappára mutatna: a
+    /// <see cref="HomeMarker"/> és a még nem létező, de érvényes utak (pl.
+    /// épp most létrehozott mappa) érintetlenül átmennek, hogy a szokásos
+    /// hibakezelés (<see cref="LoadAsync"/>) adhassa a pontosabb üzenetet.
+    /// </remarks>
+    private static string ResolveReachablePath(string path, out bool vanished)
+    {
+        vanished = false;
+
+        if (path == HomeMarker || Directory.Exists(path) || File.Exists(path))
+        {
+            return path;
+        }
+
+        // A gyökérig felfelé haladva keressük az első elérhető szülőt. A
+        // ciklus mindig véget ér: a GetDirectoryName előbb-utóbb null-t ad.
+        var candidate = path;
+
+        while (true)
+        {
+            string? parent;
+
+            try
+            {
+                parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(candidate));
+            }
+            catch (Exception ex) when (ex is ArgumentException or PathTooLongException)
+            {
+                return HomeMarker;
+            }
+
+            if (string.IsNullOrEmpty(parent))
+            {
+                vanished = true;
+                return HomeMarker;
+            }
+
+            if (Directory.Exists(parent))
+            {
+                vanished = true;
+                return parent;
+            }
+
+            candidate = parent;
+        }
     }
 
     [RelayCommand]

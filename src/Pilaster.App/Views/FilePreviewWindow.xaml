@@ -10,6 +10,7 @@
     MinWidth="360"
     MinHeight="240"
     mc:Ignorable="d"
+    Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
     ExtendsContentIntoTitleBar="True"
     PreviewKeyDown="OnPreviewKeyDown"
     WindowBackdropType="Mica"

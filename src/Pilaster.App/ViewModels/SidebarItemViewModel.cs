@@ -29,7 +29,22 @@ public sealed partial class SidebarItemViewModel : ObservableObject
 
     public required string Path { get; init; }
 
+    /// <summary>A mögöttes gyorselérés-bejegyzés azonosítója; más szekciókban <c>null</c>.</summary>
+    public string? EntryId { get; init; }
+
+    /// <summary>Igaz az elválasztó sorokra — ekkor csak egy vonal rajzolódik, felirat nélkül.</summary>
+    public bool IsSeparator { get; init; }
+
+    /// <summary>Opcionális csoportfejléc, ami e sor FÖLÖTT jelenik meg.</summary>
+    public string? GroupHeader { get; init; }
+
+    /// <summary>Igaz, ha van csoportfejléce.</summary>
+    public bool HasGroupHeader => !string.IsNullOrWhiteSpace(GroupHeader);
+
     public SymbolRegular Icon { get; init; } = SymbolRegular.Folder24;
+
+    /// <summary>Egyedi ikonszín <c>#RRGGBB</c> alakban, vagy <c>null</c> az örökölt szöveg-színhez.</summary>
+    public string? IconColorHex { get; init; }
 
     /// <summary>
     /// Behelyezett optikai lemez saját ikonja (autorun.inf vagy gyökér-.ico
@@ -148,6 +163,9 @@ public sealed partial class TagFilterItemViewModel : ObservableObject
     public required string Name { get; init; }
 
     public required TagColor Color { get; init; }
+
+    /// <summary>A címke egyedi színe, ha van — lásd <see cref="TagDefinition.ColorHex"/>.</summary>
+    public string? ColorHex { get; init; }
 
     /// <summary>Igaz, ha ez a szűrő aktív az éppen kijelölt fülön.</summary>
     [ObservableProperty]

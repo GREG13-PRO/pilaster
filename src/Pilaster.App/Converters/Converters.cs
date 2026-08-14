@@ -255,30 +255,77 @@ public sealed class AnimationLevelConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Címkeszín → tömör ecset a színes pöttyökhöz/sávokhoz.</summary>
-public sealed class TagColorConverter : IValueConverter
+/// <summary>
+/// A címkék színpalettája — egyetlen forrás a színminta, a fájllista, a
+/// szűrő legördülő és a Beállítások színválasztója számára.
+/// </summary>
+/// <remarks>
+/// Fix, nem téma-függő színek: a címke színének MINDIG ugyanazt kell
+/// mutatnia világos és sötét témában is, mint a macOS Finderben. Ez az
+/// egyetlen szándékos kivétel a téma-tokenek alól — ezért kap a színminta
+/// mindig <c>TokenBorderStrong</c> szegélyt, hogy a nagyon világos címkék se
+/// olvadjanak bele a világos háttérbe (lásd B2).
+/// </remarks>
+public static class TagPalette
 {
-    /// <remarks>
-    /// Fix, nem téma-függő színek — a címke pöttynek MINDIG ugyanazt a
-    /// színt kell mutatnia, világos és sötét témában is, mint a macOS
-    /// Finderben.
-    /// </remarks>
-    private static readonly IReadOnlyDictionary<TagColor, SolidColorBrush> Brushes = new Dictionary<TagColor, SolidColorBrush>
+    private static readonly IReadOnlyDictionary<TagColor, SolidColorBrush> Brushes =
+        new Dictionary<TagColor, SolidColorBrush>
+        {
+            [TagColor.Red] = Freeze(0xE8, 0x11, 0x23),
+            [TagColor.Orange] = Freeze(0xF7, 0x63, 0x0C),
+            [TagColor.Amber] = Freeze(0xE0, 0x93, 0x00),
+            [TagColor.Yellow] = Freeze(0xFF, 0xB9, 0x00),
+            [TagColor.Lime] = Freeze(0x76, 0xB9, 0x00),
+            [TagColor.Green] = Freeze(0x10, 0x93, 0x54),
+            [TagColor.Teal] = Freeze(0x00, 0x99, 0x8A),
+            [TagColor.Cyan] = Freeze(0x00, 0xB7, 0xC3),
+            [TagColor.Blue] = Freeze(0x00, 0x78, 0xD4),
+            [TagColor.Indigo] = Freeze(0x4F, 0x4F, 0xC4),
+            [TagColor.Purple] = Freeze(0x88, 0x64, 0xC7),
+            [TagColor.Pink] = Freeze(0xE3, 0x00, 0x8C),
+            [TagColor.Gray] = Freeze(0x8A, 0x8A, 0x8A),
+        };
+
+    /// <summary>A színválasztó rácsának 12 előre definiált színe.</summary>
+    public static IReadOnlyList<TagColor> Presets { get; } =
+    [
+        TagColor.Red, TagColor.Orange, TagColor.Amber, TagColor.Yellow,
+        TagColor.Lime, TagColor.Green, TagColor.Teal, TagColor.Cyan,
+        TagColor.Blue, TagColor.Indigo, TagColor.Purple, TagColor.Pink,
+    ];
+
+    /// <summary>Egy paletta-szín ecsetje.</summary>
+    public static SolidColorBrush Resolve(TagColor color) =>
+        Brushes.TryGetValue(color, out var brush) ? brush : Brushes[TagColor.Gray];
+
+    /// <summary>
+    /// Egy címke tényleges ecsetje: az egyedi hex (ha van és érvényes),
+    /// egyébként a paletta-szín. Érvénytelen hexnél a paletta-színre esik
+    /// vissza — egy elrontott érték soha ne tegye láthatatlanná a mintát.
+    /// </summary>
+    public static SolidColorBrush Resolve(TagColor color, string? customHex)
     {
-        [TagColor.Red] = Freeze(0xE8, 0x11, 0x23),
-        [TagColor.Orange] = Freeze(0xF7, 0x63, 0x0C),
-        [TagColor.Yellow] = Freeze(0xFF, 0xB9, 0x00),
-        [TagColor.Green] = Freeze(0x10, 0x93, 0x54),
-        [TagColor.Blue] = Freeze(0x00, 0x78, 0xD4),
-        [TagColor.Purple] = Freeze(0x88, 0x64, 0xC7),
-        [TagColor.Gray] = Freeze(0x8A, 0x8A, 0x8A),
-    };
+        if (string.IsNullOrWhiteSpace(customHex))
+        {
+            return Resolve(color);
+        }
 
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is TagColor color && Brushes.TryGetValue(color, out var brush) ? brush : Brushes[TagColor.Gray];
+        try
+        {
+            if (ColorConverter.ConvertFromString(customHex.Trim()) is Color parsed)
+            {
+                var brush = new SolidColorBrush(parsed);
+                brush.Freeze();
+                return brush;
+            }
+        }
+        catch (FormatException)
+        {
+            // Elgépelt hex — a paletta-szín lép be alább.
+        }
 
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
+        return Resolve(color);
+    }
 
     private static SolidColorBrush Freeze(byte r, byte g, byte b)
     {
@@ -288,11 +335,112 @@ public sealed class TagColorConverter : IValueConverter
     }
 }
 
+/// <summary>Címkeszín → tömör ecset. Csak a paletta-értéket veszi figyelembe.</summary>
+public sealed class TagColorConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is TagColor color ? TagPalette.Resolve(color) : TagPalette.Resolve(TagColor.Gray);
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Címke → tömör ecset, az egyedi hexet is figyelembe véve.
+/// </summary>
+/// <remarks>
+/// Bemenete <c>[TagColor, string?]</c> — azért <see cref="IMultiValueConverter"/>,
+/// mert a szín két, egymástól független tulajdonságból (paletta-érték és
+/// egyedi hex) áll össze, és mindkettő változását követnie kell.
+/// </remarks>
+public sealed class TagBrushConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values is [TagColor color, var hex]
+            ? TagPalette.Resolve(color, hex as string)
+            : TagPalette.Resolve(TagColor.Gray);
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Szín → tömör ecset — az akcentus-paletta swatch-jeihez.</summary>
 public sealed class ColorToBrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is Color color ? new SolidColorBrush(color) : Brushes.Transparent;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// <c>#RRGGBB</c> szöveg → ecset. Üres/érvénytelen értéknél a téma
+/// elsődleges szövegszínére esik vissza, hogy egy hiányzó egyedi szín
+/// sose tegye láthatatlanná az ikont.
+/// </summary>
+public sealed class HexToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string hex && !string.IsNullOrWhiteSpace(hex))
+        {
+            try
+            {
+                if (ColorConverter.ConvertFromString(hex.Trim()) is Color color)
+                {
+                    var brush = new SolidColorBrush(color);
+                    brush.Freeze();
+                    return brush;
+                }
+            }
+            catch (FormatException)
+            {
+                // Elgépelt hex — az örökölt szín lép be alább.
+            }
+        }
+
+        return Application.Current?.Resources[Services.ThemeTokenService.TextPrimary] ?? Brushes.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>WPF-UI ikonnév (szöveg) → <c>SymbolRegular</c>. Ismeretlen névnél mappaikon.</summary>
+/// <remarks>
+/// Akkor kell, ha az ikon a felhasználó beállításából, szövegként érkezik —
+/// a XAML <c>Symbol="{Binding}"</c> önmagában nem tud szövegből felsorolást
+/// képezni, ha a kötés forrása <c>string</c>.
+/// </remarks>
+public sealed class IconNameConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is string name && Enum.TryParse<Wpf.Ui.Controls.SymbolRegular>(name, ignoreCase: true, out var parsed)
+            ? parsed
+            : Wpf.Ui.Controls.SymbolRegular.Folder24;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Nem-null → igaz. Egy részletpanel engedélyezéséhez, ha van kijelölt elem.</summary>
+public sealed class NotNullConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is not null;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// „Látható" jelölő → átlátszatlanság. A <see cref="HiddenItemOpacityConverter"/>
+/// fordítottja: ott a <c>true</c> jelenti a rejtettséget, itt a láthatóságot.
+/// </summary>
+public sealed class VisibleFlagOpacityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? 1.0 : 0.45;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

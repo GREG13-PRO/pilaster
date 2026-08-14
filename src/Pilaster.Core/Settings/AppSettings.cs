@@ -133,6 +133,44 @@ public sealed class PinnedFolder
     public string Icon { get; set; } = "Folder24";
 }
 
+/// <summary>Egy megnyitott fül menthető állapota — lásd <see cref="AppSession"/>.</summary>
+public sealed class TabSession
+{
+    public string Path { get; set; } = string.Empty;
+
+    public Pilaster.Core.FileSystem.ViewMode ViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
+
+    public Pilaster.Core.FileSystem.SortKey SortKey { get; set; } = Pilaster.Core.FileSystem.SortKey.Name;
+
+    public bool SortDescending { get; set; }
+
+    public bool ShowHiddenItems { get; set; }
+}
+
+/// <summary>Egy panel menthető állapota: a füljei és az aktív fül indexe.</summary>
+public sealed class PaneSession
+{
+    public List<TabSession> Tabs { get; set; } = [];
+
+    public int ActiveTabIndex { get; set; }
+}
+
+/// <summary>
+/// A teljes munkamenet: mindkét panel összes füle.
+/// </summary>
+/// <remarks>
+/// Kilépéskor mentődik, induláskor visszaáll — a Beállításokban
+/// kikapcsolható (<see cref="AppSettings.RestoreSession"/>). Szándékosan
+/// panelenként tagolt, nem egyetlen közös fül-listaként: a v1.0-ban a fülek a
+/// PANELEKÉ, nem a főablaké (lásd <c>PaneViewModel</c>).
+/// </remarks>
+public sealed class AppSession
+{
+    public PaneSession Left { get; set; } = new();
+
+    public PaneSession Right { get; set; } = new();
+}
+
 /// <summary>
 /// Az alkalmazás menthető beállításai.
 /// </summary>
@@ -198,6 +236,22 @@ public sealed class AppSettings
 
     /// <summary>Igaz = a két panel egymás alatt (függőleges elrendezés), hamis = egymás mellett.</summary>
     public bool DualPaneVertical { get; set; }
+
+    /// <summary>
+    /// A kétpaneles elválasztó helyzete: a BAL (illetve függőleges
+    /// elrendezésben a FELSŐ) panel aránya, 0 és 1 között. Dupla kattintás az
+    /// elválasztón visszaállítja 0,5-re.
+    /// </summary>
+    public double DualPaneSplitRatio { get; set; } = 0.5;
+
+    /// <summary>
+    /// Kilépéskor mentődjön-e a nyitott fülek állapota, és induláskor
+    /// álljon-e vissza. Kikapcsolva mindkét panel egy Kezdőlap-füllel indul.
+    /// </summary>
+    public bool RestoreSession { get; set; } = true;
+
+    /// <summary>A legutóbbi munkamenet — lásd <see cref="RestoreSession"/>.</summary>
+    public AppSession? Session { get; set; }
 
     /// <summary>
     /// Total Commander-stílusú billentyűkiosztás (F3 Megtekint, F4 Szerkeszt,

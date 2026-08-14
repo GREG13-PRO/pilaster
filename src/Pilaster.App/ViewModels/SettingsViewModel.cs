@@ -121,8 +121,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>A létrehozott címkék — átnevezhetők, törölhetők; lásd <see cref="TagEditorViewModel"/>.</summary>
     public ObservableCollection<TagEditorViewModel> Tags { get; }
 
-    /// <summary>Az előre definiált színkészlet, amiből egy új címkéhez választani lehet.</summary>
-    public IReadOnlyList<TagColor> TagColors { get; } = Enum.GetValues<TagColor>();
+    /// <summary>Az előre definiált 12 szín, amiből egy új címkéhez választani lehet — lásd <see cref="Converters.TagPalette.Presets"/>.</summary>
+    public IReadOnlyList<TagColor> TagColors { get; } = Converters.TagPalette.Presets;
 
     [ObservableProperty]
     private ThemeMode _selectedTheme;

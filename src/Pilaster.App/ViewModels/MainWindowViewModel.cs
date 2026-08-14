@@ -25,6 +25,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly FolderSizeService _folderSizes;
     private readonly FileMetadataService _metadata;
     private readonly FileOperationEngine _fileOperations;
+    private readonly QuickAccessService _quickAccess;
 
     /// <summary>Az Aktivitás-központ paneljéhez közvetlenül köthető, futó/befejezett műveletek.</summary>
     public ObservableCollection<FileOperationJob> FileOperationJobs => _fileOperations.Jobs;
@@ -37,7 +38,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         UpdateViewModel updates,
         FolderSizeService folderSizes,
         FileMetadataService metadata,
-        FileOperationEngine fileOperations)
+        FileOperationEngine fileOperations,
+        QuickAccessService quickAccess)
     {
         _provider = provider;
         _settings = settings;
@@ -47,9 +49,31 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _folderSizes = folderSizes;
         _metadata = metadata;
         _fileOperations = fileOperations;
+        _quickAccess = quickAccess;
 
-        Tabs = [];
+        // A v0.9-es, settings.json-ben tárolt gyorselérés átvétele az új,
+        // önálló fájlba — egyszer fut le, az első v1.0-s indításkor.
+        _quickAccess.MigrateFromLegacyPins(_settings.Current.QuickAccessPins);
+        _quickAccess.Changed += (_, _) =>
+        {
+            RefreshQuickAccess();
+            RefreshRecent();
+        };
+
         Sections = [];
+
+        // A két panel MINDEN fájllista-állapotot birtokol (fülek, aktív fül, és
+        // fülönként útvonal/előzmény/kijelölés/rendezés/nézetmód/görgetés/szűrő).
+        // Globálisan csak az „melyik az aktív" és az elrendezés marad itt.
+        LeftPane = new PaneViewModel("left", CreateTab);
+        RightPane = new PaneViewModel("right", CreateTab);
+
+        foreach (var pane in new[] { LeftPane, RightPane })
+        {
+            pane.TabCreated += OnPaneTabCreated;
+            pane.TabClosed += OnPaneTabClosed;
+            pane.PropertyChanged += OnPanePropertyChanged;
+        }
 
         BuildSidebar();
         RefreshQuickActions();
@@ -92,18 +116,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         RefreshTagFilters();
 
-        AddTab(TabViewModel.HomeMarker);
-
-        // A két panel a fülrendszertől FÜGGETLEN, saját TabViewModel-pár —
-        // nem kerülnek be a Tabs-ba, nem jelennek meg fülként. Ez a
-        // legegyszerűbb módja annak, hogy mindegyiknek saját útvonala,
-        // előzménye, kijelölése és nézetmódja legyen: maga a TabViewModel már
-        // eleve ezt nyújtja (lásd az oszlopos nézet is ugyanígy épül fel
-        // önálló TabViewModel-ekből).
-        LeftPaneTab = new TabViewModel(_provider, _folderSizes, _metadata);
-        RightPaneTab = new TabViewModel(_provider, _folderSizes, _metadata);
-        _ = LeftPaneTab.NavigateAsync(TabViewModel.HomeMarker);
-        _ = RightPaneTab.NavigateAsync(TabViewModel.HomeMarker);
+        RestoreSession();
 
         // A tulajdonságon keresztül állítjuk (nem közvetlen mezőn — a
         // forrásgenerált mező neve nem elérhető innen), ami az OnXChanged
@@ -111,22 +124,85 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // onnan olvasott — ártalmatlan, csak egy felesleges mentés induláskor.
         DualPaneEnabled = _settings.Current.DualPaneEnabled;
         DualPaneVertical = _settings.Current.DualPaneVertical;
+
+        LeftPane.IsActive = true;
     }
 
-    /// <summary>A bal panel — a fülrendszertől független, csak Kétablakos nézetben látszik.</summary>
-    public TabViewModel LeftPaneTab { get; }
+    /// <summary>A bal panel — egypaneles nézetben ez az egyetlen látható.</summary>
+    public PaneViewModel LeftPane { get; }
 
-    /// <summary>A jobb panel — a fülrendszertől független, csak Kétablakos nézetben látszik.</summary>
-    public TabViewModel RightPaneTab { get; }
+    /// <summary>A jobb panel — csak kétpaneles nézetben látszik, de az állapotát olyankor is megőrzi.</summary>
+    public PaneViewModel RightPane { get; }
 
-    /// <summary>Igaz, ha a bal panel az aktív (kiemelt, a Szinkronizálás és a majdani gyorsbillentyűk erre céloznak).</summary>
+    /// <summary>Igaz, ha a bal panel az aktív. Egypaneles nézetben mindig igaznak számít.</summary>
     [ObservableProperty]
     public partial bool IsLeftPaneActive { get; set; } = true;
 
-    /// <summary>A jelenleg aktív panel — a majdani Total Commander-billentyűzet (F5/F6/Tab) ezen dolgozik.</summary>
-    public TabViewModel ActivePaneTab => IsLeftPaneActive ? LeftPaneTab : RightPaneTab;
+    /// <summary>
+    /// A jelenleg aktív panel. Egypaneles nézetben MINDIG a bal — így az
+    /// eszköztár, az útvonalsáv, a keresés és a státuszsor egyetlen szabály
+    /// szerint dolgozik mindkét elrendezésben.
+    /// </summary>
+    public PaneViewModel ActivePane => DualPaneEnabled && !IsLeftPaneActive ? RightPane : LeftPane;
 
-    public TabViewModel InactivePaneTab => IsLeftPaneActive ? RightPaneTab : LeftPaneTab;
+    public PaneViewModel InactivePane => ReferenceEquals(ActivePane, LeftPane) ? RightPane : LeftPane;
+
+    /// <summary>Az aktív panel aktív füle — a v0.9-es <c>ActivePaneTab</c> utódja.</summary>
+    public TabViewModel? ActivePaneTab => ActivePane.ActiveTab;
+
+    public TabViewModel? InactivePaneTab => InactivePane.ActiveTab;
+
+    /// <summary>
+    /// Az aktív panel fülei — a felső fülsáv ehhez kötődik.
+    /// </summary>
+    /// <remarks>
+    /// Nem saját gyűjtemény: a fülek a paneleké. Ez a tulajdonság csak
+    /// átirányít, hogy a felső fülsáv mindig az aktív panelre hasson (spec F7).
+    /// </remarks>
+    public ObservableCollection<TabViewModel> Tabs => ActivePane.Tabs;
+
+    partial void OnIsLeftPaneActiveChanged(bool value)
+    {
+        LeftPane.IsActive = !DualPaneEnabled || value;
+        RightPane.IsActive = DualPaneEnabled && !value;
+
+        RaiseActivePaneChanged();
+    }
+
+    /// <summary>
+    /// Az aktív panelből származó, átirányított tulajdonságok újraértékeltetése.
+    /// Panelváltáskor és kétpaneles mód kapcsolásakor egyaránt kell.
+    /// </summary>
+    private void RaiseActivePaneChanged()
+    {
+        OnPropertyChanged(nameof(ActivePane));
+        OnPropertyChanged(nameof(InactivePane));
+        OnPropertyChanged(nameof(ActivePaneTab));
+        OnPropertyChanged(nameof(InactivePaneTab));
+        OnPropertyChanged(nameof(Tabs));
+        OnPropertyChanged(nameof(SelectedTab));
+        OnPropertyChanged(nameof(CanEjectCurrentDrive));
+
+        UpdateActiveSidebarItem();
+        SyncTagFilterHighlight();
+    }
+
+    private void OnPanePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PaneViewModel.ActiveTab) && ReferenceEquals(sender, ActivePane))
+        {
+            OnPropertyChanged(nameof(SelectedTab));
+            OnPropertyChanged(nameof(ActivePaneTab));
+            UpdateActiveSidebarItem();
+            SyncTagFilterHighlight();
+            OnPropertyChanged(nameof(CanEjectCurrentDrive));
+        }
+
+        if (e.PropertyName == nameof(PaneViewModel.ActiveTab))
+        {
+            SaveSession();
+        }
+    }
 
     [ObservableProperty]
     public partial bool DualPaneEnabled { get; set; }
@@ -135,7 +211,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         _settings.Current.DualPaneEnabled = value;
         _settings.NotifyChanged();
+
+        // Egypaneles módra váltva a bal panel lesz az aktív, DE a jobb panel
+        // fülei/előzményei érintetlenül megmaradnak — visszakapcsoláskor
+        // pontosan ott folytatódnak (spec F7).
+        LeftPane.IsActive = !value || IsLeftPaneActive;
+        RightPane.IsActive = value && !IsLeftPaneActive;
+
         OnPropertyChanged(nameof(ShowFunctionKeyBar));
+        RaiseActivePaneChanged();
     }
 
     /// <summary>
@@ -160,9 +244,75 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncPanesAsync()
     {
-        if (ActivePaneTab.CurrentPath is { } path)
+        if (ActivePaneTab?.CurrentPath is { } path)
         {
-            await InactivePaneTab.NavigateCommand.ExecuteAsync(path);
+            await InactivePane.NavigateAsync(path);
+        }
+    }
+
+    /// <summary>Ctrl+U — a két panel tartalmának cseréje (a teljes fülkészletükkel együtt).</summary>
+    /// <remarks>
+    /// Nem csak az útvonalakat cseréli, hanem a fülek TELJES állapotát: így az
+    /// előzmény, a rendezés, a nézetmód és a görgetés is átkerül — ez a
+    /// felhasználó által elvárt „a két oldal helyet cserél" viselkedés.
+    /// </remarks>
+    [RelayCommand]
+    private void SwapPanes()
+    {
+        var leftTabs = LeftPane.Tabs.ToList();
+        var leftActive = LeftPane.ActiveTab;
+        var rightTabs = RightPane.Tabs.ToList();
+        var rightActive = RightPane.ActiveTab;
+
+        LeftPane.Tabs.Clear();
+        RightPane.Tabs.Clear();
+
+        foreach (var tab in rightTabs)
+        {
+            LeftPane.Tabs.Add(tab);
+        }
+
+        foreach (var tab in leftTabs)
+        {
+            RightPane.Tabs.Add(tab);
+        }
+
+        LeftPane.ActiveTab = rightActive;
+        RightPane.ActiveTab = leftActive;
+
+        RaiseActivePaneChanged();
+        SaveSession();
+    }
+
+    /// <summary>Ctrl+L — a bal panel útvonala a jobb panelre.</summary>
+    [RelayCommand]
+    private async Task CopyLeftPathToRightAsync()
+    {
+        if (LeftPane.ActiveTab?.CurrentPath is { } path)
+        {
+            await RightPane.NavigateAsync(path);
+        }
+    }
+
+    /// <summary>Ctrl+R — a jobb panel útvonala a bal panelre.</summary>
+    [RelayCommand]
+    private async Task CopyRightPathToLeftAsync()
+    {
+        if (RightPane.ActiveTab?.CurrentPath is { } path)
+        {
+            await LeftPane.NavigateAsync(path);
+        }
+    }
+
+    /// <summary>Alt+F5 — mindkét panel aktív fülének frissítése.</summary>
+    [RelayCommand]
+    private async Task RefreshBothPanesAsync()
+    {
+        await LeftPane.RefreshAsync();
+
+        if (DualPaneEnabled)
+        {
+            await RightPane.RefreshAsync();
         }
     }
 
@@ -172,6 +322,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public void StartPaneMove(IReadOnlyList<string> paths, string destinationDir) => _fileOperations.StartMove(paths, destinationDir);
 
     public void StartPaneDelete(IReadOnlyList<string> paths, bool permanent) => _fileOperations.StartDelete(paths, permanent);
+
+    /// <summary>
+    /// <c>Alt</c>+húzás: parancsikon(ok) készítése a célmappában. Nem a
+    /// <c>FileOperationEngine</c>-en megy át — nincs mit másolni, nincs
+    /// értelmes folyamatjelző, és a művelet pillanatszerű.
+    /// </summary>
+    public void CreateShortcuts(IReadOnlyList<string> paths, string destinationDir)
+    {
+        var suffix = TranslationSource.Instance["Shortcut_Suffix"];
+        var created = false;
+
+        foreach (var path in paths)
+        {
+            created |= Pilaster.Shell.Integration.ShortcutService.TryCreate(path, destinationDir, suffix) is not null;
+        }
+
+        if (!created)
+        {
+            return;
+        }
+
+        foreach (var tab in AllTabs().Where(t => string.Equals(t.CurrentPath, destinationDir, StringComparison.OrdinalIgnoreCase)))
+        {
+            _ = tab.RefreshCommand.ExecuteAsync(null);
+        }
+    }
 
     /// <summary>
     /// Total Commander F5 (másolás)/F6 (áthelyezés) — a felhasználó által a
@@ -206,15 +382,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    partial void OnSelectedTabChanged(TabViewModel? value)
-    {
-        UpdateActiveSidebarItem();
-        SyncTagFilterHighlight();
-        OnPropertyChanged(nameof(CanEjectCurrentDrive));
-    }
-
-    public ObservableCollection<TabViewModel> Tabs { get; }
-
     public ObservableCollection<SidebarSection> Sections { get; }
 
     /// <summary>Az oldalsáv Címkék szekciója — külön listaként, mert nem navigál, hanem szűr.</summary>
@@ -223,8 +390,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Frissítés-ellenőrzés és -telepítés állapota — a sáv és a Beállítások közösen használja.</summary>
     public UpdateViewModel Updates { get; }
 
-    [ObservableProperty]
-    public partial TabViewModel? SelectedTab { get; set; }
+    /// <summary>
+    /// Az aktív panel aktív füle.
+    /// </summary>
+    /// <remarks>
+    /// Már NEM önálló, globális állapot (v0.9-ig az volt): csak átirányít az
+    /// aktív panelre. Így a felső eszköztár, az útvonalsáv, a keresés, a
+    /// státuszsor és a menük automatikusan mindig az aktív panelre hatnak, és
+    /// egy panelváltás nem igényel semmilyen külön szinkronizálást.
+    /// </remarks>
+    public TabViewModel? SelectedTab
+    {
+        get => ActivePane.ActiveTab;
+        set
+        {
+            // A null értéket szándékosan eldobjuk. A felső fülsáv ListBox-a
+            // kétirányú kötéssel ül ezen a tulajdonságon, és valahányszor az
+            // ItemsSource kicserélődik (panelváltás, panelcsere), előbb null-ra
+            // állítja a saját SelectedItem-jét, és ezt VISSZA is írja ide —
+            // amitől az aktív panelnek egy pillanatra nem lenne aktív füle.
+            // Kijelöletlen fül sosem felhasználói szándék, ezért itt nem is
+            // értelmezzük annak.
+            if (value is not null)
+            {
+                ActivePane.ActiveTab = value;
+            }
+        }
+    }
 
     [ObservableProperty]
     public partial bool IsSidebarVisible { get; set; } = true;
@@ -272,24 +464,28 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Egy Kiadás-kísérlet lezárult — a nézet ez alapján mutat visszajelzést.</summary>
     public event EventHandler<EjectOutcome>? EjectCompleted;
 
+    /// <summary>Ctrl+T — új fül az AKTÍV panelben.</summary>
     [RelayCommand]
-    private void NewTab() => AddTab(TabViewModel.HomeMarker);
+    private void NewTab() => ActivePane.NewTabCommand.Execute(null);
 
+    /// <summary>Ctrl+W — fül bezárása abban a panelben, amelyikhez tartozik.</summary>
     [RelayCommand]
     private void CloseTab(TabViewModel? tab)
     {
-        if (tab is null || Tabs.Count <= 1)
-        {
-            return;
-        }
+        var owner = tab is null
+            ? ActivePane
+            : LeftPane.Tabs.Contains(tab) ? LeftPane : RightPane.Tabs.Contains(tab) ? RightPane : ActivePane;
 
-        var index = Tabs.IndexOf(tab);
-        Tabs.Remove(tab);
-        tab.Detach();
-
-        // A szomszédos fülre lépünk, hogy ne maradjon kijelöletlen a sáv.
-        SelectedTab = Tabs[Math.Clamp(index, 0, Tabs.Count - 1)];
+        owner.CloseTabCommand.Execute(tab);
     }
+
+    /// <summary>Ctrl+Tab — fülváltás az aktív panelen belül.</summary>
+    [RelayCommand]
+    private void NextTab() => ActivePane.NextTabCommand.Execute(null);
+
+    /// <summary>Ctrl+Shift+Tab — fülváltás visszafelé az aktív panelen belül.</summary>
+    [RelayCommand]
+    private void PreviousTab() => ActivePane.PreviousTabCommand.Execute(null);
 
     [RelayCommand]
     private async Task OpenSidebarItemAsync(SidebarItemViewModel? item)
@@ -601,11 +797,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // Törlésnél nem tudjuk olcsón eldönteni, melyik nyitott fület
         // érintette (a törölt elemek szülőmappái eltérhetnek egymástól is) —
         // ezért egyszerűen minden nyitott fület frissítünk. Másolásnál/
-        // áthelyezésnél csak a tényleges célmappát mutató fület. A Kétablakos
-        // nézet két panelje a Tabs-tól KÜLÖN gyűjtemény (lásd LeftPaneTab/
-        // RightPaneTab) — enélkül a bennük végzett húzásos másolás/áthelyezés
-        // után a panel nem mutatná az új/eltűnt elemeket.
-        foreach (var tab in Tabs.Append(LeftPaneTab).Append(RightPaneTab))
+        // áthelyezésnél csak a tényleges célmappát mutató fület. MINDKÉT
+        // panel minden füle sorra kerül, mert egy panelek közti átvitel
+        // egyszerre két helyen is változást okoz.
+        foreach (var tab in AllTabs())
         {
             var affected = job.Kind == FileOperationKind.Delete
                 || string.Equals(tab.CurrentPath, job.DestinationDirectory, StringComparison.OrdinalIgnoreCase);
@@ -616,6 +811,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
         }
     }
+
+    /// <summary>Mindkét panel minden füle — a fájlművelet utáni frissítéshez és a nyelvváltáshoz.</summary>
+    private IEnumerable<TabViewModel> AllTabs() => LeftPane.Tabs.Concat(RightPane.Tabs);
 
     private void RefreshQuickActions()
     {
@@ -645,46 +843,142 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private static SymbolRegular ParseIcon(string name, SymbolRegular fallback) =>
         Enum.TryParse<SymbolRegular>(name, ignoreCase: true, out var parsed) ? parsed : fallback;
 
-    private void AddTab(string path)
+    /// <summary>Új <see cref="TabViewModel"/> a panelek számára — lásd <see cref="PaneViewModel"/> gyártófüggvény-paraméterét.</summary>
+    private TabViewModel CreateTab() => new(_provider, _folderSizes, _metadata)
     {
-        var tab = new TabViewModel(_provider, _folderSizes, _metadata)
+        ShowHiddenItems = _settings.Current.ShowHiddenItems,
+        ViewMode = _settings.Current.LastViewMode,
+    };
+
+    /// <summary>
+    /// Egy újonnan létrejött fül bekötése: a fülenként állítható, de menteni
+    /// való beállítások (rejtett elemek, nézetmód) követése, valamint az
+    /// oldalsáv-kiemelés és a munkamenet frissen tartása.
+    /// </summary>
+    private void OnPaneTabCreated(object? sender, TabViewModel tab) => tab.PropertyChanged += OnTabPropertyChanged;
+
+    private void OnPaneTabClosed(object? sender, TabViewModel tab)
+    {
+        tab.PropertyChanged -= OnTabPropertyChanged;
+        SaveSession();
+    }
+
+    private void OnTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not TabViewModel tab)
         {
-            ShowHiddenItems = _settings.Current.ShowHiddenItems,
-            ViewMode = _settings.Current.LastViewMode,
-        };
+            return;
+        }
 
         // A rejtett elemek kapcsolója és a nézetmód fülenként állítható, de
         // a legutóbbi választás menteni való — a következő indításnál/új
         // fülnél azt várja a felhasználó.
-        tab.PropertyChanged += (_, e) =>
+        if (e.PropertyName == nameof(TabViewModel.ShowHiddenItems))
         {
-            if (e.PropertyName == nameof(TabViewModel.ShowHiddenItems))
-            {
-                _settings.Current.ShowHiddenItems = tab.ShowHiddenItems;
-                _settings.Save();
-            }
+            _settings.Current.ShowHiddenItems = tab.ShowHiddenItems;
+            _settings.Save();
+        }
 
-            if (e.PropertyName == nameof(TabViewModel.ViewMode) && ReferenceEquals(tab, SelectedTab))
-            {
-                _settings.Current.LastViewMode = tab.ViewMode;
-                _settings.Save();
-            }
+        if (e.PropertyName == nameof(TabViewModel.ViewMode) && ReferenceEquals(tab, SelectedTab))
+        {
+            _settings.Current.LastViewMode = tab.ViewMode;
+            _settings.Save();
+        }
 
-            // Csak az aktív fül útvonalváltása befolyásolja az oldalsáv
-            // kiemelését és a Kiadás gomb láthatóságát — egy háttérben
-            // navigáló fül ne rángassa el.
-            if (e.PropertyName == nameof(TabViewModel.CurrentPath) && ReferenceEquals(tab, SelectedTab))
+        // Csak az AKTÍV panel aktív füljének útvonalváltása befolyásolja az
+        // oldalsáv kiemelését és a Kiadás gomb láthatóságát — egy háttérben
+        // navigáló fül (vagy a másik panel) ne rángassa el.
+        if (e.PropertyName == nameof(TabViewModel.CurrentPath))
+        {
+            if (ReferenceEquals(tab, SelectedTab))
             {
                 UpdateActiveSidebarItem();
                 OnPropertyChanged(nameof(CanEjectCurrentDrive));
+                RecordRecent(tab.CurrentPath);
             }
+
+            SaveSession();
+        }
+    }
+
+    /// <summary>
+    /// A mentett munkamenet visszaállítása: mindkét panel összes füle,
+    /// útvonallal, nézetmóddal és rendezéssel. Kikapcsolva (vagy első
+    /// indításkor) mindkét panel egy Kezdőlap-füllel indul.
+    /// </summary>
+    private void RestoreSession()
+    {
+        var session = _settings.Current.RestoreSession ? _settings.Current.Session : null;
+
+        RestorePane(LeftPane, session?.Left);
+        RestorePane(RightPane, session?.Right);
+
+        _sessionRestored = true;
+    }
+
+    private static void RestorePane(PaneViewModel pane, PaneSession? saved)
+    {
+        if (saved is not { Tabs.Count: > 0 })
+        {
+            pane.AddTab(TabViewModel.HomeMarker);
+            return;
+        }
+
+        foreach (var tab in saved.Tabs)
+        {
+            pane.AddTab(
+                string.IsNullOrWhiteSpace(tab.Path) ? TabViewModel.HomeMarker : tab.Path,
+                tab.ViewMode,
+                tab.ShowHiddenItems,
+                activate: false);
+        }
+
+        // A rendezés csak a fül létrejötte UTÁN állítható be, mert az
+        // ApplySort azonnal újrarendez — a betöltés viszont még fut.
+        for (var i = 0; i < saved.Tabs.Count && i < pane.Tabs.Count; i++)
+        {
+            pane.Tabs[i].ApplySort(saved.Tabs[i].SortKey, saved.Tabs[i].SortDescending);
+        }
+
+        pane.ActiveTab = pane.Tabs[Math.Clamp(saved.ActiveTabIndex, 0, pane.Tabs.Count - 1)];
+    }
+
+    /// <summary>
+    /// Igaz, amint a visszaállítás lefutott. Enélkül a visszaállítás közben
+    /// tüzelő útvonal-változások azonnal FELÜLÍRNÁK a mentett munkamenetet a
+    /// félkész állapottal.
+    /// </summary>
+    private bool _sessionRestored;
+
+    /// <summary>A két panel teljes fülkészletének mentése — minden útvonal-, fül- és panelváltás után.</summary>
+    public void SaveSession()
+    {
+        if (!_sessionRestored)
+        {
+            return;
+        }
+
+        _settings.Current.Session = new AppSession
+        {
+            Left = CapturePane(LeftPane),
+            Right = CapturePane(RightPane),
         };
 
-        Tabs.Add(tab);
-        SelectedTab = tab;
-
-        _ = tab.NavigateAsync(path);
+        _settings.Save();
     }
+
+    private static PaneSession CapturePane(PaneViewModel pane) => new()
+    {
+        ActiveTabIndex = Math.Max(pane.ActiveTabIndex, 0),
+        Tabs = [.. pane.Tabs.Select(t => new TabSession
+        {
+            Path = t.CurrentPath ?? TabViewModel.HomeMarker,
+            ViewMode = t.ViewMode,
+            SortKey = t.SortKey,
+            SortDescending = t.SortDescending,
+            ShowHiddenItems = t.ShowHiddenItems,
+        })],
+    };
 
     private void BuildSidebar()
     {
@@ -695,6 +989,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
             HeaderKey = "Nav_QuickAccess",
             Header = TranslationSource.Instance["Nav_QuickAccess"],
             Items = BuildQuickAccess(),
+        });
+
+        Sections.Add(new SidebarSection
+        {
+            HeaderKey = "QuickAccess_Recent",
+            Header = TranslationSource.Instance["QuickAccess_Recent"],
+            Items = BuildRecent(),
         });
 
         Sections.Add(new SidebarSection
@@ -710,6 +1011,27 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Header = TranslationSource.Instance["Nav_Favorites"],
             Items = BuildFavorites(),
         });
+    }
+
+    /// <summary>A „Legutóbbi" szekció újraépítése.</summary>
+    private void RefreshRecent() => ReplaceSection("QuickAccess_Recent", BuildRecent);
+
+    /// <summary>Egy oldalsáv-szekció cseréje friss tartalommal, a kiemelés újraszámolásával.</summary>
+    private void ReplaceSection(string headerKey, Func<List<SidebarItemViewModel>> build)
+    {
+        if (Sections.FirstOrDefault(s => s.HeaderKey == headerKey) is not { } section)
+        {
+            return;
+        }
+
+        Sections[Sections.IndexOf(section)] = new SidebarSection
+        {
+            HeaderKey = headerKey,
+            Header = TranslationSource.Instance[headerKey],
+            Items = build(),
+        };
+
+        UpdateActiveSidebarItem();
     }
 
     /// <summary>
@@ -766,34 +1088,38 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// a Lomtár-ablak bezárásakor hívva, hogy az ürítés/visszaállítás/törlés
     /// után a sáv ne mutasson elavult állapotot.
     /// </summary>
-    public void RefreshQuickAccess()
+    public void RefreshQuickAccess() => ReplaceSection("Nav_QuickAccess", BuildQuickAccess);
+
+    /// <summary>
+    /// Egy megnyitott mappa felvétele a „Legutóbbi" szekcióba — az aktív
+    /// panel navigációjára hívva.
+    /// </summary>
+    private void RecordRecent(string? path)
     {
-        var quickAccessSection = Sections.FirstOrDefault(s => s.HeaderKey == "Nav_QuickAccess");
-
-        if (quickAccessSection is null)
+        if (!string.IsNullOrWhiteSpace(path))
         {
-            return;
+            _quickAccess.RecordRecent(path);
         }
-
-        var index = Sections.IndexOf(quickAccessSection);
-
-        Sections[index] = new SidebarSection
-        {
-            HeaderKey = "Nav_QuickAccess",
-            Header = TranslationSource.Instance["Nav_QuickAccess"],
-            Items = BuildQuickAccess(),
-        };
-
-        UpdateActiveSidebarItem();
     }
 
     [RelayCommand]
     private void RemoveFavorite(SidebarItemViewModel? item)
     {
-        if (item is not null)
+        if (item is null)
         {
-            _metadata.SetFavorite(item.Path, false);
+            return;
         }
+
+        // A Kedvencek szekcióban ez metaadat-törlés, a Legutóbbi szekcióban
+        // viszont a gyorselérés-bejegyzés eldobása — az „x" gomb mindkét
+        // helyen ugyanezt a parancsot hívja.
+        if (item.EntryId is { } entryId)
+        {
+            _quickAccess.Remove(entryId);
+            return;
+        }
+
+        _metadata.SetFavorite(item.Path, false);
     }
 
     /// <summary>
@@ -804,68 +1130,61 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void PinToQuickAccess(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
         {
-            return;
+            _quickAccess.Pin(path);
         }
-
-        EnsureQuickAccessPinsSeeded();
-
-        var pins = _settings.Current.QuickAccessPins!;
-
-        if (pins.Any(p => string.Equals(p.Path, path, StringComparison.OrdinalIgnoreCase)))
-        {
-            return;
-        }
-
-        pins.Add(new PinnedFolder
-        {
-            Path = path,
-            CustomLabel = Path.GetFileName(Path.TrimEndingDirectorySeparator(path)),
-        });
-
-        _settings.Save();
-        RefreshQuickAccess();
     }
 
-    /// <summary>Egy mappa leoldása a gyorselérésből — az „x" gomb a sajátrögzítésű soron.</summary>
+    /// <summary>Egy bejegyzés leoldása a gyorselérésből.</summary>
     [RelayCommand]
     private void UnpinQuickAccess(SidebarItemViewModel? item)
     {
-        if (item is null || _settings.Current.QuickAccessPins is not { } pins)
+        if (item?.EntryId is { } id)
         {
-            return;
+            _quickAccess.Remove(id);
         }
-
-        pins.RemoveAll(p => string.Equals(p.Path, item.Path, StringComparison.OrdinalIgnoreCase));
-        _settings.Save();
-        RefreshQuickAccess();
     }
 
-    /// <summary>
-    /// A gyorselérés átrendezése húzással: a <paramref name="sourcePath"/>
-    /// mappa a <paramref name="targetPath"/> mappa helyére kerül.
-    /// </summary>
-    public void ReorderQuickAccess(string sourcePath, string targetPath)
+    /// <summary>Egy gyorselérés-sor mozgatása egy másik sor helyére — húzásos átrendezés az oldalsávban.</summary>
+    public void ReorderQuickAccess(string sourceEntryId, string targetEntryId)
     {
-        if (_settings.Current.QuickAccessPins is not { } pins || string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
+        if (sourceEntryId == targetEntryId)
         {
             return;
         }
 
-        var source = pins.FirstOrDefault(p => string.Equals(p.Path, sourcePath, StringComparison.OrdinalIgnoreCase));
-        var targetIndex = pins.FindIndex(p => string.Equals(p.Path, targetPath, StringComparison.OrdinalIgnoreCase));
+        var pinned = _quickAccess.Pinned;
+        var targetIndex = pinned.ToList().FindIndex(e => e.Id == targetEntryId);
 
-        if (source is null || targetIndex < 0)
+        if (targetIndex >= 0)
         {
-            return;
+            _quickAccess.Reorder(sourceEntryId, targetIndex);
         }
+    }
 
-        pins.Remove(source);
-        pins.Insert(targetIndex, source);
+    /// <summary>Egy gyorselérés-sor átnevezése a jobbklikk-menüből.</summary>
+    public void RenameQuickAccessEntry(string entryId, string label) =>
+        _quickAccess.Update(entryId, e => e.Label = string.IsNullOrWhiteSpace(label) ? null : label.Trim());
 
-        _settings.Save();
-        RefreshQuickAccess();
+    /// <summary>Egy gyorselérés-sor ikonjának cseréje a jobbklikk-menüből.</summary>
+    public void SetQuickAccessIcon(string entryId, string icon) =>
+        _quickAccess.Update(entryId, e => e.Icon = icon);
+
+    /// <summary>Egy gyorselérés-sor útvonalának javítása, ha a mappa elköltözött.</summary>
+    public void FixQuickAccessPath(string entryId, string path) =>
+        _quickAccess.Update(entryId, e => e.Path = path);
+
+    /// <summary>Egy sor feljebb/lejjebb mozgatása a jobbklikk-menüből.</summary>
+    public void NudgeQuickAccessEntry(string entryId, int delta)
+    {
+        var pinned = _quickAccess.Pinned.ToList();
+        var index = pinned.FindIndex(e => e.Id == entryId);
+
+        if (index >= 0)
+        {
+            _quickAccess.Reorder(entryId, index + delta);
+        }
     }
 
     /// <summary>
@@ -885,6 +1204,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 Id = tag.Id,
                 Name = tag.Name,
                 Color = tag.Color,
+                ColorHex = tag.ColorHex,
                 IsActive = tag.Id == previouslyActive,
             });
         }
@@ -919,67 +1239,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    /// <summary>Az alapértelmezett gyorselérés-mappák — csak első használatkor kerülnek be, lásd <see cref="EnsureQuickAccessPinsSeeded"/>.</summary>
-    private static (Environment.SpecialFolder Folder, string Key, string Icon)[] DefaultQuickAccessFolders =>
-    [
-        (Environment.SpecialFolder.Desktop, "Nav_Desktop", nameof(SymbolRegular.Desktop24)),
-        (Environment.SpecialFolder.MyDocuments, "Nav_Documents", nameof(SymbolRegular.Document24)),
-        (Environment.SpecialFolder.MyPictures, "Nav_Pictures", nameof(SymbolRegular.Image24)),
-        (Environment.SpecialFolder.MyMusic, "Nav_Music", nameof(SymbolRegular.MusicNote124)),
-        (Environment.SpecialFolder.MyVideos, "Nav_Videos", nameof(SymbolRegular.Video24)),
-    ];
-
-    /// <summary>
-    /// Első használatkor (amíg a felhasználó soha nem testreszabta) feltölti
-    /// a mentett gyorselérést az alapértelmezett hat mappával, és el is
-    /// menti — onnantól ez a mentett lista az igazság forrása, törlés/
-    /// rögzítés/átrendezés után soha nem áll vissza az alapértelmezésre.
-    /// </summary>
-    private void EnsureQuickAccessPinsSeeded()
-    {
-        if (_settings.Current.QuickAccessPins is not null)
-        {
-            return;
-        }
-
-        var pins = new List<PinnedFolder>();
-
-        foreach (var (folder, key, icon) in DefaultQuickAccessFolders)
-        {
-            var path = Environment.GetFolderPath(folder);
-
-            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
-            {
-                pins.Add(new PinnedFolder { Path = path, LabelKey = key, Icon = icon });
-            }
-        }
-
-        // A Letöltések mappának nincs SpecialFolder megfelelője, ezért külön.
-        var downloads = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-
-        if (Directory.Exists(downloads))
-        {
-            pins.Insert(Math.Min(2, pins.Count), new PinnedFolder
-            {
-                Path = downloads,
-                LabelKey = "Nav_Downloads",
-                Icon = nameof(SymbolRegular.ArrowDownload24),
-            });
-        }
-
-        _settings.Current.QuickAccessPins = pins;
-        _settings.Save();
-    }
-
     private List<SidebarItemViewModel> BuildQuickAccess()
     {
-        EnsureQuickAccessPinsSeeded();
-
         // A Kezdőlap a virtuális „Ez a gép"-nézetre mutat (lásd
         // TabViewModel.HomeMarker/IsHome), nem egy valódi mappára — ezért
         // ez itt, a rögzített mappáktól külön, elsőként kerül be, és nem
-        // old ki (nem IsUnpinnable).
+        // távolítható el.
         var items = new List<SidebarItemViewModel>
         {
             new()
@@ -992,19 +1257,34 @@ public sealed partial class MainWindowViewModel : ObservableObject
             },
         };
 
-        foreach (var pin in _settings.Current.QuickAccessPins ?? [])
+        foreach (var entry in _quickAccess.Pinned.Where(e => e.Visible))
         {
-            var label = pin.LabelKey is { } key
-                ? TranslationSource.Instance[key]
-                : pin.CustomLabel ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(pin.Path));
+            if (entry.Kind == QuickAccessEntryKind.Separator)
+            {
+                items.Add(new SidebarItemViewModel { Path = string.Empty, IsSeparator = true, EntryId = entry.Id });
+                continue;
+            }
+
+            var label = !string.IsNullOrWhiteSpace(entry.Label)
+                ? entry.Label
+                : entry.LabelKey is { } key
+                    ? TranslationSource.Instance[key]
+                    : Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.Path));
 
             items.Add(new SidebarItemViewModel
             {
-                LabelKey = pin.LabelKey,
+                EntryId = entry.Id,
+                LabelKey = string.IsNullOrWhiteSpace(entry.Label) ? entry.LabelKey : null,
                 Label = label,
-                Path = pin.Path,
-                Icon = ParseIcon(pin.Icon, SymbolRegular.Folder24),
-                IsMissing = !Directory.Exists(pin.Path),
+                GroupHeader = entry.Group,
+                Path = entry.Path,
+                Icon = ParseIcon(entry.Icon, SymbolRegular.Folder24),
+                IconColorHex = entry.Color,
+
+                // Nem a Directory.Exists: egy leválasztott hálózati megosztás
+                // azon MÁSODPERCEKIG blokkolna a UI-szálon. A szolgáltatás
+                // gyorsítótárból felel, és a háttérben ellenőriz.
+                IsMissing = !_quickAccess.IsReachable(entry.Path),
                 IsUnpinnable = true,
             });
         }
@@ -1024,6 +1304,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         return items;
     }
+
+    /// <summary>
+    /// A „Legutóbbi" szekció — automatikus, a program tartja karban. Az „x"
+    /// gomb (<see cref="SidebarItemViewModel.IsRemovable"/>) SZÁNDÉKOSAN csak
+    /// itt jelenik meg: a rögzített elemeket a szerkesztőből lehet
+    /// eltávolítani, hogy egy félrekattintás ne tüntessen el egy kézzel
+    /// felvett mappát (spec F5).
+    /// </summary>
+    private List<SidebarItemViewModel> BuildRecent() =>
+    [
+        .. _quickAccess.Recent.Select(entry => new SidebarItemViewModel
+        {
+            EntryId = entry.Id,
+            Label = Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.Path)),
+            Path = entry.Path,
+            Icon = SymbolRegular.History24,
+            IsMissing = !_quickAccess.IsReachable(entry.Path),
+            IsRemovable = true,
+        }),
+    ];
 
     private static List<SidebarItemViewModel> BuildDrives()
     {

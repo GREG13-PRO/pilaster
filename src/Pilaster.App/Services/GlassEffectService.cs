@@ -40,8 +40,22 @@ public sealed class GlassEffectService(ISettingsService settings)
 {
     public bool IsEnabled => settings.Current.LiquidGlassEnabled;
 
-    /// <summary>A mentett állapot alkalmazása induláskor.</summary>
-    public void ApplyInitial() => ApplyPanelResource(IsEnabled);
+    /// <summary>A mentett állapot alkalmazása induláskor, és feliratkozás a témaváltásra.</summary>
+    /// <remarks>
+    /// A feliratkozás nem elhagyható. A <see cref="ApplyPanelResource"/> a
+    /// WPF-UI szótárából MÁSOL egy kész ecset-objektumot a
+    /// <c>GlassPanelBrush</c> kulcsra — az pedig egy adott témához tartozó,
+    /// befagyasztott szín. Témaváltáskor a WPF-UI lecseréli a saját
+    /// szótárát, de a mi kulcsunkban a RÉGI objektum maradna, ezért az
+    /// oldalsáv, a felső sáv és a Beállítások panel sötéten ragadt világos
+    /// témára váltás után (v0.9-es hibajelentés). Itt minden témaváltás után
+    /// újra kiolvassuk a friss ecsetet.
+    /// </remarks>
+    public void ApplyInitial()
+    {
+        Wpf.Ui.Appearance.ApplicationThemeManager.Changed += (_, _) => ApplyPanelResource(IsEnabled);
+        ApplyPanelResource(IsEnabled);
+    }
 
     /// <summary>Beállításokban történő váltás: mentés és azonnali alkalmazás.</summary>
     public void SetEnabled(bool enabled)

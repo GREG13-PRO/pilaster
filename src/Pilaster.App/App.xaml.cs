@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -16,15 +16,39 @@ using Pilaster.Providers.Local;
 using Pilaster.Shell.Imaging;
 using Serilog;
 
+using ThemeMode = Pilaster.Core.Settings.ThemeMode;
+
 namespace Pilaster.App;
 
 public partial class App : Application
 {
     private ServiceProvider? _services;
 
+    /// <summary>
+    /// A folyamat alkalmazás-azonosítója a Windows shell felé.
+    /// </summary>
+    /// <remarks>
+    /// Enélkül a tálca a folyamatot a futtatható fájl útvonala alapján
+    /// csoportosítja, a tálcára rögzítés pedig egy shell által generált,
+    /// gyakran ELTÉRŐ (a gyorsítótárból vett, régi vagy általános) ikont
+    /// mutat — ez okozta a „rossz ikon a tálcán" hibát. Ugyanennek az
+    /// azonosítónak kell szerepelnie a Start menü és az asztali parancsikon
+    /// <c>System.AppUserModel.ID</c> tulajdonságában is (lásd installer/Pilaster.iss).
+    /// </remarks>
+    public const string AppUserModelId = "Obsidix.Pilaster";
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+    private static extern void SetCurrentProcessExplicitAppUserModelID(
+        [MarshalAs(UnmanagedType.LPWStr)] string appId);
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // MINDEN ablak létrehozása előtt kell megtörténnie: az azonosítót a
+        // shell az első ablak megjelenésekor rögzíti a folyamathoz, később
+        // beállítva már nem hat.
+        TrySetAppUserModelId();
 
         ConfigureLogging();
 
@@ -38,12 +62,14 @@ public partial class App : Application
         services.AddSingleton<IShellImageService, ShellImageService>();
         services.AddSingleton<ISettingsService, JsonSettingsService>();
         services.AddSingleton<ThemeService>();
+        services.AddSingleton<ThemeTokenService>();
         services.AddSingleton<AccentColorService>();
         services.AddSingleton<AnimationService>();
         services.AddSingleton<ShellIntegrationCoordinator>();
         services.AddSingleton<Services.FileOperations.FileOperationEngine>();
         services.AddSingleton<GlassEffectService>();
         services.AddSingleton<QuickActionService>();
+        services.AddSingleton<QuickAccessService>();
         services.AddSingleton<FolderSizeService>();
         services.AddSingleton<FileMetadataService>();
         services.AddSingleton<FilePreviewService>();
@@ -67,12 +93,22 @@ public partial class App : Application
         services.AddTransient<TransferConfirmWindow>();
         services.AddTransient<FilePreviewWindow>();
 
+        // A gyorselérés-szerkesztő minden megnyitáskor friss másolatokon dolgozik.
+        services.AddTransient<QuickAccessEditorViewModel>();
+        services.AddTransient<QuickAccessEditorWindow>();
+
         _services = services.BuildServiceProvider();
 
         var settings = _services.GetRequiredService<ISettingsService>();
 
         ApplyStartupCulture(settings.Current);
         _services.GetRequiredService<ThemeService>().ApplyInitial();
+
+        // A sorrend számít: a téma-tokenek adják az alapkészletet, az
+        // akcentus-szolgáltatás pedig FELÜLÍRJA belőlük az akcentus-eredetűeket
+        // (lásd ThemeTokenService/AccentColorService). Mindkettő feliratkozik a
+        // témaváltásra, és a feliratkozás sorrendje ugyanezt tartja meg.
+        _services.GetRequiredService<ThemeTokenService>().ApplyInitial();
         _services.GetRequiredService<AccentColorService>().ApplyInitial();
         _services.GetRequiredService<AnimationService>().ApplyInitial();
         _services.GetRequiredService<GlassEffectService>().ApplyInitial();
@@ -123,6 +159,23 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// Az <see cref="AppUserModelId"/> beállítása. Hiba esetén csendben
+    /// továbbmegy: egy hibás ikon-csoportosítás kellemetlen, de az indulást
+    /// megakasztani miatta aránytalan lenne.
+    /// </summary>
+    private static void TrySetAppUserModelId()
+    {
+        try
+        {
+            SetCurrentProcessExplicitAppUserModelID(AppUserModelId);
+        }
+        catch (Exception ex) when (ex is COMException or EntryPointNotFoundException or DllNotFoundException)
+        {
+            // Régebbi/csonkolt shell — marad az alapértelmezett csoportosítás.
+        }
+    }
+
+    /// <summary>
     /// Az ablak előtérbe hozása háttérből — a sima <c>Activate()</c> a
     /// Windows „előtér-zár" (foreground lock) védelme miatt nem mindig elég,
     /// ha épp egy másik alkalmazásé a fókusz. A <c>Topmost</c> rövid
@@ -145,6 +198,7 @@ public partial class App : Application
     {
         // A késleltetett mentés még sorban állhat, ezért kilépés előtt kiírjuk.
         _services?.GetService<ISettingsService>()?.Flush();
+        _services?.GetService<QuickAccessService>()?.Flush();
         _services?.Dispose();
 
         Log.CloseAndFlush();

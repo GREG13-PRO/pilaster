@@ -12,16 +12,32 @@ using Pilaster.Core.FileSystem;
 namespace Pilaster.App.Views;
 
 /// <summary>
-/// Egy önálló fájlpanel a Kétablakos nézethez — saját eszköztár, útvonalsáv és
-/// fájllista, a <see cref="DataContext"/>-ként kapott <c>TabViewModel</c>
-/// vezérli. Lásd <c>MainWindowViewModel.LeftPaneTab</c>/<c>RightPaneTab</c>.
+/// Egy önálló fájlpanel a kétpaneles nézethez — saját fülsáv, eszköztár,
+/// útvonalsáv és fájllista, a <see cref="DataContext"/>-ként kapott
+/// <see cref="PaneViewModel"/> vezérli.
 /// </summary>
+/// <remarks>
+/// A v1.0-ban a panel már EGY TELJES PANELT képvisel (fülekkel együtt), nem
+/// egyetlen fület — lásd <see cref="PaneViewModel"/>. A fülönkénti kijelölés
+/// és görgetési pozíció itt, a nézetben mentődik és áll vissza, mert ezek
+/// tisztán megjelenítési állapotok, amiket a modell nem tud kiszámolni.
+/// </remarks>
 public partial class FilePaneView : UserControl
 {
     private Point? _dragStartPoint;
 
-    /// <summary>A <see cref="Tab"/>, amelynek <c>RenameRequested</c> eseményét épp figyeljük — lásd <see cref="OnDataContextChanged"/>.</summary>
+    /// <summary>A panel, amelynek eseményeit épp figyeljük — lásd <see cref="OnDataContextChanged"/>.</summary>
+    private PaneViewModel? _trackedPane;
+
+    /// <summary>Az aktuálisan megjelenített fül — a fülváltás ezen keresztül menti/állítja vissza a nézetállapotot.</summary>
     private TabViewModel? _trackedTab;
+
+    /// <summary>
+    /// Igaz, amíg a kijelölést PROGRAMBÓL állítjuk vissza — ilyenkor a
+    /// <see cref="OnListSelectionChanged"/> nem írhatja vissza a modellbe,
+    /// különben a részlegesen visszaállított állapot felülírná a mentettet.
+    /// </summary>
+    private bool _restoringSelection;
 
     public FilePaneView()
     {
@@ -37,41 +53,156 @@ public partial class FilePaneView : UserControl
     /// beillesztéssel) — a tényleges másolást/áthelyezést a szülő végzi a
     /// <c>FileOperationEngine</c>-nel, ez a nézet maga nem ismeri a motort.
     /// </summary>
-    public event EventHandler<(IReadOnlyList<string> Paths, string DestinationDir, bool IsCopy)>? FilesDropped;
+    public event EventHandler<(IReadOnlyList<string> Paths, string DestinationDir, PaneDropAction Action)>? FilesDropped;
 
     /// <summary>Törlés kérése a kijelölt elemekre — a szülő végzi a <c>FileOperationEngine</c>-nel.</summary>
     public event EventHandler<(IReadOnlyList<string> Paths, bool Permanent)>? DeleteRequested;
 
-    private TabViewModel? Tab => DataContext as TabViewModel;
+    /// <summary>A panel modellje.</summary>
+    public PaneViewModel? Pane => DataContext as PaneViewModel;
+
+    /// <summary>A panel aktív füle.</summary>
+    public TabViewModel? Tab => Pane?.ActiveTab;
 
     /// <summary>
-    /// A belső fájllista — a Total Commander-billentyűkiosztás (lásd
+    /// A belső fájllista — a Pilaster Classic billentyűkiosztás (lásd
     /// <c>MainWindow.OnMainPreviewKeyDown</c>) ezen keresztül olvassa/
-    /// módosítja a kijelölést és a billentyűzet-fókuszt, panel-független
-    /// (egy- vagy kétablakos) módon.
+    /// módosítja a kijelölést és a billentyűzet-fókuszt.
     /// </summary>
     public ListView SelectionList => List;
 
-    /// <summary>
-    /// A DataContext (lásd <c>MainWindow.xaml</c>: <c>LeftPaneTab</c>/
-    /// <c>RightPaneTab</c>-hoz kötve) a panel egész élettartama alatt
-    /// változatlan példány — ennek ellenére eseményalapúan iratkozunk fel,
-    /// nem a konstruktorban, mert a kötés csak az <c>InitializeComponent</c>
-    /// UTÁN érvényesül.
-    /// </summary>
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (_trackedPane is not null)
+        {
+            _trackedPane.PropertyChanged -= OnPanePropertyChanged;
+        }
+
+        _trackedPane = DataContext as PaneViewModel;
+
+        if (_trackedPane is not null)
+        {
+            _trackedPane.PropertyChanged += OnPanePropertyChanged;
+        }
+
+        TrackTab(_trackedPane?.ActiveTab);
+    }
+
+    private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PaneViewModel.ActiveTab))
+        {
+            TrackTab(_trackedPane?.ActiveTab);
+        }
+    }
+
+    /// <summary>
+    /// Fülváltás: az elhagyott fül nézetállapota (kijelölés, kurzor,
+    /// görgetés) mentődik, az új fülé pedig visszaáll.
+    /// </summary>
+    private void TrackTab(TabViewModel? tab)
     {
         if (_trackedTab is not null)
         {
+            CaptureViewState(_trackedTab);
             _trackedTab.RenameRequested -= OnTabRenameRequested;
         }
 
-        _trackedTab = DataContext as TabViewModel;
+        _trackedTab = tab;
 
         if (_trackedTab is not null)
         {
             _trackedTab.RenameRequested += OnTabRenameRequested;
+
+            // Egy Background prioritású visszahívásra van szükség: a
+            // fülváltás pillanatában az ItemsSource még a régi listát mutatja,
+            // a konténerek pedig még nem generálódtak újra.
+            _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, RestoreViewState);
         }
+    }
+
+    private void CaptureViewState(TabViewModel tab)
+    {
+        tab.SelectedPaths = [.. List.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath)];
+        tab.FocusedPath = (List.SelectedItem as FileSystemItem)?.FullPath;
+
+        if (FindScrollViewer(List) is { } scroll)
+        {
+            tab.ScrollOffset = scroll.VerticalOffset;
+        }
+    }
+
+    private void RestoreViewState()
+    {
+        if (_trackedTab is not { } tab)
+        {
+            return;
+        }
+
+        _restoringSelection = true;
+
+        try
+        {
+            List.SelectedItems.Clear();
+
+            if (tab.SelectedPaths.Count > 0)
+            {
+                var wanted = tab.SelectedPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var item in List.Items.OfType<FileSystemItem>().Where(i => wanted.Contains(i.FullPath)))
+                {
+                    List.SelectedItems.Add(item);
+                }
+            }
+        }
+        finally
+        {
+            _restoringSelection = false;
+        }
+
+        if (FindScrollViewer(List) is { } scroll && tab.ScrollOffset > 0)
+        {
+            scroll.ScrollToVerticalOffset(tab.ScrollOffset);
+        }
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        if (root is ScrollViewer viewer)
+        {
+            return viewer;
+        }
+
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            if (FindScrollViewer(VisualTreeHelper.GetChild(root, i)) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private void OnListSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_restoringSelection || _trackedTab is not { } tab)
+        {
+            return;
+        }
+
+        var selected = List.SelectedItems.Cast<FileSystemItem>().ToList();
+
+        tab.SelectedPaths = [.. selected.Select(i => i.FullPath)];
+
+        // Fájloknál SizeBytes, mappáknál a háttérben számolt
+        // ComputedFolderSize — mindkettő negatív, amíg nincs ismert érték.
+        var totalBytes = selected
+            .Select(item => item.Kind == FileSystemItemKind.Directory ? item.ComputedFolderSize : item.SizeBytes)
+            .Where(size => size > 0)
+            .Sum();
+
+        tab.UpdateStatus(selected.Count, totalBytes);
     }
 
     /// <summary>
@@ -182,16 +313,80 @@ public partial class FilePaneView : UserControl
         }
 
         var data = new DataObject(DataFormats.FileDrop, paths.ToArray());
-        DragDrop.DoDragDrop(List, data, DragDropEffects.Copy | DragDropEffects.Move);
+        DragDrop.DoDragDrop(List, data, DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link);
     }
 
+    /// <summary>
+    /// A húzás alapértelmezett hatása a Windows szabálya szerint: azonos
+    /// meghajtón belül ÁTHELYEZÉS, eltérő meghajtóra MÁSOLÁS. A módosítók
+    /// felülírják: <c>Shift</c> = áthelyezés, <c>Ctrl</c> = másolás,
+    /// <c>Alt</c> = parancsikon (spec F7).
+    /// </summary>
     private void OnListDragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ? DragDropEffects.Copy : DragDropEffects.Move
-            : DragDropEffects.None;
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop) || Tab is not { CurrentPath: { } destination })
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        var sourcePaths = e.Data.GetData(DataFormats.FileDrop) as string[] ?? [];
+
+        e.Effects = ResolveDropEffect(sourcePaths, destination) switch
+        {
+            PaneDropAction.Copy => DragDropEffects.Copy,
+            PaneDropAction.Shortcut => DragDropEffects.Link,
+            _ => DragDropEffects.Move,
+        };
 
         e.Handled = true;
+    }
+
+    private static PaneDropAction ResolveDropEffect(IReadOnlyList<string> sourcePaths, string destination)
+    {
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))
+        {
+            return PaneDropAction.Shortcut;
+        }
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            return PaneDropAction.Copy;
+        }
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            return PaneDropAction.Move;
+        }
+
+        return IsSameVolume(sourcePaths, destination) ? PaneDropAction.Move : PaneDropAction.Copy;
+    }
+
+    /// <summary>
+    /// Igaz, ha MINDEN forrás ugyanazon a köteten van, mint a cél. Vegyes
+    /// forrásnál a másolás a biztonságosabb alapértelmezés, mert az sosem
+    /// szüntet meg semmit a forrásoldalon.
+    /// </summary>
+    private static bool IsSameVolume(IReadOnlyList<string> sourcePaths, string destination)
+    {
+        if (sourcePaths.Count == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var destinationRoot = Path.GetPathRoot(Path.GetFullPath(destination));
+
+            return !string.IsNullOrEmpty(destinationRoot)
+                && sourcePaths.All(p =>
+                    string.Equals(Path.GetPathRoot(Path.GetFullPath(p)), destinationRoot, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private void OnListDrop(object sender, DragEventArgs e)
@@ -209,8 +404,8 @@ public partial class FilePaneView : UserControl
             return;
         }
 
-        var isCopy = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
-        FilesDropped?.Invoke(this, (filtered, destinationDir, isCopy));
+        Activated?.Invoke(this, EventArgs.Empty);
+        FilesDropped?.Invoke(this, (filtered, destinationDir, ResolveDropEffect(filtered, destinationDir)));
     }
 
     private void OnBreadcrumbClick(object sender, RoutedEventArgs e)
@@ -243,7 +438,7 @@ public partial class FilePaneView : UserControl
 
         if (filtered.Count > 0)
         {
-            FilesDropped?.Invoke(this, (filtered, destinationDir, !isCut));
+            FilesDropped?.Invoke(this, (filtered, destinationDir, isCut ? PaneDropAction.Move : PaneDropAction.Copy));
         }
     }
 
@@ -324,4 +519,15 @@ public partial class FilePaneView : UserControl
 
         return source as T;
     }
+}
+
+/// <summary>Mit tegyen egy panelbe ejtett fájlkészlettel a szülő.</summary>
+public enum PaneDropAction
+{
+    Copy,
+
+    Move,
+
+    /// <summary>Parancsikon készítése a célmappában (<c>Alt</c> + húzás).</summary>
+    Shortcut,
 }

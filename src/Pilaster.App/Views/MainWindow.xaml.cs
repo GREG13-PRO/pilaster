@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls.Primitives;
@@ -105,6 +105,11 @@ public partial class MainWindow : FluentWindow
         // Részleteset.
         SyncViewModeVisuals(_viewModel.SelectedTab);
         ApplyDualPaneOrientation(_viewModel.DualPaneVertical);
+
+        // A munkamenet mentése kilépéskor: a késleltetett beállítás-mentés
+        // (JsonSettingsService) még sorban állhat, ezért itt kifejezetten
+        // rögzítjük az utolsó állapotot is.
+        Closing += (_, _) => _viewModel.SaveSession();
     }
 
     /// <summary>
@@ -358,8 +363,6 @@ public partial class MainWindow : FluentWindow
             DualPaneLeftColumn.Width = new GridLength(1, GridUnitType.Star);
             DualPaneRightColumn.Width = new GridLength(0);
             DualPaneSplitterColumn.Width = new GridLength(0);
-            DualPaneTopRow.Height = new GridLength(1, GridUnitType.Star);
-            DualPaneBottomRow.Height = new GridLength(1, GridUnitType.Star);
             DualPaneSplitterRow.Height = GridLength.Auto;
 
             System.Windows.Controls.Grid.SetColumn(LeftPaneView, 0);
@@ -379,8 +382,6 @@ public partial class MainWindow : FluentWindow
         }
         else
         {
-            DualPaneLeftColumn.Width = new GridLength(1, GridUnitType.Star);
-            DualPaneRightColumn.Width = new GridLength(1, GridUnitType.Star);
             DualPaneSplitterColumn.Width = GridLength.Auto;
             DualPaneTopRow.Height = new GridLength(1, GridUnitType.Star);
             DualPaneBottomRow.Height = new GridLength(0);
@@ -401,36 +402,126 @@ public partial class MainWindow : FluentWindow
             DualPaneSplitter.VerticalAlignment = VerticalAlignment.Stretch;
             DualPaneSplitter.ResizeDirection = System.Windows.Controls.GridResizeDirection.Columns;
         }
+
+        // Az elrendezés váltása után a mentett arányt a MÁSIK tengelyre kell
+        // alkalmazni — enélkül a váltás mindig 50/50-re ugrana vissza.
+        ApplySplitRatio();
     }
 
-    /// <summary>Dupla kattintás az elválasztóra: 50/50 arány visszaállítása.</summary>
+    /// <summary>Dupla kattintás az elválasztóra: 50/50 arány visszaállítása, mentéssel.</summary>
     private void OnDualPaneSplitterDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (_viewModel.DualPaneVertical)
-        {
-            DualPaneTopRow.Height = new GridLength(1, GridUnitType.Star);
-            DualPaneBottomRow.Height = new GridLength(1, GridUnitType.Star);
-        }
-        else
-        {
-            DualPaneLeftColumn.Width = new GridLength(1, GridUnitType.Star);
-            DualPaneRightColumn.Width = new GridLength(1, GridUnitType.Star);
-        }
+        _settings.Current.DualPaneSplitRatio = 0.5;
+        _settings.Save();
+        ApplySplitRatio();
     }
 
     private void OnLeftPaneActivated(object? sender, EventArgs e) => _viewModel.IsLeftPaneActive = true;
 
     private void OnRightPaneActivated(object? sender, EventArgs e) => _viewModel.IsLeftPaneActive = false;
 
-    private void OnPaneFilesDropped(object? sender, (IReadOnlyList<string> Paths, string DestinationDir, bool IsCopy) e)
+    private void OnPaneFilesDropped(object? sender, (IReadOnlyList<string> Paths, string DestinationDir, PaneDropAction Action) e)
     {
-        if (e.IsCopy)
+        switch (e.Action)
         {
-            _viewModel.StartPaneCopy(e.Paths, e.DestinationDir);
+            case PaneDropAction.Copy:
+                _viewModel.StartPaneCopy(e.Paths, e.DestinationDir);
+                break;
+
+            case PaneDropAction.Move:
+                _viewModel.StartPaneMove(e.Paths, e.DestinationDir);
+                break;
+
+            case PaneDropAction.Shortcut:
+                _viewModel.CreateShortcuts(e.Paths, e.DestinationDir);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Az elválasztó helyzetének mentése.
+    /// </summary>
+    /// <remarks>
+    /// A <c>GridSplitter</c> nem ad „húzás vége" eseményt, a
+    /// <c>DragCompleted</c> pedig csak a belső <c>Thumb</c>-on létezik. A
+    /// rács saját <c>LayoutUpdated</c>-jére kötni túl gyakori lenne; a
+    /// <c>SizeChanged</c> az érintett oszlopokon pontosan akkor tüzel,
+    /// amikor a felhasználó elengedi (vagy húzás közben lép), és a
+    /// beállítás-mentés amúgy is késleltetett.
+    /// </remarks>
+    private void OnDualPaneSizeChanged(object sender, SizeChangedEventArgs e) => SaveSplitRatio();
+
+    private void SaveSplitRatio()
+    {
+        if (!_viewModel.DualPaneEnabled || _isApplyingSplitRatio)
+        {
+            return;
+        }
+
+        var (first, second) = _viewModel.DualPaneVertical
+            ? (DualPaneTopRow.Height.Value, DualPaneBottomRow.Height.Value)
+            : (DualPaneLeftColumn.Width.Value, DualPaneRightColumn.Width.Value);
+
+        var total = first + second;
+
+        if (total <= 0)
+        {
+            return;
+        }
+
+        var ratio = Math.Clamp(first / total, 0.05, 0.95);
+
+        if (Math.Abs(ratio - _settings.Current.DualPaneSplitRatio) < 0.005)
+        {
+            return;
+        }
+
+        _settings.Current.DualPaneSplitRatio = ratio;
+        _settings.Save();
+    }
+
+    /// <summary>Igaz, amíg a mentett arányt ÁLLÍTJUK be — enélkül a saját beállítás visszamentése zajt keltene.</summary>
+    private bool _isApplyingSplitRatio;
+
+    /// <summary>Az elválasztó programozott mozgatása — az F7 önteszt használja.</summary>
+    internal void SetSplitRatioForTest(double ratio)
+    {
+        if (_viewModel.DualPaneVertical)
+        {
+            DualPaneTopRow.Height = new GridLength(ratio, GridUnitType.Star);
+            DualPaneBottomRow.Height = new GridLength(1 - ratio, GridUnitType.Star);
         }
         else
         {
-            _viewModel.StartPaneMove(e.Paths, e.DestinationDir);
+            DualPaneLeftColumn.Width = new GridLength(ratio, GridUnitType.Star);
+            DualPaneRightColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
+        }
+
+        SaveSplitRatio();
+    }
+
+    private void ApplySplitRatio()
+    {
+        var ratio = Math.Clamp(_settings.Current.DualPaneSplitRatio, 0.05, 0.95);
+
+        _isApplyingSplitRatio = true;
+
+        try
+        {
+            if (_viewModel.DualPaneVertical)
+            {
+                DualPaneTopRow.Height = new GridLength(ratio, GridUnitType.Star);
+                DualPaneBottomRow.Height = new GridLength(1 - ratio, GridUnitType.Star);
+            }
+            else
+            {
+                DualPaneLeftColumn.Width = new GridLength(ratio, GridUnitType.Star);
+                DualPaneRightColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
+            }
+        }
+        finally
+        {
+            _isApplyingSplitRatio = false;
         }
     }
 
@@ -657,7 +748,6 @@ public partial class MainWindow : FluentWindow
         }
 
         var metadata = _services.GetRequiredService<FileMetadataService>();
-        var colorConverter = new TagColorConverter();
         var menu = new System.Windows.Controls.ContextMenu();
 
         if (metadata.Tags.Count == 0)
@@ -679,13 +769,7 @@ public partial class MainWindow : FluentWindow
                     Header = tag.Name,
                     IsCheckable = true,
                     IsChecked = currentTagIds.Contains(tag.Id),
-                    Icon = new System.Windows.Shapes.Ellipse
-                    {
-                        Width = 10,
-                        Height = 10,
-                        Fill = (System.Windows.Media.Brush)colorConverter.Convert(
-                            tag.Color, typeof(System.Windows.Media.Brush), null, System.Globalization.CultureInfo.CurrentCulture),
-                    },
+                    Icon = new TagSwatch { TagColor = tag.Color, ColorHex = tag.ColorHex },
                 };
 
                 menuItem.Click += (_, _) =>
@@ -883,14 +967,23 @@ public partial class MainWindow : FluentWindow
         var shift = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
         var alt = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt);
 
-        // Alt+F7 — az Alt-tal lenyomott billentyűt a rendszer e.SystemKey-ben
-        // adja át, e.Key ilyenkor System marad, ezért ez külön ág.
-        if (alt && e.SystemKey == System.Windows.Input.Key.F7)
+        // Alt+F7 / Alt+F5 — az Alt-tal lenyomott billentyűt a rendszer
+        // e.SystemKey-ben adja át, e.Key ilyenkor System marad, ezért külön ág.
+        if (alt)
         {
-            e.Handled = true;
-            QuickFilterBox.Focus();
-            QuickFilterBox.SelectAll();
-            return;
+            switch (e.SystemKey)
+            {
+                case System.Windows.Input.Key.F7:
+                    e.Handled = true;
+                    QuickFilterBox.Focus();
+                    QuickFilterBox.SelectAll();
+                    return;
+
+                case System.Windows.Input.Key.F5:
+                    e.Handled = true;
+                    _ = _viewModel.RefreshBothPanesCommand.ExecuteAsync(null);
+                    return;
+            }
         }
 
         switch (e.Key)
@@ -967,9 +1060,49 @@ public partial class MainWindow : FluentWindow
                 InvertActiveSelection();
                 break;
 
-            case System.Windows.Input.Key.R when ctrl:
+            // Panelműveletek (spec F7). A Ctrl+R BREAKING változás: a v0.9-ig
+            // frissítés volt, most — a klasszikus kétpaneles konvenciót
+            // követve — a jobb panel útvonalát viszi a balra. A frissítés
+            // Ctrl+Shift+R-re és Alt+F5-re (mindkét panel) került.
+            case System.Windows.Input.Key.U when ctrl:
+                e.Handled = true;
+                _viewModel.SwapPanesCommand.Execute(null);
+                break;
+
+            case System.Windows.Input.Key.L when ctrl:
+                e.Handled = true;
+                _ = _viewModel.CopyLeftPathToRightCommand.ExecuteAsync(null);
+                break;
+
+            case System.Windows.Input.Key.R when ctrl && shift:
                 e.Handled = true;
                 RefreshActiveTab();
+                break;
+
+            case System.Windows.Input.Key.R when ctrl:
+                e.Handled = true;
+                _ = _viewModel.CopyRightPathToLeftCommand.ExecuteAsync(null);
+                break;
+
+            // Panelenkénti fülkezelés — mindig az AKTÍV panelre hat.
+            case System.Windows.Input.Key.T when ctrl:
+                e.Handled = true;
+                _viewModel.NewTabCommand.Execute(null);
+                break;
+
+            case System.Windows.Input.Key.W when ctrl:
+                e.Handled = true;
+                _viewModel.CloseTabCommand.Execute(_viewModel.SelectedTab);
+                break;
+
+            case System.Windows.Input.Key.Tab when ctrl && shift:
+                e.Handled = true;
+                _viewModel.PreviousTabCommand.Execute(null);
+                break;
+
+            case System.Windows.Input.Key.Tab when ctrl:
+                e.Handled = true;
+                _viewModel.NextTabCommand.Execute(null);
                 break;
         }
     }
@@ -1093,8 +1226,11 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
+        // A párbeszéd a MÁSIK panel útvonalát ajánlja fel célnak (spec F7) —
+        // egypaneles nézetben, vagy ha a másik panel még nem navigált, a saját
+        // mappára esik vissza, amiből a BeginTransfer átnevezést csinál.
         var initialTarget = _viewModel.DualPaneEnabled
-            ? _viewModel.InactivePaneTab.CurrentPath ?? tab.CurrentPath
+            ? _viewModel.InactivePaneTab?.CurrentPath ?? tab.CurrentPath
             : tab.CurrentPath;
 
         if (initialTarget is null)
@@ -1456,8 +1592,186 @@ public partial class MainWindow : FluentWindow
         DragDrop.DoDragDrop(container, data, DragDropEffects.Link);
     }
 
-    private void OnSidebarItemPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+    private void OnSidebarItemPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
         _dragStartPoint = e.GetPosition(null);
+
+        // A jobb gomb nem indít húzást, viszont a soron menüt nyit — a
+        // PreviewMouseLeftButtonDown csak a bal gombra fut, ezért a
+        // jobbklikk-menü külön kezelőben él (OnSidebarItemRightClick).
+    }
+
+    /// <summary>
+    /// Jobbklikk a „Gyorselérés" fejlécen → a szerkesztő megnyitása (spec F5).
+    /// Más szekciók fejlécén nincs menü.
+    /// </summary>
+    private void OnSidebarHeaderRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: "Nav_QuickAccess" } header)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu { PlacementTarget = header };
+        var edit = new System.Windows.Controls.MenuItem { Header = strings["QuickAccess_Edit"] };
+
+        edit.Click += (_, _) => OpenQuickAccessEditor();
+        menu.Items.Add(edit);
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Jobbklikk egy gyorselérés-soron: megnyitás (új fülön / másik panelen),
+    /// átnevezés, ikon módosítása, mozgatás, eltávolítás, szerkesztő (spec F5).
+    /// </summary>
+    private void OnSidebarItemRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: SidebarItemViewModel item } row)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu { PlacementTarget = row };
+
+        void Add(string header, Action action, bool enabled = true)
+        {
+            var entry = new System.Windows.Controls.MenuItem { Header = header, IsEnabled = enabled };
+            entry.Click += (_, _) => action();
+            menu.Items.Add(entry);
+        }
+
+        if (!item.IsRecycleBin && !item.IsSeparator)
+        {
+            Add(strings["Cmd_Open"], () => _ = _viewModel.ActivePane.NavigateAsync(item.Path), !item.IsMissing);
+            Add(strings["Cmd_OpenNewTab"], () => _viewModel.ActivePane.AddTab(item.Path), !item.IsMissing);
+            Add(strings["QuickAccess_OpenOther"], () => _ = _viewModel.InactivePane.NavigateAsync(item.Path),
+                !item.IsMissing && _viewModel.DualPaneEnabled);
+        }
+
+        if (item.EntryId is { } entryId && item.IsUnpinnable)
+        {
+            menu.Items.Add(new System.Windows.Controls.Separator());
+            Add(strings["QuickAccess_Rename"], () => PromptRenameQuickAccess(entryId, item.Label));
+            Add(strings["QuickAccess_ChangeIcon"], () => ShowQuickAccessIconPicker(row, entryId));
+
+            if (item.IsMissing)
+            {
+                Add(strings["QuickAccess_Path"], () => PromptFixQuickAccessPath(entryId));
+            }
+
+            menu.Items.Add(new System.Windows.Controls.Separator());
+            Add(strings["QuickAccess_MoveUp"], () => _viewModel.NudgeQuickAccessEntry(entryId, -1));
+            Add(strings["QuickAccess_MoveDown"], () => _viewModel.NudgeQuickAccessEntry(entryId, +1));
+            menu.Items.Add(new System.Windows.Controls.Separator());
+            Add(strings["Cmd_UnpinQuickAccess"], () => _viewModel.UnpinQuickAccessCommand.Execute(item));
+        }
+
+        if (menu.Items.Count > 0)
+        {
+            menu.Items.Add(new System.Windows.Controls.Separator());
+        }
+
+        Add(strings["QuickAccess_Edit"], OpenQuickAccessEditor);
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>Egyszerű, egymezős bekérő — átnevezéshez és útvonal-javításhoz.</summary>
+    private void PromptRenameQuickAccess(string entryId, string current)
+    {
+        if (PromptForText(TranslationSource.Instance["QuickAccess_Rename"], current) is { } label)
+        {
+            _viewModel.RenameQuickAccessEntry(entryId, label);
+        }
+    }
+
+    private void PromptFixQuickAccessPath(string entryId)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = TranslationSource.Instance["QuickAccess_Path"] };
+
+        if (dialog.ShowDialog() == true)
+        {
+            _viewModel.FixQuickAccessPath(entryId, dialog.FolderName);
+        }
+    }
+
+    private void ShowQuickAccessIconPicker(FrameworkElement target, string entryId)
+    {
+        string[] icons =
+        [
+            "Folder24", "FolderOpen24", "Home24", "Desktop24", "Document24", "ArrowDownload24",
+            "Image24", "MusicNote124", "Video24", "Code24", "Briefcase24", "Star24",
+            "Heart24", "Archive24", "Cloud24", "Storage24", "Pin24", "Bookmark24",
+        ];
+
+        var menu = new System.Windows.Controls.ContextMenu { PlacementTarget = target };
+
+        foreach (var icon in icons)
+        {
+            var entry = new System.Windows.Controls.MenuItem
+            {
+                Header = icon,
+                Icon = new SymbolIcon { Symbol = ViewModels.QuickAccessEditorViewModel.ParseIcon(icon) },
+            };
+
+            entry.Click += (_, _) => _viewModel.SetQuickAccessIcon(entryId, icon);
+            menu.Items.Add(entry);
+        }
+
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Kis, modális szövegbekérő. Szándékosan kódból épül, nem külön XAML
+    /// ablakból: egyetlen mező és két gomb, amihez egy önálló nézet és
+    /// nézetmodell aránytalan lenne.
+    /// </summary>
+    private string? PromptForText(string title, string initial)
+    {
+        var box = new TextBox { Text = initial, Margin = new Thickness(0, 0, 0, 12) };
+        var ok = new Wpf.Ui.Controls.Button { Content = TranslationSource.Instance["Cmd_Ok"], Appearance = ControlAppearance.Primary, Margin = new Thickness(0, 0, 6, 0) };
+        var cancel = new Wpf.Ui.Controls.Button { Content = TranslationSource.Instance["Cmd_Cancel"] };
+
+        var buttons = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(18) };
+        panel.Children.Add(box);
+        panel.Children.Add(buttons);
+
+        var window = new FluentWindow
+        {
+            Title = title,
+            Width = 380,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowBackdropType = WindowBackdropType.Mica,
+            Content = panel,
+        };
+
+        ok.Click += (_, _) => { window.DialogResult = true; window.Close(); };
+        cancel.Click += (_, _) => { window.DialogResult = false; window.Close(); };
+
+        window.Loaded += (_, _) => { box.Focus(); box.SelectAll(); };
+
+        return window.ShowDialog() == true ? box.Text : null;
+    }
+
+    private void OpenQuickAccessEditor()
+    {
+        var editor = _services.GetRequiredService<QuickAccessEditorWindow>();
+        editor.Owner = this;
+        editor.ShowDialog();
+    }
 
     /// <summary>
     /// Gyorselérés-sor húzásának indítása az átrendezéshez — saját
@@ -1482,12 +1796,15 @@ public partial class MainWindow : FluentWindow
 
         _dragStartPoint = null;
 
-        if (sender is not FrameworkElement { DataContext: SidebarItemViewModel { IsUnpinnable: true } item } container)
+        if (sender is not FrameworkElement { DataContext: SidebarItemViewModel { IsUnpinnable: true, EntryId: { } entryId } } container)
         {
             return;
         }
 
-        var data = new System.Windows.DataObject(QuickAccessReorderFormat, item.Path);
+        // Az AZONOSÍTÓ utazik, nem az útvonal: két bejegyzés ugyanarra a
+        // mappára is mutathat (eltérő névvel/ikonnal), és az útvonal
+        // menet közben szerkeszthető is.
+        var data = new System.Windows.DataObject(QuickAccessReorderFormat, entryId);
         DragDrop.DoDragDrop(container, data, DragDropEffects.Move);
     }
 
@@ -1514,11 +1831,11 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        if (e.Data.GetData(QuickAccessReorderFormat) is string sourcePath)
+        if (e.Data.GetData(QuickAccessReorderFormat) is string sourceEntryId)
         {
-            if (FindSidebarItemAt(listBox, e.GetPosition(listBox)) is { } target)
+            if (FindSidebarItemAt(listBox, e.GetPosition(listBox))?.EntryId is { } targetEntryId)
             {
-                _viewModel.ReorderQuickAccess(sourcePath, target.Path);
+                _viewModel.ReorderQuickAccess(sourceEntryId, targetEntryId);
             }
 
             e.Handled = true;

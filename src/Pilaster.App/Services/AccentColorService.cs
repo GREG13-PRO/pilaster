@@ -145,15 +145,59 @@ public sealed class AccentColorService(ISettingsService settings)
         }
 
         var accent = ApplicationAccentColorManager.SystemAccent;
+        var dark = theme == ApplicationTheme.Dark;
 
         // Sötét alapon egy telítettebb, világos módban egy visszafogottabb
         // áttetszőség kell, különben az egyik témában alig látszana a
         // kijelölés, a másikban túl rikító lenne a szöveg mögött.
-        var alpha = theme == ApplicationTheme.Dark ? (byte)72 : (byte)46;
+        var alpha = dark ? (byte)72 : (byte)46;
 
-        app.Resources[SelectionBrushKey] =
-            new SolidColorBrush(Color.FromArgb(alpha, accent.R, accent.G, accent.B));
+        app.Resources[SelectionBrushKey] = Frozen(Color.FromArgb(alpha, accent.R, accent.G, accent.B));
+
+        // Az akcentus-eredetű téma-tokenek (lásd ThemeTokenService): itt
+        // íródnak a tényleges színnel, mert csak ez a szolgáltatás tudja,
+        // hogy épp rendszer- vagy egyedi akcentus van érvényben.
+        app.Resources[ThemeTokenService.Accent] = Frozen(accent);
+        app.Resources[ThemeTokenService.AccentHover] = Frozen(Shift(accent, dark ? 22 : -22));
+        app.Resources[ThemeTokenService.AccentText] = Frozen(IsLight(accent) ? Colors.Black : Colors.White);
+        app.Resources[ThemeTokenService.Selected] = Frozen(Color.FromArgb(alpha, accent.R, accent.G, accent.B));
+
+        // Húzásos (marquee) kijelölő téglalap — korábban két beégetett hex
+        // érték volt, ami világos témában idegen kék dobozként ült a listán.
+        app.Resources[MarqueeFillKey] = Frozen(Color.FromArgb(0x3D, accent.R, accent.G, accent.B));
+        app.Resources[MarqueeStrokeKey] = Frozen(Color.FromArgb(0x99, accent.R, accent.G, accent.B));
     }
+
+    /// <summary>A húzásos kijelölő téglalap kitöltése — az akcentus áttetsző változata.</summary>
+    public const string MarqueeFillKey = "MarqueeFillBrush";
+
+    /// <summary>A húzásos kijelölő téglalap kerete.</summary>
+    public const string MarqueeStrokeKey = "MarqueeStrokeBrush";
+
+    private static SolidColorBrush Frozen(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
+
+    /// <summary>
+    /// Világosítás/sötétítés a rámutatás-állapothoz. Sötét témában világosít,
+    /// világosban sötétít — mindkét esetben a háttértől ELFELÉ, hogy a
+    /// visszajelzés érzékelhető maradjon.
+    /// </summary>
+    private static Color Shift(Color color, int delta) =>
+        Color.FromRgb(
+            (byte)Math.Clamp(color.R + delta, 0, 255),
+            (byte)Math.Clamp(color.G + delta, 0, 255),
+            (byte)Math.Clamp(color.B + delta, 0, 255));
+
+    /// <summary>
+    /// Igaz, ha az akcentuson fekete szöveg olvashatóbb, mint fehér — a
+    /// relatív fényesség szokásos, érzékelés-súlyozott közelítésével.
+    /// </summary>
+    private static bool IsLight(Color color) =>
+        ((0.299 * color.R) + (0.587 * color.G) + (0.114 * color.B)) > 160;
 
     private static string ToHex(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
@@ -692,5 +692,131 @@
   </data>
   <data name="FKey_Delete" xml:space="preserve">
     <value>F8 Delete</value>
+  </data>
+  <data name="Tags_CustomColor" xml:space="preserve">
+    <value>Custom colour</value>
+  </data>
+  <data name="Tags_PickColor" xml:space="preserve">
+    <value>Change colour</value>
+  </data>
+  <data name="Folder_VanishedFallback" xml:space="preserve">
+    <value>"{0}" is no longer available - opened the nearest reachable folder instead.</value>
+  </data>
+  <data name="Settings_RestoreSessionHint" xml:space="preserve">
+    <value>Every tab in both panes is saved on exit and restored on startup.</value>
+  </data>
+  <data name="Cmd_PaneLayout" xml:space="preserve">
+    <value>Toggle layout</value>
+  </data>
+  <data name="Settings_RestoreSession" xml:space="preserve">
+    <value>Restore session</value>
+  </data>
+  <data name="Settings_DualPaneVertical" xml:space="preserve">
+    <value>Horizontal layout (stacked)</value>
+  </data>
+  <data name="Settings_Panes" xml:space="preserve">
+    <value>Panes</value>
+  </data>
+  <data name="Cmd_SwapPanes" xml:space="preserve">
+    <value>Swap panes (Ctrl+U)</value>
+  </data>
+  <data name="Settings_DualPaneVerticalHint" xml:space="preserve">
+    <value>When on, the two panes are stacked; when off, they sit side by side.</value>
+  </data>
+  <data name="Shortcut_Suffix" xml:space="preserve">
+    <value>Shortcut</value>
+  </data>
+  <data name="QuickAccess_DefaultColor" xml:space="preserve">
+    <value>Default colour</value>
+  </data>
+  <data name="QuickAccess_Unreachable" xml:space="preserve">
+    <value>This path is not available</value>
+  </data>
+  <data name="QuickAccess_ExportFailed" xml:space="preserve">
+    <value>Export failed.</value>
+  </data>
+  <data name="QuickAccess_Export" xml:space="preserve">
+    <value>Export…</value>
+  </data>
+  <data name="QuickAccess_Edit" xml:space="preserve">
+    <value>Edit Quick access…</value>
+  </data>
+  <data name="QuickAccess_ResetDone" xml:space="preserve">
+    <value>Default Quick access restored.</value>
+  </data>
+  <data name="QuickAccess_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="QuickAccess_ResetDefaults" xml:space="preserve">
+    <value>Restore defaults</value>
+  </data>
+  <data name="QuickAccess_ClearRecent" xml:space="preserve">
+    <value>Clear recent</value>
+  </data>
+  <data name="QuickAccess_ImportFailed" xml:space="preserve">
+    <value>The file could not be read or is not valid.</value>
+  </data>
+  <data name="QuickAccess_ExportDone" xml:space="preserve">
+    <value>Export completed.</value>
+  </data>
+  <data name="QuickAccess_Label" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="QuickAccess_MoveDown" xml:space="preserve">
+    <value>Move down</value>
+  </data>
+  <data name="Cmd_OpenNewTab" xml:space="preserve">
+    <value>Open in new tab</value>
+  </data>
+  <data name="QuickAccess_Visible" xml:space="preserve">
+    <value>Show in the sidebar</value>
+  </data>
+  <data name="QuickAccess_AddFolder" xml:space="preserve">
+    <value>Add folder</value>
+  </data>
+  <data name="QuickAccess_RecentCleared" xml:space="preserve">
+    <value>Recent folders cleared.</value>
+  </data>
+  <data name="QuickAccess_RecentEnabled" xml:space="preserve">
+    <value>Track recent folders</value>
+  </data>
+  <data name="QuickAccess_EditTitle" xml:space="preserve">
+    <value>Edit Quick access</value>
+  </data>
+  <data name="QuickAccess_Icon" xml:space="preserve">
+    <value>Icon</value>
+  </data>
+  <data name="QuickAccess_OpenOther" xml:space="preserve">
+    <value>Open in the other pane</value>
+  </data>
+  <data name="QuickAccess_Import" xml:space="preserve">
+    <value>Import…</value>
+  </data>
+  <data name="QuickAccess_ChangeIcon" xml:space="preserve">
+    <value>Change icon</value>
+  </data>
+  <data name="QuickAccess_RecentLimit" xml:space="preserve">
+    <value>Items shown:</value>
+  </data>
+  <data name="QuickAccess_Color" xml:space="preserve">
+    <value>Colour</value>
+  </data>
+  <data name="QuickAccess_ImportDone" xml:space="preserve">
+    <value>Import completed.</value>
+  </data>
+  <data name="QuickAccess_Recent" xml:space="preserve">
+    <value>Recent</value>
+  </data>
+  <data name="QuickAccess_Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="QuickAccess_Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="QuickAccess_MoveUp" xml:space="preserve">
+    <value>Move up</value>
+  </data>
+  <data name="QuickAccess_AddSeparator" xml:space="preserve">
+    <value>Separator</value>
   </data>
 </root>
