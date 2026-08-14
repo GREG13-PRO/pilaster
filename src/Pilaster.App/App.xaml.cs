@@ -16,8 +16,6 @@ using Pilaster.Providers.Local;
 using Pilaster.Shell.Imaging;
 using Serilog;
 
-using ThemeMode = Pilaster.Core.Settings.ThemeMode;
-
 namespace Pilaster.App;
 
 public partial class App : Application
@@ -88,7 +86,7 @@ public partial class App : Application
         services.AddTransient<RecycleBinViewModel>();
         services.AddTransient<RecycleBinWindow>();
 
-        // Total Commander-billentyűkiosztás: F5/F6 megerősítő párbeszéd és
+        // Pilaster Classic billentyűkiosztás: F5/F6 megerősítő párbeszéd és
         // F3 előnézet-ablak — mindkettő minden megnyitáskor friss példány.
         services.AddTransient<TransferConfirmWindow>();
         services.AddTransient<FilePreviewWindow>();

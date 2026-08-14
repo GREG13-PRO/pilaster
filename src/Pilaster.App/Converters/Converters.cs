@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -6,6 +6,7 @@ using Pilaster.App.Localization;
 using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
 using Pilaster.Core.Metadata;
+using Pilaster.Core.Settings;
 
 namespace Pilaster.App.Converters;
 
@@ -237,6 +238,18 @@ public sealed class ThemeModeConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Billentyűkiosztás → lefordított név. Sehol nem szerepel idegen terméknév.</summary>
+public sealed class KeymapNameConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is Core.Settings.KeymapPreset preset
+            ? TranslationSource.Instance[preset.ResourceKey()]
+            : string.Empty;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 public sealed class AnimationLevelConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -419,6 +432,26 @@ public sealed class IconNameConverter : IValueConverter
         value is string name && Enum.TryParse<Wpf.Ui.Controls.SymbolRegular>(name, ignoreCase: true, out var parsed)
             ? parsed
             : Wpf.Ui.Controls.SymbolRegular.Folder24;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Egyezik-e az érték a paraméterrel → láthatóság. A Beállítások
+/// kategóriaváltása ezzel dönti el, melyik szakasz látszik.
+/// </summary>
+/// <remarks>
+/// Egyetlen, mindig felépített vizuális fa marad, csak a láthatóság vált —
+/// így a mélyhivatkozás (deep link) meg tudja találni és felvillantani a
+/// célvezérlőt akkor is, ha a kategóriája épp nem az aktív.
+/// </remarks>
+public sealed class EqualsToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.Ordinal)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

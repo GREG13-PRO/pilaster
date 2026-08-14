@@ -66,8 +66,35 @@ public sealed partial class SettingsViewModel : ObservableObject
         _selectedTheme = current.Theme;
         _selectedAnimationLevel = _animations.Current;
         _liquidGlassEnabled = current.LiquidGlassEnabled;
-        _totalCommanderKeybindingsEnabled = current.TotalCommanderKeybindingsEnabled;
+        _selectedKeymap = current.Keymap;
         _externalEditorPath = current.ExternalEditorPath;
+
+        _restoreSession = current.RestoreSession;
+        _singleInstance = current.SingleInstance;
+        _checkForUpdates = current.CheckForUpdates;
+        _startupFolder = current.StartupFolder;
+        _density = current.Density;
+        _showSystemItems = current.ShowSystemItems;
+        _showExtensions = current.ShowExtensions;
+        _foldersFirst = current.FoldersFirst;
+        _binarySizeUnits = current.BinarySizeUnits;
+        _shellExtensionsEnabled = current.ShellExtensionsEnabled;
+        _shellMenuTimeoutMs = current.ShellMenuTimeoutMs;
+        _shellItemsInOwnSection = current.ShellItemsInOwnSection;
+        _shellBlacklistText = string.Join(Environment.NewLine, current.ShellHandlerBlacklist);
+        _editorFontFamily = current.EditorFontFamily;
+        _editorFontSize = current.EditorFontSize;
+        _editorTabWidth = current.EditorTabWidth;
+        _editorInsertSpaces = current.EditorInsertSpaces;
+        _editorWordWrap = current.EditorWordWrap;
+        _editorShowLineNumbers = current.EditorShowLineNumbers;
+        _editorDefaultEncoding = current.EditorDefaultEncoding;
+        _editorDefaultLineEnding = current.EditorDefaultLineEnding;
+        _editorInSeparateWindow = current.EditorInSeparateWindow;
+        _externalTerminalPath = current.ExternalTerminalPath;
+        _logLevel = current.LogLevel;
+
+        _selectedCategory = Categories[0];
 
         _folderOpenRedirectEnabled = current.ShellIntegration.FolderOpenRedirectEnabled;
         _winERedirectEnabled = current.ShellIntegration.WinERedirectEnabled;
@@ -94,6 +121,204 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>A „Hibabejelentés" szakasz állapota.</summary>
     public BugReportViewModel BugReport { get; }
+
+    // ================= F6: kategóriák, keresés, mélyhivatkozás =================
+
+    /// <summary>A bal oldali kategórialista.</summary>
+    public IReadOnlyList<SettingsCategoryViewModel> Categories { get; } = SettingsCatalog.BuildCategories();
+
+    private readonly IReadOnlyList<SettingsDescriptor> _descriptors = SettingsCatalog.BuildDescriptors();
+
+    [ObservableProperty]
+    private SettingsCategoryViewModel? _selectedCategory;
+
+    /// <summary>A felső keresőmező tartalma.</summary>
+    [ObservableProperty]
+    private string _searchText = string.Empty;
+
+    /// <summary>Az aktuális keresés találatai — üres keresésnél üres lista.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<SettingsDescriptor> _searchResults = [];
+
+    /// <summary>Igaz, amíg keresés van folyamatban — ekkor a találatlista látszik a kategória tartalma helyett.</summary>
+    public bool IsSearching => !string.IsNullOrWhiteSpace(SearchText);
+
+    /// <summary>
+    /// A nézetnek jelez, hogy egy beállításhoz kell ugrania és felvillantania.
+    /// Ugyanez a belépési pont a mélyhivatkozásé is (pl. egy hibaüzenetből).
+    /// </summary>
+    public event EventHandler<string>? NavigateToSettingRequested;
+
+    partial void OnSearchTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsSearching));
+
+        SearchResults = string.IsNullOrWhiteSpace(value)
+            ? []
+            : [.. _descriptors.Where(d => d.Matches(value.Trim()))];
+
+        // Keresés közben csak azok a kategóriák maradnak a listában, amikben
+        // van találat — így a bal oldal is szűkül, nem csak a jobb.
+        var hits = SearchResults.Select(r => r.CategoryId).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var category in Categories)
+        {
+            category.IsVisible = !IsSearching || hits.Contains(category.Id);
+        }
+    }
+
+    /// <summary>Egy találatra kattintva: a kategóriájára vált, majd odaugrik és felvillantja.</summary>
+    [RelayCommand]
+    private void GoToSetting(SettingsDescriptor? descriptor)
+    {
+        if (descriptor is null)
+        {
+            return;
+        }
+
+        SearchText = string.Empty;
+        SelectedCategory = Categories.FirstOrDefault(c => c.Id == descriptor.CategoryId) ?? SelectedCategory;
+
+        NavigateToSettingRequested?.Invoke(this, descriptor.Id);
+    }
+
+    /// <summary>
+    /// Mélyhivatkozás azonosító alapján — más helyről (pl. hibaüzenetből)
+    /// közvetlenül egy beállításhoz lehet ugrani vele.
+    /// </summary>
+    public void NavigateTo(string settingId)
+    {
+        if (_descriptors.FirstOrDefault(d => d.Id == settingId) is { } descriptor)
+        {
+            GoToSetting(descriptor);
+        }
+    }
+
+    /// <summary>Az aktuális kategória beállításainak visszaállítása alapértelmezettre (spec F6).</summary>
+    [RelayCommand]
+    private void ResetCategory()
+    {
+        if (SelectedCategory is not { } category)
+        {
+            return;
+        }
+
+        var defaults = new AppSettings();
+        var current = _settings.Current;
+
+        switch (category.Id)
+        {
+            case SettingsCatalog.General:
+                current.Language = defaults.Language;
+                current.StartupFolder = defaults.StartupFolder;
+                current.RestoreSession = defaults.RestoreSession;
+                current.SingleInstance = defaults.SingleInstance;
+                current.CheckForUpdates = defaults.CheckForUpdates;
+                SelectedLanguage = Languages[0];
+                RestoreSession = defaults.RestoreSession;
+                break;
+
+            case SettingsCatalog.Appearance:
+                SelectedTheme = defaults.Theme;
+                SelectedAnimationLevel = AnimationLevel.Full;
+                LiquidGlassEnabled = defaults.LiquidGlassEnabled;
+                UseSystemAccent = true;
+                Density = defaults.Density;
+                break;
+
+            case SettingsCatalog.Panes:
+                current.DualPaneEnabled = defaults.DualPaneEnabled;
+                current.DualPaneVertical = defaults.DualPaneVertical;
+                current.DualPaneSplitRatio = defaults.DualPaneSplitRatio;
+                break;
+
+            case SettingsCatalog.FileList:
+                current.ShowHiddenItems = defaults.ShowHiddenItems;
+                ShowSystemItems = defaults.ShowSystemItems;
+                ShowExtensions = defaults.ShowExtensions;
+                FoldersFirst = defaults.FoldersFirst;
+                BinarySizeUnits = defaults.BinarySizeUnits;
+                break;
+
+            case SettingsCatalog.Keyboard:
+                SelectedKeymap = defaults.Keymap;
+                current.CustomKeyBindings.Clear();
+                break;
+
+            case SettingsCatalog.ContextMenu:
+                ShellExtensionsEnabled = defaults.ShellExtensionsEnabled;
+                ShellMenuTimeoutMs = defaults.ShellMenuTimeoutMs;
+                ShellItemsInOwnSection = defaults.ShellItemsInOwnSection;
+                current.ShellHandlerBlacklist.Clear();
+                ShellBlacklistText = string.Empty;
+                break;
+
+            case SettingsCatalog.Editor:
+                EditorFontFamily = defaults.EditorFontFamily;
+                EditorFontSize = defaults.EditorFontSize;
+                EditorTabWidth = defaults.EditorTabWidth;
+                EditorInsertSpaces = defaults.EditorInsertSpaces;
+                EditorWordWrap = defaults.EditorWordWrap;
+                EditorShowLineNumbers = defaults.EditorShowLineNumbers;
+                EditorDefaultEncoding = defaults.EditorDefaultEncoding;
+                EditorDefaultLineEnding = defaults.EditorDefaultLineEnding;
+                EditorInSeparateWindow = defaults.EditorInSeparateWindow;
+                break;
+
+            case SettingsCatalog.Integrations:
+                ExternalTerminalPath = defaults.ExternalTerminalPath;
+                ExternalEditorPath = defaults.ExternalEditorPath;
+                ResetShellIntegrationCommand.Execute(null);
+                break;
+
+            case SettingsCatalog.Advanced:
+                LogLevel = defaults.LogLevel;
+                current.QuickAction1 = defaults.QuickAction1;
+                current.QuickAction2 = defaults.QuickAction2;
+                break;
+        }
+
+        _settings.NotifyChanged();
+        StatusMessage = TranslationSource.Instance["Settings_ResetDone"];
+    }
+
+    /// <summary>Rövid visszajelzés az alsó sávban (visszaállítás, export/import).</summary>
+    [ObservableProperty]
+    private string? _statusMessage;
+
+    /// <summary>A teljes beállításkészlet exportálása JSON-be (spec F6).</summary>
+    [RelayCommand]
+    private void ExportSettings()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = "pilaster-settings.json",
+            Filter = "JSON (*.json)|*.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        StatusMessage = TranslationSource.Instance[
+            _settings.TryExport(dialog.FileName) ? "Settings_ExportDone" : "Settings_ExportFailed"];
+    }
+
+    /// <summary>Beállítások importálása JSON-ből.</summary>
+    [RelayCommand]
+    private void ImportSettings()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "JSON (*.json)|*.json" };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        StatusMessage = TranslationSource.Instance[
+            _settings.TryImport(dialog.FileName) ? "Settings_ImportDone" : "Settings_ImportFailed"];
+    }
 
     /// <summary>A „Frissítések" szakasz állapota — ugyanaz a példány, mint a főablak sávjáé.</summary>
     public UpdateViewModel Updates { get; }
@@ -137,7 +362,159 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _liquidGlassEnabled;
 
     [ObservableProperty]
-    private bool _totalCommanderKeybindingsEnabled;
+    private KeymapPreset _selectedKeymap;
+
+    // --- Egyszerű, közvetlenül a beállításmodellre író tulajdonságok ---
+    // Mindegyik ugyanazt a mintát követi: mező a konstruktorban feltöltve,
+    // OnXChanged-ben mentés. A _loaded őrzi, hogy a konstruktor kezdeti
+    // értékadása ne váltson ki azonnali mentést.
+
+    [ObservableProperty]
+    private bool _restoreSession;
+
+    partial void OnRestoreSessionChanged(bool value) => Persist(s => s.RestoreSession = value);
+
+    [ObservableProperty]
+    private bool _singleInstance;
+
+    partial void OnSingleInstanceChanged(bool value) => Persist(s => s.SingleInstance = value);
+
+    [ObservableProperty]
+    private bool _checkForUpdates;
+
+    partial void OnCheckForUpdatesChanged(bool value) => Persist(s => s.CheckForUpdates = value);
+
+    [ObservableProperty]
+    private string? _startupFolder;
+
+    partial void OnStartupFolderChanged(string? value) => Persist(s => s.StartupFolder = string.IsNullOrWhiteSpace(value) ? null : value);
+
+    [ObservableProperty]
+    private string _density = "Comfortable";
+
+    partial void OnDensityChanged(string value) => Persist(s => s.Density = value);
+
+    [ObservableProperty]
+    private bool _showSystemItems;
+
+    partial void OnShowSystemItemsChanged(bool value) => Persist(s => s.ShowSystemItems = value);
+
+    [ObservableProperty]
+    private bool _showExtensions;
+
+    partial void OnShowExtensionsChanged(bool value) => Persist(s => s.ShowExtensions = value);
+
+    [ObservableProperty]
+    private bool _foldersFirst;
+
+    partial void OnFoldersFirstChanged(bool value) => Persist(s => s.FoldersFirst = value);
+
+    [ObservableProperty]
+    private bool _binarySizeUnits;
+
+    partial void OnBinarySizeUnitsChanged(bool value) => Persist(s => s.BinarySizeUnits = value);
+
+    [ObservableProperty]
+    private bool _shellExtensionsEnabled;
+
+    partial void OnShellExtensionsEnabledChanged(bool value) => Persist(s => s.ShellExtensionsEnabled = value);
+
+    [ObservableProperty]
+    private int _shellMenuTimeoutMs;
+
+    partial void OnShellMenuTimeoutMsChanged(int value) => Persist(s => s.ShellMenuTimeoutMs = Math.Clamp(value, 50, 5000));
+
+    [ObservableProperty]
+    private bool _shellItemsInOwnSection;
+
+    partial void OnShellItemsInOwnSectionChanged(bool value) => Persist(s => s.ShellItemsInOwnSection = value);
+
+    /// <summary>A shell-bővítmény feketelista soronként — a mentés sorokra bontja.</summary>
+    [ObservableProperty]
+    private string _shellBlacklistText = string.Empty;
+
+    partial void OnShellBlacklistTextChanged(string value) => Persist(s =>
+    {
+        s.ShellHandlerBlacklist.Clear();
+        s.ShellHandlerBlacklist.AddRange(
+            value.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    });
+
+    [ObservableProperty]
+    private string _editorFontFamily = "Cascadia Mono";
+
+    partial void OnEditorFontFamilyChanged(string value) => Persist(s => s.EditorFontFamily = value);
+
+    [ObservableProperty]
+    private double _editorFontSize = 13;
+
+    partial void OnEditorFontSizeChanged(double value) => Persist(s => s.EditorFontSize = Math.Clamp(value, 6, 48));
+
+    [ObservableProperty]
+    private int _editorTabWidth = 4;
+
+    partial void OnEditorTabWidthChanged(int value) => Persist(s => s.EditorTabWidth = Math.Clamp(value, 1, 16));
+
+    [ObservableProperty]
+    private bool _editorInsertSpaces;
+
+    partial void OnEditorInsertSpacesChanged(bool value) => Persist(s => s.EditorInsertSpaces = value);
+
+    [ObservableProperty]
+    private bool _editorWordWrap;
+
+    partial void OnEditorWordWrapChanged(bool value) => Persist(s => s.EditorWordWrap = value);
+
+    [ObservableProperty]
+    private bool _editorShowLineNumbers;
+
+    partial void OnEditorShowLineNumbersChanged(bool value) => Persist(s => s.EditorShowLineNumbers = value);
+
+    [ObservableProperty]
+    private string _editorDefaultEncoding = "utf-8";
+
+    partial void OnEditorDefaultEncodingChanged(string value) => Persist(s => s.EditorDefaultEncoding = value);
+
+    [ObservableProperty]
+    private string _editorDefaultLineEnding = "CRLF";
+
+    partial void OnEditorDefaultLineEndingChanged(string value) => Persist(s => s.EditorDefaultLineEnding = value);
+
+    [ObservableProperty]
+    private bool _editorInSeparateWindow;
+
+    partial void OnEditorInSeparateWindowChanged(bool value) => Persist(s => s.EditorInSeparateWindow = value);
+
+    [ObservableProperty]
+    private string _externalTerminalPath = "wt.exe";
+
+    partial void OnExternalTerminalPathChanged(string value) => Persist(s => s.ExternalTerminalPath = value);
+
+    [ObservableProperty]
+    private string _logLevel = "Information";
+
+    partial void OnLogLevelChanged(string value) => Persist(s => s.LogLevel = value);
+
+    /// <summary>A választható értékkészletek a legördülőkhöz.</summary>
+    public IReadOnlyList<string> Densities { get; } = ["Compact", "Comfortable", "Relaxed"];
+
+    public IReadOnlyList<string> Encodings { get; } = ["utf-8", "utf-8-bom", "cp1250", "cp852", "utf-16le", "utf-16be"];
+
+    public IReadOnlyList<string> LineEndings { get; } = ["CRLF", "LF", "CR"];
+
+    public IReadOnlyList<string> LogLevels { get; } = ["Information", "Debug", "Warning", "Error"];
+
+    /// <summary>Egy beállítás írása és mentése — a konstruktor kezdeti értékadásait kihagyva.</summary>
+    private void Persist(Action<AppSettings> mutate)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        mutate(_settings.Current);
+        _settings.NotifyChanged();
+    }
 
     [ObservableProperty]
     private string _externalEditorPath = "notepad.exe";
@@ -330,15 +707,35 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    partial void OnTotalCommanderKeybindingsEnabledChanged(bool value)
+    partial void OnSelectedKeymapChanged(KeymapPreset value)
     {
         if (!_loaded)
         {
             return;
         }
 
-        _settings.Current.TotalCommanderKeybindingsEnabled = value;
+        _settings.Current.Keymap = value;
         _settings.NotifyChanged();
+    }
+
+    /// <summary>A választható kiosztások — a felületen egyik sem visel idegen terméknevet.</summary>
+    public IReadOnlyList<KeymapPreset> Keymaps { get; } =
+        [KeymapPreset.PilasterClassic, KeymapPreset.Explorer, KeymapPreset.Custom];
+
+    /// <summary>
+    /// A kiválasztott preset teljes billentyűlistája — a „Kiosztás
+    /// megtekintése" gomb ezt jeleníti meg táblázatban (spec F1).
+    /// </summary>
+    public IReadOnlyList<KeyBindingRow> KeymapRows => KeymapCatalog.Describe(SelectedKeymap);
+
+    [ObservableProperty]
+    private bool _isKeymapTableVisible;
+
+    [RelayCommand]
+    private void ToggleKeymapTable()
+    {
+        IsKeymapTableVisible = !IsKeymapTableVisible;
+        OnPropertyChanged(nameof(KeymapRows));
     }
 
     partial void OnExternalEditorPathChanged(string value)

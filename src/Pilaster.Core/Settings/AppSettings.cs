@@ -1,4 +1,4 @@
-namespace Pilaster.Core.Settings;
+﻿namespace Pilaster.Core.Settings;
 
 /// <summary>A felület színsémája.</summary>
 public enum ThemeMode
@@ -231,7 +231,96 @@ public sealed class AppSettings
     /// <summary>Az utoljára használt nézetmód — új fül ezzel nyílik.</summary>
     public Pilaster.Core.FileSystem.ViewMode LastViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
 
-    /// <summary>Kétablakos (Total Commander-stílusú) nézet be van-e kapcsolva.</summary>
+    // ---------- Általános ----------
+
+    /// <summary>
+    /// Indításkor megnyíló mappa, vagy <c>null</c> a Kezdőlaphoz. Csak akkor
+    /// számít, ha a <see cref="RestoreSession"/> ki van kapcsolva — különben a
+    /// mentett munkamenet erősebb.
+    /// </summary>
+    public string? StartupFolder { get; set; }
+
+    /// <summary>Egypéldányos futás: egy második indítás a meglévő ablakot hozza előtérbe.</summary>
+    public bool SingleInstance { get; set; } = true;
+
+    /// <summary>Induláskor keressen-e új verziót.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    // ---------- Fájllista ----------
+
+    /// <summary>A rendszerfájlok külön kapcsolója — a rejtett elemektől függetlenül.</summary>
+    public bool ShowSystemItems { get; set; }
+
+    /// <summary>Kiterjesztések megjelenítése a névben.</summary>
+    public bool ShowExtensions { get; set; } = true;
+
+    /// <summary>A mappák a fájlok elé rendeződjenek.</summary>
+    public bool FoldersFirst { get; set; } = true;
+
+    /// <summary>Igaz = bináris (KiB/MiB), hamis = decimális (KB/MB) méretformátum.</summary>
+    public bool BinarySizeUnits { get; set; }
+
+    /// <summary>A fájllista sűrűsége: <c>Compact</c>, <c>Comfortable</c>, <c>Relaxed</c>.</summary>
+    public string Density { get; set; } = "Comfortable";
+
+    // ---------- Jobbklikk menü ----------
+
+    /// <summary>Megjelenjenek-e a telepített shell-bővítmények elemei a saját menüben.</summary>
+    public bool ShellExtensionsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Ennyi ezredmásodpercet várunk a shell-bővítmények betöltésére, mielőtt
+    /// a menü nélkülük jelenne meg. A saját elemek AZONNAL láthatók, a
+    /// shell-elemek utólag csúsznak be — lásd a jobbklikk-menü aszinkron
+    /// betöltését.
+    /// </summary>
+    public int ShellMenuTimeoutMs { get; set; } = 400;
+
+    /// <summary>
+    /// Kikapcsolt shell-bővítmények neve vagy CLSID-je. A lassú vagy hibás
+    /// bővítményeket a felhasználó itt tudja kizárni.
+    /// </summary>
+    public List<string> ShellHandlerBlacklist { get; set; } = [];
+
+    /// <summary>Igaz = a shell elemek külön „Egyéb alkalmazások" szekcióba, hamis = a saját elemek közé sorolva.</summary>
+    public bool ShellItemsInOwnSection { get; set; } = true;
+
+    // ---------- Szerkesztő ----------
+
+    /// <summary>A beépített szerkesztő betűkészlete.</summary>
+    public string EditorFontFamily { get; set; } = "Cascadia Mono";
+
+    public double EditorFontSize { get; set; } = 13;
+
+    public int EditorTabWidth { get; set; } = 4;
+
+    /// <summary>Tabulátor helyett szóközök beszúrása.</summary>
+    public bool EditorInsertSpaces { get; set; } = true;
+
+    public bool EditorWordWrap { get; set; }
+
+    public bool EditorShowLineNumbers { get; set; } = true;
+
+    /// <summary>Új fájl alapértelmezett kódolása (<c>utf-8</c>, <c>utf-8-bom</c>, <c>cp1250</c>, …).</summary>
+    public string EditorDefaultEncoding { get; set; } = "utf-8";
+
+    /// <summary>Új fájl alapértelmezett sorvége: <c>CRLF</c>, <c>LF</c> vagy <c>CR</c>.</summary>
+    public string EditorDefaultLineEnding { get; set; } = "CRLF";
+
+    /// <summary>A szerkesztő külön ablakban (igaz) vagy a főablak fülében (hamis) nyíljon.</summary>
+    public bool EditorInSeparateWindow { get; set; } = true;
+
+    // ---------- Integrációk ----------
+
+    /// <summary>A „Terminál megnyitása itt" parancs programja.</summary>
+    public string ExternalTerminalPath { get; set; } = "wt.exe";
+
+    // ---------- Speciális ----------
+
+    /// <summary>Naplózási szint: <c>Information</c>, <c>Debug</c>, <c>Warning</c>, <c>Error</c>.</summary>
+    public string LogLevel { get; set; } = "Information";
+
+    /// <summary>Kétpaneles nézet be van-e kapcsolva.</summary>
     public bool DualPaneEnabled { get; set; }
 
     /// <summary>Igaz = a két panel egymás alatt (függőleges elrendezés), hamis = egymás mellett.</summary>
@@ -254,11 +343,58 @@ public sealed class AppSettings
     public AppSession? Session { get; set; }
 
     /// <summary>
-    /// Total Commander-stílusú billentyűkiosztás (F3 Megtekint, F4 Szerkeszt,
-    /// F5 Másol, F6 Áthelyez, F7 Új mappa, F8/Delete Töröl stb.). Kikapcsolva
-    /// a hagyományos Intéző-szerű működés marad (F5 nincs lefoglalva).
+    /// A v0.9-es, idegen terméknévvel futó kapcsoló.
     /// </summary>
+    /// <remarks>
+    /// CSAK a migráció miatt maradt itt (lásd <see cref="MigrateKeymap"/>): a
+    /// régi <c>settings.json</c>-ökben ez a mező hordozza a felhasználó
+    /// választását. Új kód SOHA ne olvassa — a <see cref="Keymap"/> az
+    /// érvényes forrás.
+    /// </remarks>
+    [Obsolete("Csak a v0.9 -> v1.0 migrációhoz. Használd a Keymap tulajdonságot.")]
     public bool TotalCommanderKeybindingsEnabled { get; set; }
+
+    /// <summary>
+    /// A kiosztás nyers, mentett értéke.
+    /// </summary>
+    /// <remarks>
+    /// Szándékosan <c>string</c>, nem közvetlenül az enum: így egy régi vagy
+    /// kézzel elrontott érték sem akadályozza meg a betöltést, hanem a
+    /// <see cref="KeymapPresetParser.Parse"/> képezi át (lásd az ottani
+    /// alias-listát).
+    /// </remarks>
+    public string? KeymapPresetName { get; set; }
+
+    /// <summary>Az érvényes billentyűkiosztás.</summary>
+    public KeymapPreset Keymap
+    {
+        get => KeymapPresetParser.Parse(KeymapPresetName);
+        set => KeymapPresetName = value.ToString();
+    }
+
+    /// <summary>
+    /// A felhasználó egyedi billentyű-hozzárendelései: parancsazonosító →
+    /// gesztus (pl. <c>"copy" -> "F5"</c>). Csak a
+    /// <see cref="KeymapPreset.Custom"/> presetnél számít; a preset
+    /// alapértékeit felülírja.
+    /// </summary>
+    public Dictionary<string, string> CustomKeyBindings { get; set; } = [];
+
+    /// <summary>
+    /// A v0.9-es kapcsoló átvétele az új <see cref="Keymap"/>-be. Egyszer fut
+    /// le, az első v1.0-s indításkor, és a régi mezőt utána már nem olvassuk.
+    /// </summary>
+    public void MigrateKeymap()
+    {
+        if (KeymapPresetName is not null)
+        {
+            return;
+        }
+
+#pragma warning disable CS0618 // A migráció épp azért létezik, hogy ez legyen az UTOLSÓ olvasás.
+        Keymap = TotalCommanderKeybindingsEnabled ? KeymapPreset.PilasterClassic : KeymapPreset.Explorer;
+#pragma warning restore CS0618
+    }
 
     /// <summary>Az F4 (Szerkesztés) ezt a programot indítja — alapból Jegyzettömb.</summary>
     public string ExternalEditorPath { get; set; } = "notepad.exe";

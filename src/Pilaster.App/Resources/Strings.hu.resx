@@ -654,12 +654,6 @@
   <data name="TC_TransferHint" xml:space="preserve">
     <value>Szükség esetén szerkeszd a célútvonalat, majd nyomj Entert vagy kattints az OK-ra.</value>
   </data>
-  <data name="Settings_TotalCommander" xml:space="preserve">
-    <value>Total Commander billentyűkiosztás</value>
-  </data>
-  <data name="Settings_TotalCommanderHint" xml:space="preserve">
-    <value>F3 Megtekintés, F4 Szerkesztés, F5 Másolás, F6 Áthelyezés, F7 Új mappa, F8/Delete Törlés, Tab paneváltás. Kikapcsolva a hagyományos, Intéző-szerű billentyűk maradnak érvényben.</value>
-  </data>
   <data name="Settings_ExternalEditor" xml:space="preserve">
     <value>Külső szerkesztő (F4)</value>
   </data>
@@ -818,5 +812,356 @@
   </data>
   <data name="QuickAccess_AddSeparator" xml:space="preserve">
     <value>Elválasztó</value>
+  </data>
+  <data name="Keymap_UpHint" xml:space="preserve">
+    <value>Egy szinttel feljebb.</value>
+  </data>
+  <data name="Keymap_CloseTabHint" xml:space="preserve">
+    <value>Az aktív fül bezárása (az utolsó nem zárható be).</value>
+  </data>
+  <data name="Keymap_UnselectAll" xml:space="preserve">
+    <value>Kijelölés megszüntetése</value>
+  </data>
+  <data name="Keymap_EditHint" xml:space="preserve">
+    <value>Megnyitás a beállított szerkesztővel.</value>
+  </data>
+  <data name="Keymap_PilasterModern" xml:space="preserve">
+    <value>Pilaster Modern (Explorer-szerű)</value>
+  </data>
+  <data name="Keymap_MarkHint" xml:space="preserve">
+    <value>Kijelöli az elemet, és a kurzor a következőre lép.</value>
+  </data>
+  <data name="Keymap_InvertSelectionHint" xml:space="preserve">
+    <value>A kijelölt és nem kijelölt elemek helyet cserélnek.</value>
+  </data>
+  <data name="Keymap_ColAction" xml:space="preserve">
+    <value>Művelet</value>
+  </data>
+  <data name="Keymap_RefreshHint" xml:space="preserve">
+    <value>Az aktív fül újratöltése.</value>
+  </data>
+  <data name="Keymap_ViewTable" xml:space="preserve">
+    <value>Kiosztás megtekintése</value>
+  </data>
+  <data name="Keymap_ColKey" xml:space="preserve">
+    <value>Billentyű</value>
+  </data>
+  <data name="Keymap_ToggleMark" xml:space="preserve">
+    <value>Kijelölés váltása</value>
+  </data>
+  <data name="Keymap_CopyHint" xml:space="preserve">
+    <value>Másolás a másik panelbe, megerősítéssel.</value>
+  </data>
+  <data name="Keymap_RefreshBothHint" xml:space="preserve">
+    <value>Mindkét panel aktív fülét újratölti.</value>
+  </data>
+  <data name="Keymap_NextTab" xml:space="preserve">
+    <value>Következő fül</value>
+  </data>
+  <data name="Keymap_PilasterClassic" xml:space="preserve">
+    <value>Pilaster Classic (kétpaneles)</value>
+  </data>
+  <data name="Keymap_MoveHint" xml:space="preserve">
+    <value>Áthelyezés a másik panelbe; azonos mappánál átnevezés.</value>
+  </data>
+  <data name="Keymap_NewFolderHint" xml:space="preserve">
+    <value>Új mappa, azonnal átnevezhető állapotban.</value>
+  </data>
+  <data name="Keymap_ClipboardHint" xml:space="preserve">
+    <value>A kijelölésen, a vágólapon keresztül.</value>
+  </data>
+  <data name="Keymap_NewTabHint" xml:space="preserve">
+    <value>Új fül az aktív panelben.</value>
+  </data>
+  <data name="Keymap_Mark" xml:space="preserve">
+    <value>Megjelölés és tovább</value>
+  </data>
+  <data name="Keymap_QuickFilterHint" xml:space="preserve">
+    <value>A keresőmezőbe ugrik, és élőben szűri a mappát.</value>
+  </data>
+  <data name="Keymap_UnselectAllHint" xml:space="preserve">
+    <value>Minden kijelölés megszűnik.</value>
+  </data>
+  <data name="Keymap_RightToLeftHint" xml:space="preserve">
+    <value>A bal panel a jobb panel mappájára navigál.</value>
+  </data>
+  <data name="Keymap_HideTable" xml:space="preserve">
+    <value>Táblázat elrejtése</value>
+  </data>
+  <data name="Keymap_SwitchPane" xml:space="preserve">
+    <value>Panelváltás</value>
+  </data>
+  <data name="Settings_Keymap" xml:space="preserve">
+    <value>Billentyűkiosztás</value>
+  </data>
+  <data name="Keymap_ForwardHint" xml:space="preserve">
+    <value>Előre az előzményben.</value>
+  </data>
+  <data name="Keymap_SelectAll" xml:space="preserve">
+    <value>Összes kijelölése</value>
+  </data>
+  <data name="Keymap_InvertSelection" xml:space="preserve">
+    <value>Kijelölés megfordítása</value>
+  </data>
+  <data name="Keymap_RefreshBoth" xml:space="preserve">
+    <value>Mindkét panel frissítése</value>
+  </data>
+  <data name="Keymap_RenameHint" xml:space="preserve">
+    <value>Helyben szerkeszthető névmező.</value>
+  </data>
+  <data name="Keymap_ViewHint" xml:space="preserve">
+    <value>Csak olvasható előnézet (kép, szöveg, hex).</value>
+  </data>
+  <data name="Keymap_LeftToRightHint" xml:space="preserve">
+    <value>A jobb panel a bal panel mappájára navigál.</value>
+  </data>
+  <data name="Keymap_ToggleMarkHint" xml:space="preserve">
+    <value>A kurzor alatti elem kijelölése ki/be, mozgás nélkül.</value>
+  </data>
+  <data name="Keymap_RightToLeft" xml:space="preserve">
+    <value>Jobb útvonal a balra</value>
+  </data>
+  <data name="Keymap_DeleteHint" xml:space="preserve">
+    <value>Lomtárba helyezés.</value>
+  </data>
+  <data name="Keymap_SwapPanesHint" xml:space="preserve">
+    <value>A két panel tartalma (füleivel együtt) helyet cserél.</value>
+  </data>
+  <data name="Keymap_QuickFilter" xml:space="preserve">
+    <value>Gyorsszűrés</value>
+  </data>
+  <data name="Settings_KeymapHint" xml:space="preserve">
+    <value>A funkcióbillentyűk viselkedése. A Classic a klasszikus kétpaneles kiosztás (F5 Másol, F6 Áthelyez), a Modern az Intéző megszokott billentyűi (F5 Frissít).</value>
+  </data>
+  <data name="Keymap_Custom" xml:space="preserve">
+    <value>Egyedi</value>
+  </data>
+  <data name="Keymap_BackHint" xml:space="preserve">
+    <value>Vissza az előzményben.</value>
+  </data>
+  <data name="Keymap_Rename" xml:space="preserve">
+    <value>Átnevezés</value>
+  </data>
+  <data name="Keymap_SwitchPaneHint" xml:space="preserve">
+    <value>A másik panel lesz az aktív.</value>
+  </data>
+  <data name="Keymap_SelectAllHint" xml:space="preserve">
+    <value>A jelenlegi mappa minden eleme.</value>
+  </data>
+  <data name="Keymap_DeletePermanentHint" xml:space="preserve">
+    <value>Végleges törlés, Lomtár nélkül.</value>
+  </data>
+  <data name="Keymap_LeftToRight" xml:space="preserve">
+    <value>Bal útvonal a jobbra</value>
+  </data>
+  <data name="Keymap_ColDescription" xml:space="preserve">
+    <value>Leírás</value>
+  </data>
+  <data name="Keymap_NextTabHint" xml:space="preserve">
+    <value>Körbeforgó fülváltás a panelen belül.</value>
+  </data>
+  <data name="Settings_EditorFontHint" xml:space="preserve">
+    <value>A beépített szerkesztő szövegének betűkészlete.</value>
+  </data>
+  <data name="Settings_OpenConfigHint" xml:space="preserve">
+    <value>A beállítás-, címke- és gyorselérés-fájlok helye.</value>
+  </data>
+  <data name="SettingsCat_FileList" xml:space="preserve">
+    <value>Fájllista</value>
+  </data>
+  <data name="Settings_BinarySizeUnits" xml:space="preserve">
+    <value>Bináris méretegységek (KiB/MiB)</value>
+  </data>
+  <data name="Settings_ShowExtensions" xml:space="preserve">
+    <value>Kiterjesztések megjelenítése</value>
+  </data>
+  <data name="Settings_ImportDone" xml:space="preserve">
+    <value>A beállítások importálva.</value>
+  </data>
+  <data name="Settings_Terminal" xml:space="preserve">
+    <value>Külső terminál</value>
+  </data>
+  <data name="Settings_ShellExtensions" xml:space="preserve">
+    <value>Shell bővítmények megjelenítése</value>
+  </data>
+  <data name="SettingsCat_Advanced" xml:space="preserve">
+    <value>Speciális</value>
+  </data>
+  <data name="Settings_ShellExtensionsHint" xml:space="preserve">
+    <value>A telepített programok (7-Zip, TortoiseGit stb.) bejegyzései a saját jobbklikk-menüben.</value>
+  </data>
+  <data name="Settings_ExportDone" xml:space="preserve">
+    <value>A beállítások exportálva.</value>
+  </data>
+  <data name="Settings_OpenConfig" xml:space="preserve">
+    <value>Konfigurációs mappa</value>
+  </data>
+  <data name="Settings_RestartRequired" xml:space="preserve">
+    <value>Újraindítás szükséges</value>
+  </data>
+  <data name="Settings_EditorLineNumbers" xml:space="preserve">
+    <value>Sorszámozás</value>
+  </data>
+  <data name="SettingsCat_Editor" xml:space="preserve">
+    <value>Szerkesztő</value>
+  </data>
+  <data name="Settings_EditorWindow" xml:space="preserve">
+    <value>Külön ablakban nyíljon</value>
+  </data>
+  <data name="Settings_EditorEncoding" xml:space="preserve">
+    <value>Alapértelmezett kódolás</value>
+  </data>
+  <data name="Settings_EditorWordWrap" xml:space="preserve">
+    <value>Sortörés</value>
+  </data>
+  <data name="Settings_OpenLog" xml:space="preserve">
+    <value>Naplófájl megnyitása</value>
+  </data>
+  <data name="Settings_LogLevel" xml:space="preserve">
+    <value>Naplózás szintje</value>
+  </data>
+  <data name="SettingsCat_About" xml:space="preserve">
+    <value>Névjegy</value>
+  </data>
+  <data name="Settings_StartupFolder" xml:space="preserve">
+    <value>Indításkori mappa</value>
+  </data>
+  <data name="Settings_SingleInstance" xml:space="preserve">
+    <value>Egypéldányos futás</value>
+  </data>
+  <data name="Settings_ShellTimeoutHint" xml:space="preserve">
+    <value>Ennyit várunk a bővítményekre; a saját elemek addig is azonnal megjelennek.</value>
+  </data>
+  <data name="Settings_OpenLogHint" xml:space="preserve">
+    <value>A legutóbbi naplófájl megnyitása a társított programmal.</value>
+  </data>
+  <data name="Settings_BinarySizeUnitsHint" xml:space="preserve">
+    <value>Kikapcsolva a decimális KB/MB egységek jelennek meg.</value>
+  </data>
+  <data name="Settings_ResetDone" xml:space="preserve">
+    <value>A kategória alapértelmezettre állt.</value>
+  </data>
+  <data name="Settings_ImportFailed" xml:space="preserve">
+    <value>A fájl nem olvasható vagy nem érvényes.</value>
+  </data>
+  <data name="SettingsCat_ContextMenu" xml:space="preserve">
+    <value>Jobbklikk menü</value>
+  </data>
+  <data name="Settings_DensityHint" xml:space="preserve">
+    <value>A fájllista sorainak magassága és térköze.</value>
+  </data>
+  <data name="Settings_FoldersFirstHint" xml:space="preserve">
+    <value>A mappák a fájlok elé rendeződnek, függetlenül a rendezési szemponttól.</value>
+  </data>
+  <data name="Settings_ShowSystemHint" xml:space="preserve">
+    <value>A rendszer által védett elemek megjelenítése.</value>
+  </data>
+  <data name="Settings_ShowExtensionsHint" xml:space="preserve">
+    <value>A fájlnév végén a típus (pl. .txt) is látszik.</value>
+  </data>
+  <data name="Settings_StartupFolderHint" xml:space="preserve">
+    <value>Üresen hagyva a Kezdőlap nyílik meg. Csak akkor számít, ha a munkamenet-visszaállítás ki van kapcsolva.</value>
+  </data>
+  <data name="Settings_ShellOwnSectionHint" xml:space="preserve">
+    <value>Kikapcsolva a shell elemek a saját elemek közé sorolva jelennek meg.</value>
+  </data>
+  <data name="Settings_EditorTabWidthHint" xml:space="preserve">
+    <value>Hány szóköznyi egy behúzási szint.</value>
+  </data>
+  <data name="Settings_HiddenHint" xml:space="preserve">
+    <value>A rejtett attribútummal ellátott elemek megjelenítése.</value>
+  </data>
+  <data name="SettingsCat_Appearance" xml:space="preserve">
+    <value>Megjelenés</value>
+  </data>
+  <data name="Settings_DualPane" xml:space="preserve">
+    <value>Kétpaneles nézet</value>
+  </data>
+  <data name="Settings_EditorLineEndingHint" xml:space="preserve">
+    <value>Új fájl sorvégei. Meglévő fájl megtartja a sajátját.</value>
+  </data>
+  <data name="Settings_ExportFailed" xml:space="preserve">
+    <value>Az exportálás nem sikerült.</value>
+  </data>
+  <data name="Settings_EditorWindowHint" xml:space="preserve">
+    <value>Kikapcsolva a szerkesztő a főablak füleként jelenik meg.</value>
+  </data>
+  <data name="SettingsCat_Panes" xml:space="preserve">
+    <value>Panelek</value>
+  </data>
+  <data name="Settings_ShellBlacklist" xml:space="preserve">
+    <value>Kikapcsolt bővítmények</value>
+  </data>
+  <data name="Settings_ShellTimeout" xml:space="preserve">
+    <value>Betöltési időkorlát (ms)</value>
+  </data>
+  <data name="Settings_SearchPlaceholder" xml:space="preserve">
+    <value>Keresés a beállítások között…</value>
+  </data>
+  <data name="SettingsCat_Integrations" xml:space="preserve">
+    <value>Integrációk</value>
+  </data>
+  <data name="Settings_FoldersFirst" xml:space="preserve">
+    <value>Mappák előre</value>
+  </data>
+  <data name="Settings_ShowSystem" xml:space="preserve">
+    <value>Rendszerfájlok megjelenítése</value>
+  </data>
+  <data name="Settings_TerminalHint" xml:space="preserve">
+    <value>A „Terminál megnyitása itt" parancs ezt indítja.</value>
+  </data>
+  <data name="Settings_EditorInsertSpaces" xml:space="preserve">
+    <value>Szóközök tabulátor helyett</value>
+  </data>
+  <data name="SettingsCat_Keyboard" xml:space="preserve">
+    <value>Billentyűzet</value>
+  </data>
+  <data name="Settings_SplitRatioHint" xml:space="preserve">
+    <value>A bal (vagy felső) panel aránya. Dupla kattintás az elválasztón visszaállítja felezőre.</value>
+  </data>
+  <data name="Settings_EditorLineEnding" xml:space="preserve">
+    <value>Alapértelmezett sorvég</value>
+  </data>
+  <data name="Settings_SplitRatio" xml:space="preserve">
+    <value>Elválasztó helyzete</value>
+  </data>
+  <data name="Settings_EditorTabWidth" xml:space="preserve">
+    <value>Tabulátor szélessége</value>
+  </data>
+  <data name="Settings_DualPaneHint" xml:space="preserve">
+    <value>Két teljesen független panel, saját fülekkel és előzménnyel.</value>
+  </data>
+  <data name="SettingsCat_General" xml:space="preserve">
+    <value>Általános</value>
+  </data>
+  <data name="Settings_EditorEncodingHint" xml:space="preserve">
+    <value>Új fájl ezzel a kódolással jön létre; meglévő fájlnál az automatikus felismerés dönt.</value>
+  </data>
+  <data name="Settings_ShellOwnSection" xml:space="preserve">
+    <value>Külön „Egyéb alkalmazások" szekcióban</value>
+  </data>
+  <data name="Settings_EditorWordWrapHint" xml:space="preserve">
+    <value>A hosszú sorok az ablak szélén tördelődnek.</value>
+  </data>
+  <data name="Settings_SingleInstanceHint" xml:space="preserve">
+    <value>Egy második indítás a már futó ablakot hozza előtérbe.</value>
+  </data>
+  <data name="Settings_ShellBlacklistHint" xml:space="preserve">
+    <value>Soronként egy név vagy CLSID. A lassú vagy hibás bővítmények itt zárhatók ki.</value>
+  </data>
+  <data name="Settings_Density" xml:space="preserve">
+    <value>Sűrűség</value>
+  </data>
+  <data name="Settings_LogLevelHint" xml:space="preserve">
+    <value>Újraindítás után lép érvénybe.</value>
+  </data>
+  <data name="SettingsCat_Tags" xml:space="preserve">
+    <value>Címkék</value>
+  </data>
+  <data name="Settings_EditorFont" xml:space="preserve">
+    <value>Betűtípus és -méret</value>
+  </data>
+  <data name="Settings_ResetCategory" xml:space="preserve">
+    <value>Kategória visszaállítása</value>
   </data>
 </root>

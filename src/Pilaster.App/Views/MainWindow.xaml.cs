@@ -937,9 +937,9 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// Total Commander-stílusú billentyűkiosztás — csak akkor avatkozik be,
+    /// Pilaster Classic billentyűkiosztás — csak akkor avatkozik be,
     /// ha a felhasználó a Beállításokban bekapcsolta (lásd
-    /// <see cref="AppSettings.TotalCommanderKeybindingsEnabled"/>). Kikapcsolva
+    /// <see cref="AppSettings.Keymap"/>). Kikapcsolva
     /// a hagyományos, Intéző-szerű gyorsbillentyűk (lásd
     /// <see cref="OnFileListHostPreviewKeyDown"/> és a többi meglévő kezelő)
     /// változatlanul működnek, ez a metódus el sem éri a switch-et.
@@ -953,7 +953,7 @@ public partial class MainWindow : FluentWindow
     /// </remarks>
     private void OnMainPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (!_settings.Current.TotalCommanderKeybindingsEnabled)
+        if (_settings.Current.Keymap != KeymapPreset.PilasterClassic)
         {
             return;
         }
@@ -1110,7 +1110,7 @@ public partial class MainWindow : FluentWindow
     /// <summary>
     /// Az „aktív" fájllista — egyablakos nézetben a látható Részletes/Rács
     /// nézet, kétablakos nézetben az aktív panel belső listája. Oszlopos
-    /// nézetben (Columns) szándékosan <c>null</c>-t ad: a Total Commander
+    /// nézetben (Columns) szándékosan <c>null</c>-t ad: a Pilaster Classic
     /// billentyűk ott nem értelmezettek.
     /// </summary>
     private ListBox? GetActiveList()
@@ -1138,7 +1138,7 @@ public partial class MainWindow : FluentWindow
 
     /// <summary>
     /// A billentyűzet-fókusz alatt álló („kurzor alatti") elem — Total
-    /// Commanderben ez a keret, ami függetlenül mozog a tényleges (be- vagy
+    /// kétpaneles kezelőkben ez a keret, ami függetlenül mozog a tényleges (be- vagy
     /// kijelölt) kijelöléstől. Ha semmi nincs fókuszban (pl. a lista most
     /// kapta a fókuszt), a jelenlegi kijelölésre esik vissza.
     /// </summary>

@@ -1,4 +1,4 @@
-<ui:FluentWindow
+﻿<ui:FluentWindow
     x:Class="Pilaster.App.Views.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -939,7 +939,7 @@
                     </ui:Button.ContextMenu>
                 </ui:Button>
 
-                <!--  Egyablakos / Kétablakos (Total Commander-stílusú) nézet váltása  -->
+                <!--  Egyablakos / Kétablakos (kétpaneles) nézet váltása  -->
                 <ui:Button
                     Appearance="{Binding DualPaneEnabled, Converter={StaticResource DualPaneAppearance}}"
                     Click="OnToggleDualPaneClick"
@@ -1724,7 +1724,7 @@
             </Border>
 
             <!--
-                Kétablakos (Total Commander-stílusú) nézet — a fülrendszertől
+                Kétablakos (kétpaneles) nézet — a fülrendszertől
                 FÜGGETLEN két panel (LeftPaneTab/RightPaneTab), csak akkor
                 látszik, ha a felhasználó bekapcsolta. Lásd FilePaneView.
             -->
@@ -1813,7 +1813,7 @@
 
                 <!--
                     Diszkrét funkcióbillentyű-sáv — kattintható megfelelője a
-                    Total Commander-billentyűkiosztásnak (lásd MainWindow.xaml.cs
+                    Pilaster Classic billentyűkiosztásnak (lásd MainWindow.xaml.cs
                     OnMainPreviewKeyDown), csak akkor látszik, ha a felhasználó
                     mindkettőt (kétablakos nézet + a billentyűkiosztás) bekapcsolta.
                 -->

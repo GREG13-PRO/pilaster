@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,7 +12,7 @@ using Wpf.Ui.Controls;
 namespace Pilaster.App.Views;
 
 /// <summary>
-/// Total Commander F3 (Megtekintés) — csak olvasható, gyors előnézet: kép
+/// Pilaster Classic F3 (Megtekintés) — csak olvasható, gyors előnézet: kép
 /// közvetlen megjelenítéssel, szöveg/kód a meglévő (korábban árva)
 /// <see cref="FilePreviewService"/>-vel, minden más pedig hexadecimális
 /// dump-ként az első néhány kilobájtról.

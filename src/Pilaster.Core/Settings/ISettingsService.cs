@@ -19,6 +19,16 @@ public interface ISettingsService
     /// <summary>Azonnali, szinkron mentés — kilépéskor.</summary>
     void Flush();
 
+    /// <summary>A teljes beállításkészlet mentése JSON-fájlba. Hamis, ha az írás nem sikerült.</summary>
+    bool TryExport(string path);
+
+    /// <summary>
+    /// Beállítások betöltése JSON-fájlból, a jelenlegiek cseréjével. Hamis, ha
+    /// a fájl nem olvasható vagy nem értelmezhető — ilyenkor a jelenlegi
+    /// beállítások érintetlenül maradnak.
+    /// </summary>
+    bool TryImport(string path);
+
     /// <summary>Akkor jelez, ha bármely beállítás megváltozott.</summary>
     event EventHandler? Changed;
 

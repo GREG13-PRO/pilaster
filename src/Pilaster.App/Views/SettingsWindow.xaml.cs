@@ -1,8 +1,12 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Navigation;
+using Pilaster.App.Diagnostics;
 using Pilaster.App.Localization;
 using Pilaster.App.ViewModels;
 using Wpf.Ui.Controls;
@@ -19,7 +23,99 @@ public partial class SettingsWindow : FluentWindow
         // ott lássa a hatást, ahol épp állítja.
         viewModel.AnimationHost = this;
 
+        viewModel.NavigateToSettingRequested += OnNavigateToSettingRequested;
+
         InitializeComponent();
+    }
+
+    /// <summary>A legutóbbi naplófájl megnyitása a társított programmal.</summary>
+    private void OnOpenLogClick(object sender, RoutedEventArgs e)
+    {
+        var latest = Directory.Exists(LogFileLocator.LogDirectory)
+            ? new DirectoryInfo(LogFileLocator.LogDirectory)
+                .GetFiles("*.log")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .FirstOrDefault()
+            : null;
+
+        OpenWithShell(latest?.FullName ?? LogFileLocator.LogDirectory);
+    }
+
+    /// <summary>A konfigurációs mappa megnyitása (settings.json, metadata.json, quickaccess.json).</summary>
+    private void OnOpenConfigFolderClick(object sender, RoutedEventArgs e) =>
+        OpenWithShell(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Pilaster"));
+
+    private static void OpenWithShell(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            // Nincs társított program, vagy a mappa nem létezik — mindkettő
+            // ártalmatlan; egy hibaüzenet itt aránytalan lenne.
+        }
+    }
+
+    /// <summary>
+    /// Mélyhivatkozás: a megadott azonosítójú beállításhoz görget, és rövid
+    /// felvillantással kiemeli (spec F6).
+    /// </summary>
+    private void OnNavigateToSettingRequested(object? sender, string settingId)
+    {
+        // Background prioritás: a kategóriaváltás láthatóság-változásai csak a
+        // következő elrendezési körben érvényesülnek, addig a célvezérlő
+        // mérete nulla lenne, és a görgetés rossz helyre vinne.
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (FindByTag(ContentScroll, settingId) is not { } target)
+            {
+                return;
+            }
+
+            target.BringIntoView();
+            Flash(target);
+        });
+    }
+
+    private static FrameworkElement? FindByTag(DependencyObject root, string tag)
+    {
+        if (root is FrameworkElement { Tag: string value } element && value == tag)
+        {
+            return element;
+        }
+
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            if (FindByTag(VisualTreeHelper.GetChild(root, i), tag) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Rövid felvillantás — csak vizuális, semmilyen állapotot nem módosít.</summary>
+    private static void Flash(FrameworkElement element)
+    {
+        var animation = new DoubleAnimation(1.0, 0.35, TimeSpan.FromMilliseconds(280))
+        {
+            AutoReverse = true,
+            RepeatBehavior = new RepeatBehavior(2),
+        };
+
+        // Az animáció leválasztása után az Opacity újra szabadon állítható,
+        // különben a rögzített érték „beragadna".
+        animation.Completed += (_, _) =>
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            element.Opacity = 1;
+        };
+
+        element.BeginAnimation(UIElement.OpacityProperty, animation);
     }
 
     /// <summary>Lásd BugReportViewModel.RegisterSecretClick: 10 kattintásra felnyílik a fejlesztői panel.</summary>

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Threading;
@@ -97,6 +97,45 @@ public sealed class JsonSettingsService : ISettingsService, IDisposable
         }
     }
 
+    public bool TryExport(string path)
+    {
+        try
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(Current, SettingsJsonContext.Default.AppSettings));
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    public bool TryImport(string path)
+    {
+        try
+        {
+            var loaded = JsonSerializer.Deserialize(File.ReadAllText(path), SettingsJsonContext.Default.AppSettings);
+
+            if (loaded is null)
+            {
+                return false;
+            }
+
+            // A munkamenet SZÁNDÉKOSAN nem kerül át: egy másik gépen mentett
+            // fülkészlet olyan útvonalakra mutatna, amik itt nem léteznek.
+            loaded.Session = Current.Session;
+            loaded.MigrateKeymap();
+
+            Current = loaded;
+            NotifyChanged();
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
     private AppSettings Load()
     {
         try
@@ -107,9 +146,12 @@ public sealed class JsonSettingsService : ISettingsService, IDisposable
             }
 
             var json = File.ReadAllText(_filePath);
-            var loaded = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.AppSettings);
+            var loaded = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.AppSettings) ?? new AppSettings();
 
-            return loaded ?? new AppSettings();
+            // Séma-migrációk. Idempotensek: mindegyik felismeri, ha már lefutott.
+            loaded.MigrateKeymap();
+
+            return loaded;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {

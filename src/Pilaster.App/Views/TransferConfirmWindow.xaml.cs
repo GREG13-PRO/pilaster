@@ -1,11 +1,11 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using Pilaster.App.Localization;
 using Wpf.Ui.Controls;
 
 namespace Pilaster.App.Views;
 
 /// <summary>
-/// Total Commander F5 (Másolás)/F6 (Áthelyezés) megerősítő párbeszéde — a cél
+/// Pilaster Classic F5 (Másolás)/F6 (Áthelyezés) megerősítő párbeszéde — a cél
 /// mappa szerkeszthető szövegmezőben jelenik meg, ahogy a specifikáció kéri.
 /// Ha a felhasználó a cél MAPPÁJÁT nem változtatja meg (csak a fájlnevet, egy
 /// elem kijelölésekor), a végeredmény gyakorlatilag átnevezés — ezt nem itt,

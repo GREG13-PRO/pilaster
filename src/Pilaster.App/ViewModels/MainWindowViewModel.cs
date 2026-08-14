@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -226,10 +226,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// A kétablakos nézet alján megjelenő, kattintható funkcióbillentyű-sáv
     /// csak akkor látszik, ha MINDKÉT beállítás be van kapcsolva — kétablakos
     /// nézet nélkül nincs értelme (F5/F6 a másik panelre céloz), a Total
-    /// Commander-billentyűkiosztás nélkül pedig zavaró lenne, ha a gombok
+    /// billentyűkiosztás nélkül pedig zavaró lenne, ha a gombok
     /// funkciója nem egyezik a megszokott billentyűkkel.
     /// </summary>
-    public bool ShowFunctionKeyBar => DualPaneEnabled && _settings.Current.TotalCommanderKeybindingsEnabled;
+    public bool ShowFunctionKeyBar => DualPaneEnabled && _settings.Current.Keymap == KeymapPreset.PilasterClassic;
 
     [ObservableProperty]
     public partial bool DualPaneVertical { get; set; }
@@ -350,7 +350,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Total Commander F5 (másolás)/F6 (áthelyezés) — a felhasználó által a
+    /// Pilaster Classic F5 (másolás)/F6 (áthelyezés) — a felhasználó által a
     /// <c>TransferConfirmWindow</c>-ban megerősített célmappa alapján indítja
     /// a műveletet. Kivétel: pontosan egy kijelölt elem és VÁLTOZATLAN
     /// célmappa esetén ez gyakorlatilag átnevezés — ilyenkor nem indul
@@ -670,7 +670,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateNewFileAsync() => await CreateNewItemAsync(QuickActionKind.File, SelectedTab);
 
-    /// <summary>Total Commander F7 — új mappa a MEGADOTT (aktív egy- vagy kétablakos) panelben, nem feltétlenül a fülrendszer aktuális fülében.</summary>
+    /// <summary>Pilaster Classic F7 — új mappa a MEGADOTT (aktív egy- vagy kétablakos) panelben, nem feltétlenül a fülrendszer aktuális fülében.</summary>
     public async Task CreateNewFolderInTabAsync(TabViewModel tab) => await CreateNewItemAsync(QuickActionKind.Folder, tab);
 
     private async Task CreateNewItemAsync(QuickActionKind kind, TabViewModel? tab)

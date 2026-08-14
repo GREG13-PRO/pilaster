@@ -1,4 +1,4 @@
-<Application
+﻿<Application
     x:Class="Pilaster.App.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -24,6 +24,7 @@
             <conv:HiddenItemOpacityConverter x:Key="HiddenOpacity" />
             <conv:ThemeModeConverter x:Key="ThemeMode" />
             <conv:AnimationLevelConverter x:Key="AnimationLevel" />
+            <conv:KeymapNameConverter x:Key="KeymapName" />
             <conv:LocalizeKeyConverter x:Key="LocalizeKey" />
             <conv:InvertBoolConverter x:Key="InvertBool" />
             <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
@@ -34,6 +35,7 @@
             <conv:HexToBrushConverter x:Key="HexToBrush" />
             <conv:IconNameConverter x:Key="IconName" />
             <conv:NotNullConverter x:Key="NotNull" />
+            <conv:EqualsToVisibilityConverter x:Key="CategoryVisible" />
             <conv:VisibleFlagOpacityConverter x:Key="HiddenOpacityInverse" />
             <conv:ColorToBrushConverter x:Key="ColorToBrush" />
         </ResourceDictionary>

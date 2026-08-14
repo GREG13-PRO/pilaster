@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 // A WPF projektek implicit using-készlete nem tartalmazza a System.IO-t,
@@ -189,7 +189,7 @@ public sealed partial class TabViewModel : ObservableObject
     partial void OnActiveTagFilterIdChanged(string? value) => ApplyItemFilter();
 
     /// <summary>
-    /// Gyors, élő szöveges szűrő a névre — az Alt+F7 (Total Commander
+    /// Gyors, élő szöveges szűrő a névre — az Alt+F7 (Pilaster Classic
     /// „Keresés a mappában") ezzel tölti ki. A címkeszűrővel EGYÜTT
     /// érvényesül (lásd <see cref="ApplyItemFilter"/>), nem cseréli le.
     /// </summary>

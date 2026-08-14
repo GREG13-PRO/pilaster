@@ -654,12 +654,6 @@
   <data name="TC_TransferHint" xml:space="preserve">
     <value>Edit the target path if needed, then press Enter or click OK.</value>
   </data>
-  <data name="Settings_TotalCommander" xml:space="preserve">
-    <value>Total Commander keybindings</value>
-  </data>
-  <data name="Settings_TotalCommanderHint" xml:space="preserve">
-    <value>F3 View, F4 Edit, F5 Copy, F6 Move, F7 New folder, F8/Delete Delete, Tab switches panes. Turned off, traditional Explorer-like shortcuts remain in effect.</value>
-  </data>
   <data name="Settings_ExternalEditor" xml:space="preserve">
     <value>External editor (F4)</value>
   </data>
@@ -818,5 +812,356 @@
   </data>
   <data name="QuickAccess_AddSeparator" xml:space="preserve">
     <value>Separator</value>
+  </data>
+  <data name="Keymap_UpHint" xml:space="preserve">
+    <value>One level up.</value>
+  </data>
+  <data name="Keymap_CloseTabHint" xml:space="preserve">
+    <value>Closes the active tab (the last one stays).</value>
+  </data>
+  <data name="Keymap_UnselectAll" xml:space="preserve">
+    <value>Clear selection</value>
+  </data>
+  <data name="Keymap_EditHint" xml:space="preserve">
+    <value>Opens in the configured editor.</value>
+  </data>
+  <data name="Keymap_PilasterModern" xml:space="preserve">
+    <value>Pilaster Modern (Explorer-like)</value>
+  </data>
+  <data name="Keymap_MarkHint" xml:space="preserve">
+    <value>Selects the item and moves the cursor to the next one.</value>
+  </data>
+  <data name="Keymap_InvertSelectionHint" xml:space="preserve">
+    <value>Selected and unselected items swap.</value>
+  </data>
+  <data name="Keymap_ColAction" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="Keymap_RefreshHint" xml:space="preserve">
+    <value>Reloads the active tab.</value>
+  </data>
+  <data name="Keymap_ViewTable" xml:space="preserve">
+    <value>View layout</value>
+  </data>
+  <data name="Keymap_ColKey" xml:space="preserve">
+    <value>Key</value>
+  </data>
+  <data name="Keymap_ToggleMark" xml:space="preserve">
+    <value>Toggle mark</value>
+  </data>
+  <data name="Keymap_CopyHint" xml:space="preserve">
+    <value>Copies to the other pane, with confirmation.</value>
+  </data>
+  <data name="Keymap_RefreshBothHint" xml:space="preserve">
+    <value>Reloads the active tab of both panes.</value>
+  </data>
+  <data name="Keymap_NextTab" xml:space="preserve">
+    <value>Next tab</value>
+  </data>
+  <data name="Keymap_PilasterClassic" xml:space="preserve">
+    <value>Pilaster Classic (dual-pane)</value>
+  </data>
+  <data name="Keymap_MoveHint" xml:space="preserve">
+    <value>Moves to the other pane; renames if the folder is unchanged.</value>
+  </data>
+  <data name="Keymap_NewFolderHint" xml:space="preserve">
+    <value>New folder, immediately renameable.</value>
+  </data>
+  <data name="Keymap_ClipboardHint" xml:space="preserve">
+    <value>Acts on the selection via the clipboard.</value>
+  </data>
+  <data name="Keymap_NewTabHint" xml:space="preserve">
+    <value>New tab in the active pane.</value>
+  </data>
+  <data name="Keymap_Mark" xml:space="preserve">
+    <value>Mark and advance</value>
+  </data>
+  <data name="Keymap_QuickFilterHint" xml:space="preserve">
+    <value>Jumps to the search box and filters the folder live.</value>
+  </data>
+  <data name="Keymap_UnselectAllHint" xml:space="preserve">
+    <value>Clears every selection.</value>
+  </data>
+  <data name="Keymap_RightToLeftHint" xml:space="preserve">
+    <value>The left pane navigates to the right pane folder.</value>
+  </data>
+  <data name="Keymap_HideTable" xml:space="preserve">
+    <value>Hide layout</value>
+  </data>
+  <data name="Keymap_SwitchPane" xml:space="preserve">
+    <value>Switch pane</value>
+  </data>
+  <data name="Settings_Keymap" xml:space="preserve">
+    <value>Keyboard layout</value>
+  </data>
+  <data name="Keymap_ForwardHint" xml:space="preserve">
+    <value>Forward in history.</value>
+  </data>
+  <data name="Keymap_SelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="Keymap_InvertSelection" xml:space="preserve">
+    <value>Invert selection</value>
+  </data>
+  <data name="Keymap_RefreshBoth" xml:space="preserve">
+    <value>Refresh both panes</value>
+  </data>
+  <data name="Keymap_RenameHint" xml:space="preserve">
+    <value>Inline editable name box.</value>
+  </data>
+  <data name="Keymap_ViewHint" xml:space="preserve">
+    <value>Read-only preview (image, text, hex).</value>
+  </data>
+  <data name="Keymap_LeftToRightHint" xml:space="preserve">
+    <value>The right pane navigates to the left pane folder.</value>
+  </data>
+  <data name="Keymap_ToggleMarkHint" xml:space="preserve">
+    <value>Toggles the item under the cursor without moving.</value>
+  </data>
+  <data name="Keymap_RightToLeft" xml:space="preserve">
+    <value>Right path to the left</value>
+  </data>
+  <data name="Keymap_DeleteHint" xml:space="preserve">
+    <value>Moves to the Recycle Bin.</value>
+  </data>
+  <data name="Keymap_SwapPanesHint" xml:space="preserve">
+    <value>The two panes swap contents, tabs included.</value>
+  </data>
+  <data name="Keymap_QuickFilter" xml:space="preserve">
+    <value>Quick filter</value>
+  </data>
+  <data name="Settings_KeymapHint" xml:space="preserve">
+    <value>How the function keys behave. Classic is the traditional dual-pane layout (F5 copy, F6 move); Modern uses the familiar Explorer keys (F5 refresh).</value>
+  </data>
+  <data name="Keymap_Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="Keymap_BackHint" xml:space="preserve">
+    <value>Back in history.</value>
+  </data>
+  <data name="Keymap_Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Keymap_SwitchPaneHint" xml:space="preserve">
+    <value>Makes the other pane active.</value>
+  </data>
+  <data name="Keymap_SelectAllHint" xml:space="preserve">
+    <value>Every item in the current folder.</value>
+  </data>
+  <data name="Keymap_DeletePermanentHint" xml:space="preserve">
+    <value>Permanent delete, bypassing the Recycle Bin.</value>
+  </data>
+  <data name="Keymap_LeftToRight" xml:space="preserve">
+    <value>Left path to the right</value>
+  </data>
+  <data name="Keymap_ColDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Keymap_NextTabHint" xml:space="preserve">
+    <value>Cycles through the tabs of the pane.</value>
+  </data>
+  <data name="Settings_EditorFontHint" xml:space="preserve">
+    <value>Typeface used by the built-in editor.</value>
+  </data>
+  <data name="Settings_OpenConfigHint" xml:space="preserve">
+    <value>Where the settings, tags and Quick access files live.</value>
+  </data>
+  <data name="SettingsCat_FileList" xml:space="preserve">
+    <value>File list</value>
+  </data>
+  <data name="Settings_BinarySizeUnits" xml:space="preserve">
+    <value>Binary size units (KiB/MiB)</value>
+  </data>
+  <data name="Settings_ShowExtensions" xml:space="preserve">
+    <value>Show file extensions</value>
+  </data>
+  <data name="Settings_ImportDone" xml:space="preserve">
+    <value>Settings imported.</value>
+  </data>
+  <data name="Settings_Terminal" xml:space="preserve">
+    <value>External terminal</value>
+  </data>
+  <data name="Settings_ShellExtensions" xml:space="preserve">
+    <value>Show shell extensions</value>
+  </data>
+  <data name="SettingsCat_Advanced" xml:space="preserve">
+    <value>Advanced</value>
+  </data>
+  <data name="Settings_ShellExtensionsHint" xml:space="preserve">
+    <value>Entries from installed apps (7-Zip, TortoiseGit, etc.) inside the built-in context menu.</value>
+  </data>
+  <data name="Settings_ExportDone" xml:space="preserve">
+    <value>Settings exported.</value>
+  </data>
+  <data name="Settings_OpenConfig" xml:space="preserve">
+    <value>Configuration folder</value>
+  </data>
+  <data name="Settings_RestartRequired" xml:space="preserve">
+    <value>Restart required</value>
+  </data>
+  <data name="Settings_EditorLineNumbers" xml:space="preserve">
+    <value>Line numbers</value>
+  </data>
+  <data name="SettingsCat_Editor" xml:space="preserve">
+    <value>Editor</value>
+  </data>
+  <data name="Settings_EditorWindow" xml:space="preserve">
+    <value>Open in a separate window</value>
+  </data>
+  <data name="Settings_EditorEncoding" xml:space="preserve">
+    <value>Default encoding</value>
+  </data>
+  <data name="Settings_EditorWordWrap" xml:space="preserve">
+    <value>Word wrap</value>
+  </data>
+  <data name="Settings_OpenLog" xml:space="preserve">
+    <value>Open log file</value>
+  </data>
+  <data name="Settings_LogLevel" xml:space="preserve">
+    <value>Log level</value>
+  </data>
+  <data name="SettingsCat_About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Settings_StartupFolder" xml:space="preserve">
+    <value>Startup folder</value>
+  </data>
+  <data name="Settings_SingleInstance" xml:space="preserve">
+    <value>Single instance</value>
+  </data>
+  <data name="Settings_ShellTimeoutHint" xml:space="preserve">
+    <value>How long to wait for extensions; the built-in items appear immediately regardless.</value>
+  </data>
+  <data name="Settings_OpenLogHint" xml:space="preserve">
+    <value>Opens the most recent log file with the associated app.</value>
+  </data>
+  <data name="Settings_BinarySizeUnitsHint" xml:space="preserve">
+    <value>When off, decimal KB/MB units are used.</value>
+  </data>
+  <data name="Settings_ResetDone" xml:space="preserve">
+    <value>Category restored to defaults.</value>
+  </data>
+  <data name="Settings_ImportFailed" xml:space="preserve">
+    <value>The file could not be read or is not valid.</value>
+  </data>
+  <data name="SettingsCat_ContextMenu" xml:space="preserve">
+    <value>Context menu</value>
+  </data>
+  <data name="Settings_DensityHint" xml:space="preserve">
+    <value>Row height and spacing in the file list.</value>
+  </data>
+  <data name="Settings_FoldersFirstHint" xml:space="preserve">
+    <value>Folders sort before files regardless of the sort key.</value>
+  </data>
+  <data name="Settings_ShowSystemHint" xml:space="preserve">
+    <value>Show operating-system protected items.</value>
+  </data>
+  <data name="Settings_ShowExtensionsHint" xml:space="preserve">
+    <value>The type suffix (e.g. .txt) is shown after the file name.</value>
+  </data>
+  <data name="Settings_StartupFolderHint" xml:space="preserve">
+    <value>Leave empty to open the Home page. Only applies when session restore is off.</value>
+  </data>
+  <data name="Settings_ShellOwnSectionHint" xml:space="preserve">
+    <value>When off, shell items are listed inline among the built-in items.</value>
+  </data>
+  <data name="Settings_EditorTabWidthHint" xml:space="preserve">
+    <value>How many spaces make one indent level.</value>
+  </data>
+  <data name="Settings_HiddenHint" xml:space="preserve">
+    <value>Show items marked with the hidden attribute.</value>
+  </data>
+  <data name="SettingsCat_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings_DualPane" xml:space="preserve">
+    <value>Dual-pane view</value>
+  </data>
+  <data name="Settings_EditorLineEndingHint" xml:space="preserve">
+    <value>Line endings for new files. Existing files keep their own.</value>
+  </data>
+  <data name="Settings_ExportFailed" xml:space="preserve">
+    <value>Export failed.</value>
+  </data>
+  <data name="Settings_EditorWindowHint" xml:space="preserve">
+    <value>When off, the editor appears as a tab in the main window.</value>
+  </data>
+  <data name="SettingsCat_Panes" xml:space="preserve">
+    <value>Panes</value>
+  </data>
+  <data name="Settings_ShellBlacklist" xml:space="preserve">
+    <value>Disabled extensions</value>
+  </data>
+  <data name="Settings_ShellTimeout" xml:space="preserve">
+    <value>Load timeout (ms)</value>
+  </data>
+  <data name="Settings_SearchPlaceholder" xml:space="preserve">
+    <value>Search settings…</value>
+  </data>
+  <data name="SettingsCat_Integrations" xml:space="preserve">
+    <value>Integrations</value>
+  </data>
+  <data name="Settings_FoldersFirst" xml:space="preserve">
+    <value>Folders first</value>
+  </data>
+  <data name="Settings_ShowSystem" xml:space="preserve">
+    <value>Show system files</value>
+  </data>
+  <data name="Settings_TerminalHint" xml:space="preserve">
+    <value>The "Open terminal here" command launches this.</value>
+  </data>
+  <data name="Settings_EditorInsertSpaces" xml:space="preserve">
+    <value>Insert spaces instead of tabs</value>
+  </data>
+  <data name="SettingsCat_Keyboard" xml:space="preserve">
+    <value>Keyboard</value>
+  </data>
+  <data name="Settings_SplitRatioHint" xml:space="preserve">
+    <value>Share of the left (or top) pane. Double-click the splitter to reset to half.</value>
+  </data>
+  <data name="Settings_EditorLineEnding" xml:space="preserve">
+    <value>Default line ending</value>
+  </data>
+  <data name="Settings_SplitRatio" xml:space="preserve">
+    <value>Splitter position</value>
+  </data>
+  <data name="Settings_EditorTabWidth" xml:space="preserve">
+    <value>Tab width</value>
+  </data>
+  <data name="Settings_DualPaneHint" xml:space="preserve">
+    <value>Two fully independent panes with their own tabs and history.</value>
+  </data>
+  <data name="SettingsCat_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings_EditorEncodingHint" xml:space="preserve">
+    <value>New files use this encoding; existing files are auto-detected.</value>
+  </data>
+  <data name="Settings_ShellOwnSection" xml:space="preserve">
+    <value>In a separate "Other apps" section</value>
+  </data>
+  <data name="Settings_EditorWordWrapHint" xml:space="preserve">
+    <value>Long lines wrap at the window edge.</value>
+  </data>
+  <data name="Settings_SingleInstanceHint" xml:space="preserve">
+    <value>A second launch brings the running window to the front.</value>
+  </data>
+  <data name="Settings_ShellBlacklistHint" xml:space="preserve">
+    <value>One name or CLSID per line. Exclude slow or faulty extensions here.</value>
+  </data>
+  <data name="Settings_Density" xml:space="preserve">
+    <value>Density</value>
+  </data>
+  <data name="Settings_LogLevelHint" xml:space="preserve">
+    <value>Takes effect after a restart.</value>
+  </data>
+  <data name="SettingsCat_Tags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
+  <data name="Settings_EditorFont" xml:space="preserve">
+    <value>Font and size</value>
+  </data>
+  <data name="Settings_ResetCategory" xml:space="preserve">
+    <value>Reset this category</value>
   </data>
 </root>
