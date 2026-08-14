@@ -39,9 +39,9 @@ public sealed class JsonSettingsService : ISettingsService, IDisposable
 
     public JsonSettingsService()
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Pilaster");
+        // Hordozható módban a program saját mappája, egyébként %APPDATA% —
+        // lásd AppDataLocator.
+        var directory = AppDataLocator.Directory;
 
         Directory.CreateDirectory(directory);
         _filePath = Path.Combine(directory, "settings.json");

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -61,9 +61,9 @@ public sealed class QuickAccessService : IDisposable
     /// </param>
     public QuickAccessService(string? storageDirectory = null)
     {
-        var directory = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Pilaster");
+        // Hordozható módban a program saját mappája, egyébként %APPDATA% —
+        // lásd AppDataLocator.
+        var directory = storageDirectory ?? AppDataLocator.Directory;
 
         Directory.CreateDirectory(directory);
         _filePath = Path.Combine(directory, "quickaccess.json");
