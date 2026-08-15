@@ -34,14 +34,34 @@ internal static class Program
 
         var rounds = args.Length > 1 && int.TryParse(args[1], out var parsed) ? parsed : 10;
 
+        // B1: a PUMPÁLÁS kivétele. Ilyenkor a szál pontosan úgy dolgozik, mint
+        // a Pilaster StaWorker-e: BlockingCollection munkasor, üzenethurok
+        // NÉLKÜL. Minden más változatlan.
+        var pump = !args.Contains("nopump", StringComparer.OrdinalIgnoreCase);
+
+        UseVanara = args.Contains("vanara", StringComparer.OrdinalIgnoreCase);
+
         Console.WriteLine($"cel      : {target}");
         Console.WriteLine($"korok    : {rounds}");
+        Console.WriteLine($"pumpalas : {(pump ? "IGEN (uzenethurok)" : "NEM (BlockingCollection munkasor)")}");
+        Console.WriteLine($"reteg    : {(UseVanara ? "VANARA (ShellItem + CreateFromItems)" : "nyers P/Invoke")}");
         Console.WriteLine($"letezik  : {File.Exists(target) || Directory.Exists(target)}");
         Console.WriteLine();
 
+        var completed = pump ? RunPumping(target, rounds) : RunWorkQueue(target, rounds);
+
+        Console.WriteLine();
+        Console.WriteLine($"befejezett korok: {completed} / {rounds}");
+
+        return completed == rounds ? 0 : 1;
+    }
+
+    /// <summary>Pumpáló STA szál — az eredeti, zölden futó változat.</summary>
+    private static int RunPumping(string target, int rounds)
+    {
         var completed = 0;
 
-        var thread = new Thread(() => completed = RunRounds(target, rounds))
+        var thread = new Thread(() => completed = RunRounds(target, rounds, pump: true))
         {
             IsBackground = false,
             Name = "ShellCrashRepro.STA",
@@ -51,13 +71,85 @@ internal static class Program
         thread.Start();
         thread.Join();
 
-        Console.WriteLine();
-        Console.WriteLine($"befejezett korok: {completed} / {rounds}");
-
-        return completed == rounds ? 0 : 1;
+        return completed;
     }
 
-    private static int RunRounds(string target, int rounds)
+    /// <summary>
+    /// B1: munkasoros STA szál, üzenethurok NÉLKÜL — a Pilaster
+    /// <c>StaWorker</c>-ének pontos mása.
+    /// </summary>
+    private static int RunWorkQueue(string target, int rounds)
+    {
+        using var queue = new System.Collections.Concurrent.BlockingCollection<Action>();
+        var completed = 0;
+
+        var thread = new Thread(() =>
+        {
+            // UGYANAZ a szerkezet, mint a StaWorker.Pump(): se GetMessage, se
+            // DispatchMessage — csak a munkaegységek lefuttatása.
+            foreach (var work in queue.GetConsumingEnumerable())
+            {
+                try
+                {
+                    work();
+                }
+                catch (Exception)
+                {
+                    // A szál nem állhat le egy hibás munkaegység miatt.
+                }
+            }
+        })
+        {
+            IsBackground = false,
+            Name = "ShellCrashRepro.StaWorker",
+        };
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        for (var round = 0; round < rounds; round++)
+        {
+            var current = round;
+            using var done = new ManualResetEventSlim(false);
+
+            queue.Add(() =>
+            {
+                Console.WriteLine($"kor {current}: indul");
+                Console.Out.Flush();
+
+                try
+                {
+                    QueryOnce(target);
+                    Interlocked.Increment(ref completed);
+                    Console.WriteLine($"kor {current}: kesz");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"kor {current}: KIVETEL {ex.GetType().Name}: {ex.Message}");
+                }
+
+                Console.Out.Flush();
+
+                // A Pilaster is ugyanígy: NINCS pumpa, csak a GC fut le
+                // két lekérdezés között.
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+
+                done.Set();
+            });
+
+            done.Wait();
+            Thread.Sleep(800);
+        }
+
+        queue.CompleteAdding();
+        thread.Join(TimeSpan.FromSeconds(5));
+
+        return completed;
+    }
+
+    private static int RunRounds(string target, int rounds, bool pump)
     {
         var completed = 0;
 
@@ -84,20 +176,84 @@ internal static class Program
             // Az STA apartmentnek PUMPÁLNIA kell: a bővítmények ablakot
             // hozhatnak létre a hívó szálon, és a lebontásuk üzeneteket
             // igényel. Pumpa nélkül azok felgyűlnek.
-            PumpMessages(milliseconds: 400);
+            if (pump)
+            {
+                PumpMessages(milliseconds: 400);
+            }
 
             // Rásegítünk arra, ami a valóságban két jobbklikk között történne.
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            PumpMessages(milliseconds: 400);
+            if (pump)
+            {
+                PumpMessages(milliseconds: 400);
+            }
+            else
+            {
+                Thread.Sleep(800);
+            }
         }
 
         return completed;
     }
 
+    /// <summary>B2: a Pilaster Vanara-útja — <c>ShellItem</c> + <c>ShellContextMenu.CreateFromItems</c>.</summary>
+    private static bool UseVanara { get; set; }
+
     private static void QueryOnce(string target)
+    {
+        if (UseVanara)
+        {
+            QueryOnceVanara(target);
+            return;
+        }
+
+        QueryOnceRaw(target);
+    }
+
+    /// <summary>
+    /// UGYANAZ a felszabadítási sorrend, mint a Pilaster
+    /// <c>ShellMenuSession.CreateForItems</c>-ében: menü → keepAlive →
+    /// ShellItem-ek.
+    /// </summary>
+    private static void QueryOnceVanara(string target)
+    {
+        var item = Vanara.Windows.Shell.ShellItem.Open(target);
+        var menu = Vanara.Windows.Shell.ShellContextMenu.CreateFromItems([item], out var keepAlive);
+        var hMenu = CreatePopupMenu();
+
+        try
+        {
+            if (hMenu == nint.Zero)
+            {
+                throw new InvalidOperationException("CreatePopupMenu sikertelen.");
+            }
+
+            var hr = menu.ComInterface.QueryContextMenu(hMenu, 0, 1, 0x7FFF, Vanara.PInvoke.Shell32.CMF.CMF_NORMAL);
+
+            if (hr.Failed)
+            {
+                hr.ThrowIfFailed();
+            }
+
+            Console.WriteLine($"   elemek: {GetMenuItemCount(hMenu)}");
+        }
+        finally
+        {
+            if (hMenu != nint.Zero)
+            {
+                DestroyMenu(hMenu);
+            }
+
+            menu.Dispose();
+            keepAlive.Dispose();
+            item.Dispose();
+        }
+    }
+
+    private static void QueryOnceRaw(string target)
     {
         var hr = SHParseDisplayName(target, nint.Zero, out var pidl, 0, out _);
         Marshal.ThrowExceptionForHR(hr);

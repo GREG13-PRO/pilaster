@@ -17,4 +17,14 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!--
+    A B2 lépéshez (és CSAK ahhoz): a Pilaster Vanara-rétege. A „vanara"
+    parancssori kapcsoló nélkül egyetlen sor sem hívódik meg belőle, tehát az
+    alap referencia-mérés továbbra is teljesen külső függőség nélküli.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Vanara.PInvoke.Shell32" Version="5.0.5" />
+    <PackageReference Include="Vanara.Windows.Shell.Common" Version="5.0.5" />
+  </ItemGroup>
+
 </Project>
