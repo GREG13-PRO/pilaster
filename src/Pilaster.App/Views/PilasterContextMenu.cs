@@ -255,6 +255,27 @@ public sealed class PilasterContextMenu
         Func<TimeSpan, IReadOnlyCollection<string>, Task<ShellMenuSession?>> shellQuery,
         Core.Settings.AppSettings settings)
     {
+        // CATCH-ALL. Ezt a metódust eldobott taskként indítjuk
+        // (`_ = LoadShellItemsAsync(...)`), tehát ami innen kiszökik, azt senki
+        // nem figyeli meg: a legjobb esetben némán elvész, a legrosszabban a
+        // folyamatot viszi. A shell-elemek hiánya bosszantó, az összeomlás nem
+        // elfogadható — ezért itt MINDEN kivétel megáll.
+        try
+        {
+            await LoadShellItemsCoreAsync(shellQuery, settings);
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.CrashDiagnostics.Write($"A shell-elemek betöltése elszállt: {ex}", force: true);
+            Serilog.Log.Error(ex, "A shell-elemek betöltése nem sikerült");
+            RemoveLoadingPlaceholder();
+        }
+    }
+
+    private async Task LoadShellItemsCoreAsync(
+        Func<TimeSpan, IReadOnlyCollection<string>, Task<ShellMenuSession?>> shellQuery,
+        Core.Settings.AppSettings settings)
+    {
         // A jelző a lekérdezés ELŐTT íródik ki és utána törlődik: ha a
         // folyamat közben hal meg (natív AV egy bővítményben), a következő
         // indulás ebből tudja, hogy shell nélkül kell indulnia (spec P3).
@@ -350,11 +371,32 @@ public sealed class PilasterContextMenu
                 // A menü bezárul, de a munkamenetet a Closed kezelője csak a
                 // parancs elindítása UTÁN dobja el — a helyi másolat így
                 // biztosan él a hívás pillanatában.
-                _ = _session?.InvokeAsync(commandId, owner);
+                //
+                // CATCH-ALL: ez is eldobott task, tehát ami innen kiszökik, azt
+                // senki nem figyeli meg. Egy hibás bővítmény parancsa nem
+                // viheti a folyamatot.
+                _ = InvokeShellCommandAsync(commandId, owner);
             };
         }
 
         return item;
+    }
+
+    /// <summary>Egy shell-parancs végrehajtása, minden hibát elnyelve.</summary>
+    private async Task InvokeShellCommandAsync(uint commandId, nint owner)
+    {
+        try
+        {
+            if (_session is { } session)
+            {
+                await session.InvokeAsync(commandId, owner);
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.CrashDiagnostics.Write($"A shell-parancs végrehajtása elszállt: {ex}", force: true);
+            Serilog.Log.Error(ex, "A shell-parancs végrehajtása nem sikerült ({CommandId})", commandId);
+        }
     }
 
     /// <summary>

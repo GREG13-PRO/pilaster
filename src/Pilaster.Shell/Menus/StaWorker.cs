@@ -68,12 +68,22 @@ internal sealed class StaWorker : IDisposable
                 }
             }
         }
+        catch (ObjectDisposedException)
+        {
+            // Öv és nadrágtartó: a sort a Dispose SZÁNDÉKOSAN nem dobja el
+            // (lásd ott), de ha egy jövőbeli változtatás mégis megtenné,
+            // ebből ne legyen folyamatgyilkos kivétel.
+        }
         finally
         {
             if (comInitialized)
             {
                 NativeMenuInterop.CoUninitialize();
             }
+
+            // A sort AZ A SZÁL szabadítja fel, amelyik olvassa — így nem
+            // fordulhat elő, hogy közben még benne áll.
+            _queue.Dispose();
         }
     }
 
@@ -107,10 +117,19 @@ internal sealed class StaWorker : IDisposable
 
     public void Dispose()
     {
+        // CSAK lezárjuk a sort: ettől a szivattyú szál `GetConsumingEnumerable`
+        // ciklusa magától kifogy, és a szál a `Pump` végén szabadítja fel a
+        // gyűjteményt.
+        //
+        // A sor eldobása ITT végzetes hiba volt: a szivattyú szál ilyenkor még
+        // BENNE ÁLL az enumerátorban, és `ObjectDisposedException`-t kap — ami
+        // a `foreach`-en KÍVÜL keletkezik, tehát kiszökik a `Pump`-ból, és
+        // kezeletlen kivételként megöli a folyamatot. MÉRVE: 100 menünyitásból
+        // 3 futás halt így meg (0xE0434352), és a jelenség pont akkor jött elő,
+        // amikor egy időtúllépés miatt eldobtuk a közös szálat (RetireShared).
         _queue.CompleteAdding();
 
         // Nem Join-olunk: a szál háttérszál, és egy beragadt bővítmény-hívás
         // itt a bezárást akaszthatná meg.
-        _queue.Dispose();
     }
 }

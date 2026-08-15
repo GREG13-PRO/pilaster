@@ -127,6 +127,13 @@ public partial class App : Application
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
+        // A dispatcher-horog CSAK a UI szálat fedi. Egy háttérszálról vagy egy
+        // eldobott taskból elszabaduló kivétel megkerülné, és némán vinné a
+        // folyamatot — ezért kell a másik kettő is. A részletes, soronként
+        // lemezre író napló a Debug naplószinthez kötött.
+        CrashDiagnostics.Install(
+            verbose: string.Equals(settings.Current.LogLevel, "Debug", StringComparison.OrdinalIgnoreCase));
+
         Log.Information(
             "Pilaster {Version} indul ({Os}, {Runtime})",
             AppVersionInfo.Current,
