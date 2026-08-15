@@ -483,23 +483,6 @@ public partial class MainWindow : FluentWindow
     /// <summary>Igaz, amíg a mentett arányt ÁLLÍTJUK be — enélkül a saját beállítás visszamentése zajt keltene.</summary>
     private bool _isApplyingSplitRatio;
 
-    /// <summary>Az elválasztó programozott mozgatása — az F7 önteszt használja.</summary>
-    internal void SetSplitRatioForTest(double ratio)
-    {
-        if (_viewModel.DualPaneVertical)
-        {
-            DualPaneTopRow.Height = new GridLength(ratio, GridUnitType.Star);
-            DualPaneBottomRow.Height = new GridLength(1 - ratio, GridUnitType.Star);
-        }
-        else
-        {
-            DualPaneLeftColumn.Width = new GridLength(ratio, GridUnitType.Star);
-            DualPaneRightColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
-        }
-
-        SaveSplitRatio();
-    }
-
     private void ApplySplitRatio()
     {
         var ratio = Math.Clamp(_settings.Current.DualPaneSplitRatio, 0.05, 0.95);

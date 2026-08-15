@@ -24,15 +24,29 @@ namespace Pilaster.Shell.Menus;
 /// </remarks>
 internal sealed class StaWorker : IDisposable
 {
+    private static int _createdCount;
+
     private readonly BlockingCollection<Action> _queue = new();
     private readonly Thread _thread;
 
     public StaWorker(string name)
     {
+        Interlocked.Increment(ref _createdCount);
         _thread = new Thread(Pump) { IsBackground = true, Name = name };
         _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
     }
+
+    /// <summary>
+    /// Hány STA szál indult eddig a folyamatban.
+    /// </summary>
+    /// <remarks>
+    /// Diagnosztika: ennek EGY-nek kell maradnia a program élete során, hacsak
+    /// egy beragadt bővítmény miatt el nem kellett dobni a közös szálat (lásd
+    /// <c>ShellMenuSession.RetireShared</c>). Ha menünként nő, a közös szál
+    /// megosztása elromlott.
+    /// </remarks>
+    internal static int CreatedCount => Volatile.Read(ref _createdCount);
 
     private void Pump()
     {

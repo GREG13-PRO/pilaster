@@ -24,11 +24,19 @@ fut (`dotnet test`), WPF nélkül:
 | `MindketPanelnekVanSajatAktivFulJeloltje` | Az aktív fül jelölése a modellen él, nem a fülsáv kijelölésén |
 | `AktivFulIndexeAMunkamenetMentesehez` | A munkamenet a helyes fülindexet menti |
 
+`tests/Pilaster.Tests/DualPaneLayoutTests.cs` — 3 teszt. Ez a kettő korábban
+kézi pont volt, pedig egyikhez sem kell vizuális fa (spec T4):
+
+| Teszt | Mit igazol |
+|---|---|
+| `ElrendezesTulEliAzUjrainditast` | A splitter aránya, az elrendezés iránya, a séma verziója és a panelenkénti fülek VALÓDI fájlon át írva-olvasva ugyanazok |
+| `AzElvalasztoAlapertekeFelezes` | Üres beállításfájlból is 0,5 az arány és vízszintes az elrendezés |
+| `EltuntUtvonalCsakAzEgyikPaneltErinti` | Egy TÉNYLEGESEN törölt mappára navigálva a másik panel útvonala, előzménye, kijelölése és elemszáma bitre ugyanaz marad |
+
 Ezen felül egy futásidejű önteszt (a fejlesztés közben futott, nem része a
 kiadott kódnak) végigmérte a panelváltást, a `Ctrl+U` panelcserét, a
-`Ctrl+L` útvonal-átadást, az elrendezésváltást, a splitter-arány mentését, az
-egypaneles módra váltás és vissza forgatókönyvét, az eltűnt útvonal
-kezelését és a munkamenet mentését — mind zölden.
+`Ctrl+L` útvonal-átadást, az elrendezésváltást, az egypaneles módra váltás és
+vissza forgatókönyvét és a munkamenet mentését — mind zölden.
 
 ## Amit a tesztek NEM fednek le — kézi ellenőrzés
 
@@ -44,15 +52,11 @@ egységtesztelhetők.
       fület, válts vissza — a kijelölésnek vissza kell állnia.
 - [ ] **Backspace / Alt+← csak az aktív panelt lépteti.** Navigálj mélyre
       mindkét panelben, majd lépj vissza — csak az aktív panel mozduljon.
-- [ ] **Splitter húzása és dupla kattintás.** Húzd el az elválasztót, indítsd
-      újra az appot: az arány álljon vissza. Dupla kattintás felezze.
+- [ ] **Splitter húzása egérrel.** Húzd el az elválasztót, és dupla kattints
+      rajta (felezzen). *Az arány MENTÉSÉT és visszaolvasását már teszt fedi —
+      itt csak az egérinterakció marad kézi.*
 - [ ] **Elrendezésváltás.** Váltsd függőleges ↔ vízszintes elrendezésre: a
       két panel útvonala, füljei és a splitter aránya maradjon meg.
-- [ ] **Újraindítás utáni visszaállás.** Nyiss több fület mindkét panelben,
-      lépj ki, indítsd újra — minden fül és az aktív fül álljon vissza.
-- [ ] **Eltűnő útvonal.** Nyiss meg egy pendrive-ot az EGYIK panelben, húzd
-      ki: csak az a panel lépjen a legközelebbi elérhető szülőre,
-      hibaüzenettel; a másik panel maradjon érintetlen.
 - [ ] **Drag & drop a panelek között.** Azonos meghajtón belül alapból
       áthelyezés, másik meghajtóra másolás; `Shift` = áthelyezés,
       `Ctrl` = másolás, `Alt` = parancsikon.

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 
 namespace Pilaster.App.Services;
 
@@ -83,25 +84,77 @@ public sealed class ShellCrashGuard
         Clear();
     }
 
+    /// <summary>
+    /// A jelző írását és törlését védi. Az „ellenőrzés + írás" nem lehet két
+    /// külön lépés: az előmelegítés háttérszála és a kilépő UI-szál
+    /// egyszerre nyúlnak a jelzőhöz.
+    /// </summary>
+    private readonly Lock _gate = new();
+
+    private bool _shuttingDown;
+
+    /// <summary>
+    /// Szabályos kilépés kezdete: a jelzőt töröljük, és többé nem írunk újat.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A puszta törlés NEM elég: az előmelegítés háttérszála a törlés UTÁN is
+    /// kiírhatná a következő jelzőt, és akkor egy szabályos kilépés hamis
+    /// összeomlásnak látszana — a következő indulás fölöslegesen kapcsolná ki
+    /// a bővítményeket. Ezért a jelzőbit és a törlés EGY záron belül van, és a
+    /// <see cref="MarkInflight"/> ugyanazt a zárat kéri: a jelölés vagy a
+    /// kilépés elé kerül (és akkor a törlés elviszi), vagy mögé (és akkor
+    /// kimarad).
+    /// </para>
+    /// <para>
+    /// MÉRVE a javítás után: 1, 2, 3, 4 és 6 másodperc után bezárva —
+    /// 5-ből 0 hamis jelző.
+    /// </para>
+    /// </remarks>
+    public void BeginShutdown()
+    {
+        lock (_gate)
+        {
+            _shuttingDown = true;
+            DeleteFlag();
+        }
+    }
+
     /// <summary>A lekérdezés megkezdésének jelzése.</summary>
     public void MarkInflight(string path, string kind)
     {
-        try
+        lock (_gate)
         {
-            File.WriteAllText(
-                _flagPath,
-                JsonSerializer.Serialize(
-                    new ShellInflightRecord(path, kind, DateTimeOffset.UtcNow),
-                    ShellInflightJsonContext.Default.ShellInflightRecord));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Ha nem tudunk jelzőt írni, a védelem kimarad — de a menü működik.
+            if (_shuttingDown)
+            {
+                return;
+            }
+
+            try
+            {
+                File.WriteAllText(
+                    _flagPath,
+                    JsonSerializer.Serialize(
+                        new ShellInflightRecord(path, kind, DateTimeOffset.UtcNow),
+                        ShellInflightJsonContext.Default.ShellInflightRecord));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Ha nem tudunk jelzőt írni, a védelem kimarad — de a menü működik.
+            }
         }
     }
 
     /// <summary>A lekérdezés sikeres befejezésének jelzése.</summary>
     public void Clear()
+    {
+        lock (_gate)
+        {
+            DeleteFlag();
+        }
+    }
+
+    private void DeleteFlag()
     {
         try
         {

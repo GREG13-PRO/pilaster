@@ -47,7 +47,7 @@ public static class HighlightingRegistry
 
             if (stream is null)
             {
-                Serilog.Log.Warning("SELFTEST xshd eroforras nem talalhato: {File}", fileName);
+                Serilog.Log.Warning("A szintaxiskiemelés erőforrása nem található: {File}", fileName);
                 return;
             }
 
@@ -58,7 +58,7 @@ public static class HighlightingRegistry
         }
         catch (Exception ex) when (ex is XmlException or IOException or HighlightingDefinitionInvalidException)
         {
-            Serilog.Log.Warning(ex, "SELFTEST xshd betoltes hiba: {File}", fileName);
+            Serilog.Log.Warning(ex, "A szintaxiskiemelés betöltése nem sikerült: {File}", fileName);
             // Egy hibás definíció nem akadályozhatja meg a szerkesztő
             // megnyitását — legfeljebb kiemelés nélkül jelenik meg a fájl.
         }

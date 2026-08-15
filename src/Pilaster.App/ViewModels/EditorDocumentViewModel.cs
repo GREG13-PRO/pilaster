@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Text;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
@@ -20,14 +21,19 @@ namespace Pilaster.App.ViewModels;
 /// </para>
 /// <para>
 /// FONTOS: a <see cref="TextDocument"/> SZÁLHOZ KÖTÖTT (a WPF
-/// <c>DispatcherObject</c>-jeihez hasonlóan). Ezért az itteni <c>await</c>-ek
-/// szándékosan NEM használnak <c>ConfigureAwait(false)</c>-t: a folytatásnak
-/// vissza kell térnie a UI-szálra, mielőtt a dokumentumot létrehoznánk vagy
-/// módosítanánk. Enélkül a szerkesztő MÉRÉS közben, folyamatosan
-/// <c>NullReferenceException</c>-t dob az AvalonEdit <c>TextView</c>-jában —
-/// mérve, pontosan ez történt az első futásnál. Maga a fájl-I/O így is
-/// háttérszálon fut (lásd <c>TextFileFormat</c>), csak az eredmény
-/// feldolgozása kerül vissza a UI-szálra.
+/// <c>DispatcherObject</c>-jeihez hasonlóan). Egy háttérszálon létrehozott
+/// dokumentumot a renderelés <c>NullReferenceException</c>-nel utasít vissza —
+/// mérve, pontosan ez történt a szerkesztő első változatában.
+/// </para>
+/// <para>
+/// A megoldás NEM az, hogy mindent a UI-szálon csinálunk: egy 122,7 MB-os
+/// naplófájlnál a dokumentum felépítése önmagában 1117 ms, ami látható fagyás.
+/// Az AvalonEdit szabályos utat ad rá: a létrehozó háttérszál a
+/// <c>SetOwnerThread(null)</c> hívással ELENGEDI a dokumentumot, majd a
+/// UI-szál a <c>SetOwnerThread(Thread.CurrentThread)</c>-del átveszi. Így a
+/// nehéz munka háttérben fut, a tulajdonjog viszont a végén a UI-szálé lesz.
+/// A dokumentumot ÉRINTŐ minden későbbi művelet (szöveg írása, újratöltés)
+/// ezért továbbra is UI-szálon marad.
 /// </para>
 /// </remarks>
 public sealed partial class EditorDocumentViewModel : ObservableObject, IDisposable
@@ -120,17 +126,63 @@ public sealed partial class EditorDocumentViewModel : ObservableObject, IDisposa
     /// Egy fájl megnyitása.
     /// </summary>
     /// <returns>A dokumentum, vagy <c>null</c>, ha a fájl bináris (ilyet nem nyitunk meg).</returns>
-    public static async Task<EditorDocumentViewModel?> OpenAsync(string path, string? forcedEncodingId = null)
+    public static async Task<EditorDocumentViewModel?> OpenAsync(
+        string path,
+        string? forcedEncodingId = null,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        if (TextFileFormat.LooksBinary(path))
+        // A UI-szál dispatchere, MÉG a háttérmunka előtt eltárolva. A
+        // dokumentum tulajdonjogát a végén kifejezetten ENNEK a szálnak adjuk,
+        // nem a „véletlenül épp aktuális" szálnak: egyetlen
+        // ConfigureAwait(false) a köztes await-eken elejtené a UI-kontextust,
+        // és a dokumentum egy szálpool-szálhoz tartozna. MÉRVE: pontosan ez
+        // hozta vissza a renderelés NullReferenceException-jét.
+        var uiDispatcher = Dispatcher.CurrentDispatcher;
+
+        // A bináris-szondázás is fájl-I/O — háttérszálra megy, hogy egy lassú
+        // hálózati meghajtón se akassza meg a felületet.
+        if (await Task.Run(() => TextFileFormat.LooksBinary(path), cancellationToken).ConfigureAwait(true))
         {
             return null;
         }
 
         var info = new FileInfo(path);
-        var content = await TextFileFormat.ReadAsync(path, forcedEncodingId);
 
-        var document = new EditorDocumentViewModel(new TextDocument(content.Text))
+        // A NEHÉZ MUNKA HÁTTÉRSZÁLON. MÉRVE egy 122,7 MB-os naplófájlon: a
+        // beolvasás+dekódolás 1137 ms, a TextDocument felépítése további
+        // 1117 ms — ez utóbbi korábban a UI-szálon futott, és önmagában több
+        // mint egy másodperces fagyást okozott.
+        //
+        // A TextDocument szálhoz kötött, de az AvalonEdit ad rá szabályos utat:
+        // a létrehozó szál a SetOwnerThread(null) hívással ELENGEDI, majd a
+        // UI-szál átveszi. Enélkül a dokumentum a háttérszálhoz tartozna, és a
+        // renderelés NullReferenceException-nel bukna (ez volt a korábbi hiba).
+        var (content, textDocument) = await Task.Run(
+            async () =>
+            {
+                var read = await TextFileFormat
+                    .ReadAsync(path, forcedEncodingId, progress, cancellationToken)
+                    .ConfigureAwait(false);
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var created = new TextDocument(read.Text);
+                created.SetOwnerThread(null);
+
+                return (read, created);
+            },
+            cancellationToken).ConfigureAwait(true);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // A tulajdonjogot a UI szála veszi át. Gazdátlan dokumentumnál ez
+        // bármelyik szálról megtehető (az AvalonEdit csak akkor ellenőriz, ha
+        // van tulajdonos), így a hívás akkor is helyes marad, ha a folytatás
+        // valamiért nem a UI-szálon futna.
+        textDocument.SetOwnerThread(uiDispatcher.Thread);
+
+        var document = new EditorDocumentViewModel(textDocument)
         {
             FilePath = path,
             Title = Path.GetFileName(path),
@@ -242,7 +294,11 @@ public sealed partial class EditorDocumentViewModel : ObservableObject, IDisposa
             return;
         }
 
-        var content = await TextFileFormat.ReadAsync(path, forcedEncodingId);
+        // Az újraolvasás és a dekódolás háttérszálon fut, akárcsak a
+        // megnyitásnál — a szöveg beállítása viszont a dokumentumot érinti,
+        // tehát marad a tulajdonos (UI) szálon.
+        var content = await Task.Run(() => TextFileFormat.ReadAsync(path, forcedEncodingId))
+            .ConfigureAwait(true);
 
         // A visszatöltés nem „szerkesztés": a piszkos jelzést el kell nyomni,
         // különben egy újratöltött, érintetlen fájl módosítottnak látszana.

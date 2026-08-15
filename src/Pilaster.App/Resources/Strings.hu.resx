@@ -1260,4 +1260,10 @@
   <data name="Settings_ShellCrashPath" xml:space="preserve">
     <value>A legutóbbi összeomlás itt történt:</value>
   </data>
+  <data name="Editor_LoadFailed" xml:space="preserve">
+    <value>A fájl nem olvasható.</value>
+  </data>
+  <data name="Editor_LoadCancelled" xml:space="preserve">
+    <value>A betöltés megszakítva.</value>
+  </data>
 </root>

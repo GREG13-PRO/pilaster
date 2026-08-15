@@ -36,9 +36,14 @@ amivel a kattintás visszahívható.
 - **Aszinkron, időkorláttal.** A saját elemek azonnal megjelennek; a
   shell-elemek utólag csúsznak be. Időtúllépésnél a menü egyszerűen a saját
   elemekkel marad.
-- **Dedikált STA szál** munkamenetenként (`StaWorker`). A shell-bővítmények
+- **EGY közös, hosszú életű STA szál** (`StaWorker`). A shell-bővítmények
   COM-példányai apartment-kötöttek, és a lekérdezés és a végrehajtás két külön,
   időben távoli művelet — ezért a szálnak élnie kell a menü bezárásáig.
+  Korábban minden lekérdezés SAJÁT szálat kapott (menünként új szál + új COM
+  apartment); most egy közös szál sorosítja a munkát. Ha egy bővítmény
+  beragad rajta, a szálat eldobjuk (`RetireShared`), és a következő lekérdezés
+  frisset kap — e nélkül egyetlen rossz bővítmény az összes további menüt
+  megbénítaná.
 - **Minden hívás védve.** `COMException`, `Win32Exception`, `ArgumentException`,
   `InvalidOperationException` mind elnyelve; egy hibás bővítmény nem ejti el az
   appot, és a beolvasás a többi elemmel folytatódik.
@@ -69,6 +74,46 @@ elhalasztott döntés, nem feledékenység. A helper-folyamat bevezetése
 visszafelé kompatibilis: a `ShellMenuSession` publikus felülete
 (`QueryItemsAsync` / `QueryBackgroundAsync` / `InvokeAsync`) változatlanul
 maradhat, csak a megvalósítása kerülne IPC mögé.
+
+### Ez nem elméleti: MÉRVE összeomlik (v1.1-be halasztva)
+
+A T2-höz készült terheléses mérés közben a folyamat rendszeresen elszállt
+**`0xC0000374` (STATUS_HEAP_CORRUPTION)** hibával. Amit a mérés mutat:
+
+| Eset | Összeomlás |
+|---|---|
+| **Fájl**-menü, 8 lekérdezés/futás, 150 ms szünet | 5 / 10 futás |
+| **Fájl**-menü, 8 lekérdezés/futás, 1500 ms szünet | 5 / 6 futás |
+| **Mappa**-menü, 8 lekérdezés/futás | **0 / 6 futás** |
+| Rendes indulás (1 előmelegítő lekérdezés), harness nélkül | **0 / 8 futás** |
+
+Amit kizártunk méréssel:
+
+- **Nem a közös STA szál okozza.** A régi, menünként új szálas változat
+  ugyanígy omlik (3/6), a közös szálas 2/6 — a különbség a zajban van.
+- **Nem az ikon-átalakítás.** Kikapcsolt `TryConvertBitmap` mellett 7/10.
+- **Nem (csak) a felszabadítás sorrendje.** Mindent szándékosan MEGSZIVÁROGTATVA
+  is 5/6 — sőt így rosszabb, mert a véglegesítők (finalizer) az MTA
+  finalizer-szálon engednék el az apartment-kötött COM-objektumokat.
+
+Két valódi hibát viszont ez a nyomozás talált meg és javított:
+
+1. A `keepAlive` objektumot a `ShellContextMenu` UTÁN kell elengedni (a Vanara
+   dokumentációja szerint túl kell élnie) — a lista fordítva ürült, tehát
+   előbb szabadult fel.
+2. A `ShellItem`-eket NEM mi szabadítjuk fel: azok a `keepAlive` tulajdonai.
+   A dupla felszabadítás önmagában 5/6-ról 1/6-ra vitte le a rátát.
+
+**Következtetés:** a maradék korrupció a betöltött, harmadik féltől származó
+bővítmény-DLL-ekben keletkezik (ezen a gépen 21 db: NVIDIA, AVG, Nextcloud,
+Google DriveFS, OneDrive), és in-process architektúrában **nem javítható** —
+pontosan ezért van a specben a folyamat-izoláció. Ez a **v1.1 első feladata**.
+
+Ami a v1.0-t addig is használhatóvá teszi: a normál használat mintája (egy menü,
+emberi tempóban) a mérésekben **nem** omlott össze, és a `ShellCrashGuard`
+(lásd lent) a következő indulásnál kimenti a felhasználót. Aki gyakran
+jobbklikkel fájlokon, annak a **Beállítások → Jobbklikk menü → shell-bővítmények
+kikapcsolása** ad azonnali, teljes védelmet.
 
 ## Előmelegítés és az időkorlát alapértéke
 
@@ -101,6 +146,49 @@ többi mediánja **324 ms**.
    telepített kezelők (tömörítők, víruskereső, szerkesztők) tényleges munkája
    fájlonként.
 
+### Mi teszi ki a 777 ms-ot? (T1)
+
+A rendes lekérdezés EGYETLEN, összefogott `IContextMenu`-t kap a shelltől,
+amiből nem látszik a bontás. A `ShellHandlerProbe` ezért megkerüli a shellt: a
+registryből maga szedi össze a kezelőket, egyenként példányosítja őket, és
+külön méri a `CoCreateInstance` és a `QueryContextMenu` idejét.
+
+Fejlesztői gép, `C:\Windows\notepad.exe`, **21 kezelő**, két-két hideg és meleg
+kör:
+
+| Kezelő | DLL | Létrehozás | Lekérdezés | Összesen |
+|---|---|---|---|---|
+| **NvAppShExt Class** (NVIDIA) | `nv3dappshext.dll` | 2–16 ms | **632–783 ms** | **648–786 ms** |
+| Nextcloud context menu handler | `NCContextMenu.dll` | 3–11 ms | 62–119 ms | 67–130 ms |
+| AVG | `ashShell.dll` | 8–60 ms | 5–69 ms | 13–125 ms |
+| Pin To Start Screen verb handler | `appresolver.dll` | 8–9 ms | 61–73 ms | 69–82 ms |
+| DriveFS ContextMenu Handler | `drivefsext.dll` | 11–19 ms | 13–19 ms | 25–36 ms |
+
+Mappára (`C:\Users\<név>`, 21 kezelő) a leglassabb: Nextcloud 52–129 ms,
+`Open With` (`shell32.dll`) 45–140 ms, DriveFS 29–54 ms.
+
+**A tanulság:** a fájlmenü ~780 ms-ának a döntő részét EGYETLEN kezelő, az
+NVIDIA `NvAppShExt` adja — és ez az egyetlen, ami **nem melegszik be**: hidegen
+és melegen egyaránt 650–790 ms. A többi kezelő együtt sem éri el a felét.
+
+Ezért a `WarmUp()` a fájlmenün keveset tud javítani: nem betöltési költséget
+mérünk, hanem egy kezelő tényleges munkáját minden egyes lekérdezésnél.
+
+### Diagnosztika és javaslat
+
+A mérés a kiadott kódban is elérhető, de **csak `Debug` naplószinten**
+(Beállítások → Speciális → Naplózás szintje), mert minden bővítményt betölt.
+Ilyenkor a napló felsorolja az 5 leglassabb kezelőt, és a **400 ms** fölöttieket
+külön figyelmeztetéssel megnevezi.
+
+A program **nem tilt le magától semmit**: egy kezelő kikapcsolása funkciót vesz
+el (a Nextcloud menüje valódi munkafolyamat), ezt nem dönthetjük el a
+felhasználó helyett. A napló megnevezi a vétkest, a döntés a
+**Beállítások → Jobbklikk menü → Kikapcsolt bővítmények** mezőé.
+
+Ezen a gépen a javaslat: `NvAppShExt` felvétele a feketelistára — ez egymaga
+kb. **650–780 ms-ot** venne le a fájlmenü idejéből.
+
 ### A választott alapérték: 2000 ms
 
 A spec 400 ms-ot javasolt, és 800 ms-ra való visszatérést, HA az előmelegítés
@@ -116,20 +204,30 @@ Ez nem kerül semmibe, mert a menü nem várja meg a lekérdezést — lásd al�
 ## A menü nem blokkol (mérve)
 
 A `PilasterContextMenu.Show()` szinkron felépíti a saját elemeket, megnyitja a
-menüt, és csak UTÁNA indítja a shell-lekérdezést. Mérve:
+menüt, és csak UTÁNA indítja a shell-lekérdezést.
 
-- `Show()` **96 ms** alatt visszatér, a menü nyitva, mind a 3 saját elem látszik;
-- 2,5 másodperccel később az elemszám 3 → 24, vagyis a shell elemek utólag
-  csúsztak be.
+**Helyesbítés (Q1).** A korábban itt szereplő **96 ms** egy *csonka* mérésből
+származott: a harness egy kézzel összerakott, 3 elemű listát adott a menünek,
+nem a valódi menüt. Újramérve az ÉLES `BuildFileMenuEntries` kimenetével
+(**22 elem**, ikonokkal):
+
+| Build | Első menü | Többi (medián) |
+|---|---|---|
+| Debug | 132 ms | **99 ms** |
+| Release | 215 ms | **78 ms** |
+
+Fázisbontás (Debug): leíró-építés 0–1 ms, menüelem-építés 3–10 ms, a
+megnyitás (`IsOpen = true`) **60–136 ms** — vagyis a költség szinte teljesen a
+WPF menü-megnyitásé. Az üvegeffektus (`ApplyToContextMenu` → DWM Acrylic)
+külön mérve **1–2 ms**, tehát nem az.
+
+Release buildben tehát a menü a **100 ms-os küszöb alatt** van; egyedül a
+munkamenet ELSŐ menüje lép fölé (215 ms), ami JIT és a WPF-UI ikonfont egyszeri
+betöltése.
 
 Amíg a bővítmények töltődnek, egy szeparátor alatt alacsony kontrasztú
 „Bővítmények betöltése…" sor foglalja a helyet, hogy a menü ne ugráljon,
 amikor az elemek megérkeznek.
-
-*A mérés korlátja:* a harness futásonként egy mintát adott, mert egy WPF
-`ContextMenu` programozott bezárása és azonnali újranyitása ugyanabban a
-futásban megbízhatatlannak bizonyult. A 96 ms egyetlen, de egyértelmű minta —
-és a 3 saját elem jelenléte önmagában bizonyítja, hogy nincs várakozás.
 
 ## Összeomlás-felismerés (P3)
 

@@ -169,11 +169,83 @@ public partial class App : Application
         // indulása és a bővítmény-DLL-ek betöltése, ami EGYSZERI költség.
         // Alacsony prioritású háttérszálon fut, tehát az indulást nem lassítja.
         // Összeomlás után kimarad, hogy ne ismételjük meg ugyanazt a hibát.
-        if (!_services.GetRequiredService<ShellCrashGuard>().CrashDetected
-            && settings.Current.ShellExtensionsEnabled)
+        var crashGuard = _services.GetRequiredService<ShellCrashGuard>();
+
+        if (!crashGuard.CrashDetected && settings.Current.ShellExtensionsEnabled)
         {
-            Pilaster.Shell.Menus.ShellMenuSession.WarmUp();
+            // Az előmelegítés is jelzőt ír: ugyanazokat a bővítményeket tölti
+            // be, mint egy valódi menü, tehát ugyanúgy el is tudja vinni a
+            // folyamatot — enélkül az indíthatatlanná válna.
+            Pilaster.Shell.Menus.ShellMenuSession.WarmUp(crashGuard.MarkInflight, crashGuard.Clear);
+
+            // T1 diagnosztika: a bővítmények EGYENKÉNTI ideje. Csak Debug
+            // naplószinten fut (Beállítások → Speciális → Naplózás szintje),
+            // mert minden kezelőt betölt, és ez másodpercekig tart.
+            if (string.Equals(settings.Current.LogLevel, "Debug", StringComparison.OrdinalIgnoreCase))
+            {
+                ReportSlowShellHandlers();
+            }
         }
+    }
+
+    /// <summary>
+    /// A lassú shell-bővítmények megnevezése a naplóban (spec T1).
+    /// </summary>
+    /// <remarks>
+    /// SZÁNDÉKOSAN csak JAVASOL, nem tilt le semmit: egy kezelő letiltása
+    /// funkciót vesz el (a Nextcloud menüje például valódi munkafolyamat), ezt
+    /// pedig nem dönthetjük el a felhasználó helyett. A napló megnevezi a
+    /// vétkest, a döntés a Beállítások → Jobbklikk-menü → feketelistáé.
+    /// </remarks>
+    private static void ReportSlowShellHandlers()
+    {
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var target = Environment.ProcessPath;
+
+                if (string.IsNullOrEmpty(target))
+                {
+                    return;
+                }
+
+                var timings = Pilaster.Shell.Menus.ShellHandlerProbe.Measure(target);
+
+                foreach (var timing in timings.Take(5))
+                {
+                    Log.Debug(
+                        "Shell-bővítmény {Name} ({Dll}, {Clsid}) — létrehozás {CreateMs} ms, lekérdezés {QueryMs} ms, összesen {TotalMs} ms",
+                        timing.DisplayName.Length == 0 ? "(névtelen)" : timing.DisplayName,
+                        Path.GetFileName(timing.ModulePath),
+                        timing.Clsid,
+                        timing.CreateMs,
+                        timing.QueryMs,
+                        timing.TotalMs);
+                }
+
+                foreach (var slow in timings.Where(t => t.TotalMs > Pilaster.Shell.Menus.ShellHandlerProbe.SlowThresholdMs))
+                {
+                    Log.Warning(
+                        "LASSÚ shell-bővítmény: {Name} ({Dll}) {TotalMs} ms — ez egymaga késlelteti a jobbklikk-menüt. "
+                        + "Ha nincs rá szükséged, a Beállítások → Jobbklikk-menü → Kikapcsolt bővítmények mezőbe felvéve kihagyható.",
+                        slow.DisplayName.Length == 0 ? slow.Clsid.ToString() : slow.DisplayName,
+                        Path.GetFileName(slow.ModulePath),
+                        slow.TotalMs);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "A shell-bővítmények mérése nem sikerült");
+            }
+        })
+        {
+            IsBackground = true,
+            Priority = ThreadPriority.Lowest,
+            Name = "Pilaster.HandlerReport",
+        };
+
+        thread.Start();
     }
 
     /// <summary>
@@ -214,6 +286,12 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // SZABÁLYOS kilépés — tehát ami épp „folyamatban" volt, az nem
+        // összeomlás. A jelző törlése nélkül egy gyors kilépés (a shell
+        // lekérdezése ilyenkor még futhat) hamis összeomlásnak látszana, és a
+        // következő indulás fölöslegesen kapcsolná ki a bővítményeket.
+        _services?.GetService<ShellCrashGuard>()?.BeginShutdown();
+
         // A késleltetett mentés még sorban állhat, ezért kilépés előtt kiírjuk.
         _services?.GetService<ISettingsService>()?.Flush();
         _services?.GetService<QuickAccessService>()?.Flush();

@@ -127,9 +127,20 @@ public static class TextFileFormat
     /// Ha meg van adva, a felismerés helyett ezt a kódolást használjuk — ez az
     /// „Újranyitás ezzel a kódolással" parancs.
     /// </param>
-    public static async Task<TextFileContent> ReadAsync(string path, string? forcedEncodingId = null)
+    /// <param name="progress">
+    /// A beolvasott bájtok aránya (0–1). Nagy fájlnál ez táplálja a
+    /// megszakítható folyamatjelzőt.
+    /// </param>
+    /// <param name="cancellationToken">A „Mégse" gomb ezt jelzi.</param>
+    public static async Task<TextFileContent> ReadAsync(
+        string path,
+        string? forcedEncodingId = null,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+        var bytes = await ReadAllBytesWithProgressAsync(path, progress, cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var (encoding, hasBom, bomLength) = forcedEncodingId is null
             ? Detect(bytes)
@@ -138,6 +149,61 @@ public static class TextFileFormat
         var text = encoding.GetString(bytes, bomLength, bytes.Length - bomLength);
 
         return new TextFileContent(text, encoding, hasBom, DetectLineEnding(text));
+    }
+
+    /// <summary>
+    /// Beolvasás adagokban, folyamatjelzéssel.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="File.ReadAllBytesAsync"/> egyszerűbb volna, de nem tud
+    /// haladásról beszámolni, és menet közben sem szakítható meg. Egy 120 MB-os
+    /// naplófájlnál mindkettőre szükség van: MÉRVE a teljes betöltés ~4,9
+    /// másodperc, amiből visszajelzés nélkül a felhasználó csak annyit lát,
+    /// hogy nem történik semmi.
+    /// </remarks>
+    private static async Task<byte[]> ReadAllBytesWithProgressAsync(
+        string path,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite,
+            bufferSize: 1 << 16,
+            useAsync: true);
+
+        var length = stream.Length;
+
+        if (length > int.MaxValue)
+        {
+            throw new IOException("A fájl nagyobb, mint amit egyetlen tömbben be lehetne olvasni.");
+        }
+
+        var buffer = new byte[length];
+        var offset = 0;
+
+        // 4 MB-os adagok: elég nagy ahhoz, hogy az átbocsátás ne romoljon, és
+        // elég kicsi ahhoz, hogy a megszakítás gyorsan érvényesüljön.
+        const int ChunkSize = 4 << 20;
+
+        while (offset < buffer.Length)
+        {
+            var read = await stream
+                .ReadAsync(buffer.AsMemory(offset, Math.Min(ChunkSize, buffer.Length - offset)), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (read == 0)
+            {
+                break;
+            }
+
+            offset += read;
+            progress?.Report((double)offset / buffer.Length);
+        }
+
+        return buffer;
     }
 
     /// <summary>

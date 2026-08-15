@@ -72,7 +72,30 @@ public sealed partial class EditorViewModel : ObservableObject
     /// <summary>Akkor jelez, ha a nézetnek „Mentés másként" párbeszédet kell nyitnia.</summary>
     public event EventHandler<EditorSaveAsRequest>? SaveAsRequested;
 
+    /// <summary>Igaz, amíg egy fájl betöltése tart — ekkor látszik a folyamatjelző.</summary>
+    [ObservableProperty]
+    public partial bool IsLoading { get; set; }
+
+    /// <summary>A betöltés aránya (0–1).</summary>
+    [ObservableProperty]
+    public partial double LoadProgress { get; set; }
+
+    /// <summary>A betöltés alatt álló fájl neve — a folyamatjelző felirata.</summary>
+    [ObservableProperty]
+    public partial string? LoadingFileName { get; set; }
+
+    private CancellationTokenSource? _loadCancellation;
+
+    /// <summary>A folyamatjelző „Mégse" gombja.</summary>
+    [RelayCommand]
+    private void CancelLoad() => _loadCancellation?.Cancel();
+
     /// <summary>Egy fájl megnyitása, vagy a már nyitott fülre váltás.</summary>
+    /// <remarks>
+    /// A betöltés MEGSZAKÍTHATÓ, és a nehéz munka háttérszálon fut (lásd
+    /// <see cref="EditorDocumentViewModel.OpenAsync"/>). Megszakításnál nem
+    /// jön létre fül — nem marad félig betöltött dokumentum.
+    /// </remarks>
     public async Task<bool> OpenAsync(string path)
     {
         if (Documents.FirstOrDefault(d => string.Equals(d.FilePath, path, StringComparison.OrdinalIgnoreCase)) is { } existing)
@@ -81,19 +104,60 @@ public sealed partial class EditorViewModel : ObservableObject
             return true;
         }
 
-        var document = await EditorDocumentViewModel.OpenAsync(path);
+        // Egy korábbi, még futó betöltést eldobunk: egyszerre egy fájl
+        // töltődhet, különben a folyamatjelző két műveletet mutatna egyben.
+        _loadCancellation?.Cancel();
+        _loadCancellation?.Dispose();
 
-        if (document is null)
+        var cancellation = new CancellationTokenSource();
+        _loadCancellation = cancellation;
+
+        IsLoading = true;
+        LoadProgress = 0;
+        LoadingFileName = Path.GetFileName(path);
+        StatusMessage = null;
+
+        try
         {
-            // Bináris tartalom — a szerkesztő nem nyitja meg, a hívó ajánlja
-            // fel a hex-előnézetet vagy a külső megnyitást (spec F2).
-            StatusMessage = TranslationSource.Instance["Editor_BinaryRefused"];
+            var document = await EditorDocumentViewModel.OpenAsync(
+                path,
+                forcedEncodingId: null,
+                new Progress<double>(value => LoadProgress = value),
+                cancellation.Token);
+
+            if (document is null)
+            {
+                // Bináris tartalom — a szerkesztő nem nyitja meg, a hívó ajánlja
+                // fel a hex-előnézetet vagy a külső megnyitást (spec F2).
+                StatusMessage = TranslationSource.Instance["Editor_BinaryRefused"];
+                return false;
+            }
+
+            // A folyamatjelző SZÁNDÉKOSAN még látszik a fül aktiválása alatt is.
+            // Az aktiválás átadja a dokumentumot az AvalonEdit nézetének, ami
+            // 800 000 sorra felépíti a magasságfát — MÉRVE 196–1343 ms, és
+            // kötelezően a UI-szálon. Ez alatt a felület nem rajzol újra; ha a
+            // jelzőt előbb kapcsolnánk ki, az utolsó kirajzolt kép egy üres
+            // szerkesztő lenne, és a szünet indokolatlan akadásnak látszana.
+            Documents.Add(document);
+            ActiveDocument = document;
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = TranslationSource.Instance["Editor_LoadCancelled"];
             return false;
         }
-
-        Documents.Add(document);
-        ActiveDocument = document;
-        return true;
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            StatusMessage = TranslationSource.Instance["Editor_LoadFailed"];
+            return false;
+        }
+        finally
+        {
+            IsLoading = false;
+            LoadingFileName = null;
+        }
     }
 
     [RelayCommand]

@@ -1260,4 +1260,10 @@
   <data name="Settings_ShellCrashPath" xml:space="preserve">
     <value>The last crash happened at:</value>
   </data>
+  <data name="Editor_LoadFailed" xml:space="preserve">
+    <value>The file could not be read.</value>
+  </data>
+  <data name="Editor_LoadCancelled" xml:space="preserve">
+    <value>Loading cancelled.</value>
+  </data>
 </root>

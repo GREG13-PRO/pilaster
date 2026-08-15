@@ -159,6 +159,21 @@ előhívható.
   helyére; az aktív panelnek így egy pillanatra nem volt aktív füle.
 - Az AvalonEdit `TextDocument` szálhoz kötött; a szerkesztő minden
   megnyitáskor `NullReferenceException`-t dobott a mérési fázisban.
+- **A nagy fájl megnyitása befagyasztotta a felületet.** MÉRVE: egy 122,7 MB-os
+  naplófájlnál a betöltés alatt egy 50 ms-os órajel a várt 97 ütésből csak
+  17-et kapott meg — 4,6 másodperc néma fagyás. A beolvasás, a dekódolás és a
+  dokumentum felépítése átkerült háttérszálra (az AvalonEdit szabályos
+  `SetOwnerThread` tulajdonjog-átadásával, mert a dokumentum szálhoz kötött), a
+  megnyitás megszakítható lett, és arányt mutató folyamatjelzőt kapott.
+  Újramérve: az ütések aránya az ÜRESJÁRATI alapvonalra állt vissza (78% helyett
+  74–77%), és egyetlen, 196–1343 ms-os szünet maradt — a dokumentum átadása az
+  AvalonEdit nézetének, ami kötelezően a UI-szálon fut. „Mégse" után nem marad
+  félig betöltött fül.
+- **Kettős felszabadítás a jobbklikk-menüben.** A shell-menü `ShellItem`-jeit
+  mi is elengedtük, pedig azok a Vanara `keepAlive` objektumának tulajdonai, és
+  a `keepAlive` a menü ELŐTT szabadult fel, pedig túl kellene élnie. MÉRVE: a
+  javítás egy terheléses fájlmenü-sorozat összeomlási arányát 5/6-ról 1/6-ra
+  vitte le. (A maradékról lásd az Ismert korlátokat.)
 - **A csendes eltávolítás törölte a felhasználó beállításait.** MÉRVE: a
   `/VERYSILENT` eltávolítás a `%APPDATA%\Pilaster` mappát elvitte, pedig az
   alapértelmezés a megtartás. A csendes ág többé nem a megerősítő párbeszéd
@@ -175,14 +190,33 @@ előhívható.
 
 Ezek **nem hibák**, hanem tudatosan a v1.1-re halasztott munkák.
 
-- **Folyamat-izoláció a shell-menühöz.** A kivétel, a beragadás és a hibás
-  menüfa ellen védve vagyunk; egy natív hozzáférési hiba (AV) egy bővítményben
-  viszont ma is viszi a folyamatot. Enyhítésként a v1.0 összeomlás-jelzőt ír a
-  lekérdezés köré: ha a következő indulás beragadt jelzőt talál, a
-  bővítmények KIMARADNAK, a menü tetején egy sorban jelezzük ezt a bűnös
-  útvonalával, és a Beállítások → Jobbklikk menü szakaszban van „Bővítmények
-  újra bekapcsolása" gomb. A `ShellMenuSession` felülete IPC-kompatibilis
-  marad, tehát a helper-folyamat visszafelé kompatibilisen bevezethető.
+- **Folyamat-izoláció a shell-menühöz — MÉRVE összeomlik.** A kivétel, a
+  beragadás és a hibás menüfa ellen védve vagyunk; egy natív hozzáférési hiba
+  egy bővítményben viszont ma is viszi a folyamatot. Ez nem elméleti: egy
+  terheléses mérésben (futásonként 8 **fájl**-menü lekérdezés) a folyamat
+  `0xC0000374` (heap-korrupció) hibával **10-ből 5 futásban** elszállt.
+  **Mappa**-menüre 6/6 tiszta, és a rendes indulás (1 előmelegítő lekérdezés)
+  is 8/8 tiszta. Méréssel kizártuk a közös STA szálat, az ikon-átalakítást és a
+  saját felszabadítási sorrendet is (két valódi hibát ez a nyomozás talált meg,
+  lásd a Javításokat) — a maradék korrupció a betöltött, harmadik féltől
+  származó bővítmény-DLL-ekben keletkezik, és in-process **nem javítható**.
+  Részletes mérési táblázat: `docs/CONTEXT-MENU.md`.
+  Enyhítésként a v1.0 összeomlás-jelzőt ír a lekérdezés köré — **mostantól az
+  előmelegítés köré is**, különben egy előmelegítés közbeni összeomlás minden
+  indulásnál megismétlődne, és a program elindíthatatlan lenne. Ha a következő
+  indulás beragadt jelzőt talál, a bővítmények KIMARADNAK, a menü tetején egy
+  sorban jelezzük ezt a bűnös útvonalával, és a Beállítások → Jobbklikk menü
+  szakaszban van „Bővítmények újra bekapcsolása" gomb. Aki sokat jobbklikkel
+  fájlokon, annak a bővítmények kikapcsolása ad azonnali, teljes védelmet.
+  A `ShellMenuSession` felülete IPC-kompatibilis marad, tehát a
+  helper-folyamat visszafelé kompatibilisen bevezethető — **ez a v1.1 első
+  feladata**.
+- **Lassú shell-bővítmények.** MÉRVE: a fájlmenü ~780 ms-os állandósult
+  idejéből 650–790 ms **egyetlen** kezelőé (NVIDIA `NvAppShExt`,
+  `nv3dappshext.dll`), és ez az egyetlen, ami nem melegszik be. `Debug`
+  naplószinten a program felsorolja az 5 leglassabb kezelőt és megnevezi a
+  400 ms fölöttieket, de **magától nem tilt le semmit** — a döntés a
+  Beállítások → Jobbklikk menü → Kikapcsolt bővítmények mezőé.
 - **Kódaláírás.** A `signtool` hook helye megvan a build scriptben,
   tanúsítvány viszont nincs.
 - **Egyedi kiosztás-szerkesztő UI.** A `Custom` preset és a tároló mező
@@ -193,7 +227,14 @@ Ezek **nem hibák**, hanem tudatosan a v1.1-re halasztott munkák.
   naplófájl megnyitása 4,6 mp, és 701 MB felügyelt memóriát köt le (871 MB
   working set). A fájl helyesen csak olvasható módban nyílik, a görgetés és a
   keresés gyors (807 ms, illetve 161 ms), de a memóriaigény a fájlméret
-  ~5,7-szerese — ezt a v1.1 memóriaképezett betöltéssel csökkentheti.
+  ~5,7-szerese — ezt a v1.1 memóriaképezett betöltéssel csökkentheti. A
+  betöltés alatti fagyást a v1.0 megszüntette (lásd a Javításokat), de a
+  dokumentum átadása a nézetnek így is 196–1343 ms egyszeri szünet marad.
+- **A tálcaikon tiszta profilon nincs ellenőrizve.** Az `AppUserModelID`, a
+  multi-resolution `.ico` és a parancsikon-tulajdonság a fejlesztői gépen
+  helyes, de az ikongyorsítótár nélküli, FRISS Windows-felhasználói profilon
+  végzett ellenőrzés kimaradt — ahhoz új profilt kell létrehozni. Ezt a
+  kiadás előtti kézi körben kell megnézni.
 
 - **A jobbklikk-menü shell-lekérdezése nem külön folyamatban fut.** A kivétel,
   a beragadás és a hibás menüfa ellen védve vagyunk, egy natív hozzáférési

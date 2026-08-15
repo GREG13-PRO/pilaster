@@ -67,6 +67,8 @@ public sealed class PilasterContextMenu
 
         _searchBox.TextChanged += (_, _) => ApplyFilter(_searchBox.Text);
 
+        // MÉRVE: az üvegeffektus alkalmazása 1–2 ms, tehát nem érdemes
+        // halasztani vagy feltételhez kötni.
         _menu.Opened += (_, _) => glass.ApplyToContextMenu(_menu);
 
         // A munkamenetet a menü bezárásakor el KELL dobni, különben a
@@ -135,10 +137,6 @@ public sealed class PilasterContextMenu
 
         return menu;
     }
-
-    /// <summary>A megnyílás pillanatának mérése — a kiadás-kapu K4 pontja használja.</summary>
-    internal void MeasureOpened(Action onOpened) => _menu.Opened += (_, _) => onOpened();
-
 
     /// <summary>Szeparátor + alacsony kontrasztú „Betöltés…" sor, amíg a shell elemek jönnek.</summary>
     private void AddLoadingPlaceholder()

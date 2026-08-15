@@ -24,6 +24,11 @@ public sealed class ShellMenuSession : IDisposable
 
     private const uint LastCommandId = 0x7FFF;
 
+    /// <summary>A közös STA szálat védő zár — lásd <see cref="RentShared"/>.</summary>
+    private static readonly object SharedGate = new();
+
+    private static StaWorker? _sharedWorker;
+
     private readonly StaWorker _worker;
     private readonly List<IDisposable> _keepAlive = [];
     private IContextMenu? _contextMenu;
@@ -31,6 +36,54 @@ public sealed class ShellMenuSession : IDisposable
     private bool _disposed;
 
     private ShellMenuSession(StaWorker worker) => _worker = worker;
+
+    /// <summary>
+    /// A KÖZÖS STA szál. Minden lekérdezés ezen fut — nem indul új szál
+    /// menünként.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Korábban minden lekérdezés saját <see cref="StaWorker"/>-t kapott, azaz
+    /// minden jobbklikk új szálat indított és új COM apartmentet inicializált.
+    /// Egyetlen szállal ez a költség egyszeri.
+    /// </para>
+    /// <para>
+    /// Mellékhatásként a lekérdezések SOROSÍTVA futnak, ami megszünteti az
+    /// előmelegítés és az első valódi menü versenyhelyzetét is (spec T3): a
+    /// valódi lekérdezés egyszerűen az előmelegítés mögé áll a sorba, ahelyett
+    /// hogy párhuzamosan ugyanazokat a DLL-eket töltenék be.
+    /// </para>
+    /// </remarks>
+    private static StaWorker RentShared()
+    {
+        lock (SharedGate)
+        {
+            return _sharedWorker ??= new StaWorker("Pilaster.ShellMenu");
+        }
+    }
+
+    /// <summary>
+    /// A közös szál eldobása, ha egy bővítmény beragadt rajta.
+    /// </summary>
+    /// <remarks>
+    /// EZ a közös szál ára, és ezért kötelező: egy megakadt bővítmény-hívást
+    /// nem lehet biztonságosan félbeszakítani, tehát a szál örökre használhatatlan
+    /// marad. Ha nem dobnánk el, EGYETLEN rossz bővítmény az összes további
+    /// menüt megbénítaná — a saját szálas változatban ez csak egy menüt vitt el.
+    /// Eldobás után a következő lekérdezés friss szálat kap.
+    /// </remarks>
+    private static void RetireShared(StaWorker worker)
+    {
+        lock (SharedGate)
+        {
+            if (ReferenceEquals(_sharedWorker, worker))
+            {
+                _sharedWorker = null;
+            }
+        }
+
+        worker.Dispose();
+    }
 
     /// <summary>A beolvasott menüelemek — már a natív menütől függetlenül.</summary>
     public IReadOnlyList<ShellMenuNode> Items { get; private set; } = [];
@@ -64,7 +117,7 @@ public sealed class ShellMenuSession : IDisposable
         TimeSpan timeout,
         IReadOnlyCollection<string> blacklist)
     {
-        var worker = new StaWorker("Pilaster.ShellMenu");
+        var worker = RentShared();
 
         var build = worker.RunAsync(() =>
         {
@@ -80,8 +133,10 @@ public sealed class ShellMenuSession : IDisposable
         if (finished != build)
         {
             // Nem szakítjuk félbe a szálat — egy beragadt bővítményt nem lehet
-            // biztonságosan megszakítani. A munkamenet magától lezárul, amint a
-            // hívás visszatér; addig csak a háttérszál vár.
+            // biztonságosan megszakítani. A KÖZÖS szálat viszont el kell dobni:
+            // ami rajta ragadt, az minden további menüt blokkolna.
+            RetireShared(worker);
+
             _ = build.ContinueWith(
                 t => t.Result?.Dispose(),
                 CancellationToken.None,
@@ -93,18 +148,12 @@ public sealed class ShellMenuSession : IDisposable
 
         try
         {
-            var session = await build.ConfigureAwait(false);
-
-            if (session is null)
-            {
-                worker.Dispose();
-            }
-
-            return session;
+            // A közös szálat NEM dobjuk el sikeres vagy eredménytelen
+            // lekérdezés után — épp az a lényege, hogy megmarad.
+            return await build.ConfigureAwait(false);
         }
         catch (Exception)
         {
-            worker.Dispose();
             return null;
         }
     }
@@ -124,8 +173,22 @@ public sealed class ShellMenuSession : IDisposable
     /// sikertelen előmelegítés semmit nem ront el, csak az első menü lesz
     /// lassabb.
     /// </para>
+    /// <para>
+    /// A tényleges COM-munka a KÖZÖS STA szálon fut (lásd
+    /// <see cref="RentShared"/>), nem itt — ez a szál csak megvárja. Ezért nem
+    /// versenyezhet az első valódi jobbklikkel: az egyszerűen mögé áll a sorba
+    /// (spec T3).
+    /// </para>
     /// </remarks>
-    public static void WarmUp()
+    /// <param name="markInflight">
+    /// Jelzi, hogy shell-hívás van folyamatban (útvonal, fajta). Az
+    /// előmelegítés UGYANÚGY betölti a bővítményeket, mint egy valódi menü,
+    /// tehát ugyanúgy el is tudja vinni a folyamatot — e nélkül egy
+    /// előmelegítés közbeni összeomlás MINDEN indulásnál megismétlődne, és a
+    /// program elindíthatatlan lenne.
+    /// </param>
+    /// <param name="clearInflight">A jelző törlése a sikeres befejezés után.</param>
+    public static void WarmUp(Action<string, string>? markInflight = null, Action? clearInflight = null)
     {
         var thread = new Thread(() =>
         {
@@ -134,6 +197,8 @@ public sealed class ShellMenuSession : IDisposable
                 var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
                 // MAPPA-menü: a Directory/Background kezelőket tölti be.
+                markInflight?.Invoke(profile, "background");
+
                 QueryBackgroundAsync(profile, false, TimeSpan.FromSeconds(20), [])
                     .GetAwaiter().GetResult()?.Dispose();
 
@@ -145,6 +210,8 @@ public sealed class ShellMenuSession : IDisposable
                 // kezelők ugyanazok, mint bármely más fájlnál.
                 if (Environment.ProcessPath is { Length: > 0 } self)
                 {
+                    markInflight?.Invoke(self, "items");
+
                     QueryItemsAsync([self], false, TimeSpan.FromSeconds(20), [])
                         .GetAwaiter().GetResult()?.Dispose();
                 }
@@ -153,6 +220,12 @@ public sealed class ShellMenuSession : IDisposable
             {
                 // Az előmelegítés hibája sosem érdekes.
             }
+            finally
+            {
+                // Az előmelegítés induláskor, a felhasználó első jobbklikkje
+                // előtt fut le, ezért nem törölhet el egy valódi menü jelzőjét.
+                clearInflight?.Invoke();
+            }
         })
         {
             IsBackground = true,
@@ -160,8 +233,6 @@ public sealed class ShellMenuSession : IDisposable
             Name = "Pilaster.ShellWarmUp",
         };
 
-        // A shell-bővítményekhez STA kell — lásd StaWorker.
-        thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
     }
 
@@ -180,12 +251,19 @@ public sealed class ShellMenuSession : IDisposable
             for (var i = 0; i < paths.Count; i++)
             {
                 items[i] = ShellItem.Open(paths[i]);
-                session._keepAlive.Add(items[i]);
             }
 
             var menu = ShellContextMenu.CreateFromItems(items, out var keepAlive);
-            session._keepAlive.Add(menu);
+
+            // A SORREND KRITIKUS. A lista fordítva ürül (lásd Dispose), tehát
+            // az UTOLJÁRA hozzáadott elem szabadul fel ELŐSZÖR. A Vanara
+            // dokumentációja szerint a `keepAlive`-nak TÚL kell élnie a
+            // ShellContextMenu-t, ezért a menü kerül a lista végére.
+            //
+            // Fordított sorrendben ez heap-korrupcióval (0xC0000374) omlasztotta
+            // el a programot: MÉRVE 6 gyors lekérdezés-sorozatból 3 esetben.
             session._keepAlive.Add(keepAlive);
+            session._keepAlive.Add(menu);
             session._contextMenu = menu.ComInterface;
 
             return session;
@@ -461,7 +539,9 @@ public sealed class ShellMenuSession : IDisposable
 
             _keepAlive.Clear();
             return true;
-        }).ContinueWith(_ => _worker.Dispose(), TaskScheduler.Default);
+        });
+
+        // A szálat NEM zárjuk le: közös, és a következő menü is ezt használja.
     }
 
     /// <summary>Egy nyers COM-mutató elengedése <see cref="IDisposable"/> alakban, hogy a keep-alive lista egységes lehessen.</summary>
