@@ -248,20 +248,44 @@ public sealed class ShellMenuSession : IDisposable
 
         try
         {
+            // ┌──────────────────────────────────────────────────────────────┐
+            // │ A FELSZABADÍTÁSI SORREND KRITIKUS. NE „RENDEZD ÁT".          │
+            // └──────────────────────────────────────────────────────────────┘
+            //
+            // A _keepAlive lista FORDÍTVA ürül (lásd Dispose), tehát az
+            // UTOLJÁRA hozzáadott elem szabadul fel ELŐSZÖR. A három lehetséges
+            // változatból kettő MÉRVE 0xC0000374 (heap-korrupció) hibával
+            // vitte a folyamatot; csak a harmadik jó:
+            //
+            //   felvétel sorrendje    →  ürítés sorrendje        eredmény
+            //   ─────────────────────────────────────────────────────────────
+            //   items, menü, keepAlive → keepAlive, menü, items  ROSSZ: a menü
+            //                                                   már felszabadított
+            //                                                   memóriára hivatkozik
+            //                                                   (a Vanara szerint a
+            //                                                   keepAlive-nak TÚL kell
+            //                                                   élnie a menüt)
+            //
+            //   keepAlive, menü        → menü, keepAlive         ROSSZ: a ShellItem-ek
+            //                                                   felszabadítatlanul a GC
+            //                                                   VÉGLEGESÍTŐ szálára
+            //                                                   kerülnek — az MTA, a
+            //                                                   shell-objektumok viszont
+            //                                                   apartment-kötöttek
+            //
+            //   items, keepAlive, menü → menü, keepAlive, items  JÓ ✔
+            //
+            // A második változat Release buildben azonnal látszik (a lokálisok
+            // hamarabb válnak begyűjthetővé), Debugban jóval ritkábban — ezért
+            // az ilyet CSAK Release buildben van értelme mérni.
             for (var i = 0; i < paths.Count; i++)
             {
                 items[i] = ShellItem.Open(paths[i]);
+                session._keepAlive.Add(items[i]);
             }
 
             var menu = ShellContextMenu.CreateFromItems(items, out var keepAlive);
 
-            // A SORREND KRITIKUS. A lista fordítva ürül (lásd Dispose), tehát
-            // az UTOLJÁRA hozzáadott elem szabadul fel ELŐSZÖR. A Vanara
-            // dokumentációja szerint a `keepAlive`-nak TÚL kell élnie a
-            // ShellContextMenu-t, ezért a menü kerül a lista végére.
-            //
-            // Fordított sorrendben ez heap-korrupcióval (0xC0000374) omlasztotta
-            // el a programot: MÉRVE 6 gyors lekérdezés-sorozatból 3 esetben.
             session._keepAlive.Add(keepAlive);
             session._keepAlive.Add(menu);
             session._contextMenu = menu.ComInterface;
