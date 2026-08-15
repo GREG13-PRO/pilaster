@@ -158,6 +158,17 @@ public partial class App : Application
             }
         }
 
+        // Diagnosztikai önteszt: a shell-munkamenet után KIKÉNYSZERÍTETT
+        // véglegesítés. Külön FOLYAMATBAN fut, mert ha apartment-kötött
+        // COM-objektum jut el a véglegesítő szálig, az heap-korrupcióval viszi
+        // a folyamatot — azt nem lehet kivétellel elkapni, csak kilépési
+        // kóddal megfogni. A tesztkészlet ezt indítja (ShellFinalizerTests).
+        if (Environment.GetEnvironmentVariable("PILASTER_SELFTEST_FINALIZER") == "1")
+        {
+            _ = RunFinalizerSelfCheckAsync();
+            return;
+        }
+
         // Csendes, nem blokkoló frissítés-ellenőrzés induláskor: a hidegindítás
         // idejét nem szabad terhelnie, ezért az ablak megjelenítése UTÁN, meg
         // sem várva indul — hálózati hiba vagy naprakész állapot esetén nem
@@ -186,6 +197,60 @@ public partial class App : Application
                 ReportSlowShellHandlers();
             }
         }
+    }
+
+    /// <summary>
+    /// Shell-munkamenet + KIKÉNYSZERÍTETT véglegesítés. Sikeres lefutásnál a
+    /// folyamat 0-val lép ki; ha apartment-kötött COM-objektum jut el a
+    /// véglegesítő szálig, a folyamat <c>0xC0000374</c>-gyel meghal.
+    /// </summary>
+    /// <remarks>
+    /// Ez a diagnosztika SZÁNDÉKOSAN benne marad a kiadott kódban: környezeti
+    /// változó nélkül soha nem fut, viszont így a tesztkészlet bármikor
+    /// ellenőrizheti a folyamat-határon át, hogy nem tért-e vissza a hiba.
+    /// A történetét lásd a <c>ShellMenuSession.CreateForItems</c> sorrend-
+    /// táblázatában.
+    /// </remarks>
+    private async Task RunFinalizerSelfCheckAsync()
+    {
+        var exitCode = 0;
+
+        try
+        {
+            var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
+            var folder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            for (var round = 0; round < 3; round++)
+            {
+                var items = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync(
+                    [file], false, TimeSpan.FromSeconds(30), []);
+
+                items?.Dispose();
+
+                var background = await Pilaster.Shell.Menus.ShellMenuSession.QueryBackgroundAsync(
+                    folder, false, TimeSpan.FromSeconds(30), []);
+
+                background?.Dispose();
+
+                // A Dispose a shell STA szálára POSTÁZZA a takarítást, ezért
+                // meg kell várni, mielőtt véglegesítést kényszerítünk.
+                await Task.Delay(1500);
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            }
+
+            Log.Information("FINALIZER-ONTESZT rendben");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "FINALIZER-ONTESZT kivétellel bukott");
+            exitCode = 2;
+        }
+
+        Log.CloseAndFlush();
+        Environment.Exit(exitCode);
     }
 
     /// <summary>
