@@ -351,6 +351,13 @@ public sealed class PilasterContextMenu
                 : new System.Windows.Controls.Image { Source = node.Icon, Width = 16, Height = 16 },
         };
 
+        // Az alapértelmezett parancsot (amit a dupla kattintás indít) az Intéző
+        // félkövéren szedi — mi is.
+        if (node.IsDefault)
+        {
+            item.FontWeight = FontWeights.SemiBold;
+        }
+
         if (node.HasChildren)
         {
             foreach (var child in node.Children)

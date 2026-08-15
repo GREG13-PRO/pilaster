@@ -29,6 +29,22 @@ public sealed class ShellMenuNode
     /// <summary>A bővítmény saját ikonja, már WPF-képként; <c>null</c>, ha nincs.</summary>
     public ImageSource? Icon { get; init; }
 
+    /// <summary>
+    /// Az ALAPÉRTELMEZETT parancs (amit a dupla kattintás indít) — az Intéző
+    /// félkövéren szedi.
+    /// </summary>
+    public bool IsDefault { get; init; }
+
+    /// <summary>
+    /// A parancs verb-je (pl. <c>open</c>, <c>copy</c>), ha lekérdezhető.
+    /// </summary>
+    /// <remarks>
+    /// A verb NYELVFÜGGETLEN, a felirat nem. Ha valaha a saját elemeinkkel
+    /// való ütközést kell szűrni, azt EZ alapján kell, nem a szöveg alapján —
+    /// különben a szűrés más nyelvű Windowson némán elromlana.
+    /// </remarks>
+    public string? Verb { get; init; }
+
     public IReadOnlyList<ShellMenuNode> Children { get; init; } = [];
 
     public bool HasChildren => Children.Count > 0;

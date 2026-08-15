@@ -475,65 +475,56 @@ public sealed class ShellMenuSession : IDisposable
 
         for (var index = 0; index < count; index++)
         {
-            var buffer = Marshal.AllocHGlobal(512 * sizeof(char));
-
-            try
+            var info = new NativeMenuInterop.MENUITEMINFO
             {
-                var info = new NativeMenuInterop.MENUITEMINFO
-                {
-                    cbSize = (uint)Marshal.SizeOf<NativeMenuInterop.MENUITEMINFO>(),
-                    fMask = NativeMenuInterop.MIIM_STRING | NativeMenuInterop.MIIM_SUBMENU
-                        | NativeMenuInterop.MIIM_STATE | NativeMenuInterop.MIIM_ID
-                        | NativeMenuInterop.MIIM_FTYPE | NativeMenuInterop.MIIM_BITMAP,
-                    dwTypeData = buffer,
-                    cch = 512,
-                };
+                cbSize = (uint)Marshal.SizeOf<NativeMenuInterop.MENUITEMINFO>(),
+                fMask = NativeMenuInterop.MIIM_SUBMENU | NativeMenuInterop.MIIM_STATE
+                    | NativeMenuInterop.MIIM_ID | NativeMenuInterop.MIIM_FTYPE
+                    | NativeMenuInterop.MIIM_BITMAP,
+            };
 
-                if (!NativeMenuInterop.GetMenuItemInfo(hMenu, (uint)index, byPosition: true, ref info))
-                {
-                    continue;
-                }
-
-                if ((info.fType & NativeMenuInterop.MFT_SEPARATOR) != 0)
-                {
-                    // Egymás melletti vagy vezető elválasztók elhagyása — a
-                    // saját menü rendezettsége fontosabb, mint a natív menü
-                    // pontos másolása.
-                    if (nodes.Count > 0 && !nodes[^1].IsSeparator)
-                    {
-                        nodes.Add(new ShellMenuNode { IsSeparator = true });
-                    }
-
-                    continue;
-                }
-
-                var text = (Marshal.PtrToStringUni(info.dwTypeData, (int)info.cch) ?? string.Empty)
-                    .Replace("&", string.Empty)
-                    .Trim();
-
-                if (text.Length == 0 || IsBlacklisted(text, blacklist))
-                {
-                    continue;
-                }
-
-                var children = info.hSubMenu != nint.Zero
-                    ? ReadSubmenu(info.hSubMenu, index, blacklist, depth)
-                    : [];
-
-                nodes.Add(new ShellMenuNode
-                {
-                    Text = text,
-                    CommandId = info.hSubMenu != nint.Zero ? 0 : info.wID,
-                    IsEnabled = (info.fState & NativeMenuInterop.MFS_GRAYED) == 0,
-                    IsChecked = (info.fState & NativeMenuInterop.MFS_CHECKED) != 0,
-                    Icon = NativeMenuInterop.TryConvertBitmap(info.hbmpItem),
-                    Children = children,
-                });
-            }
-            finally
+            if (!NativeMenuInterop.GetMenuItemInfo(hMenu, (uint)index, byPosition: true, ref info))
             {
-                Marshal.FreeHGlobal(buffer);
+                continue;
             }
+
+            if ((info.fType & NativeMenuInterop.MFT_SEPARATOR) != 0)
+            {
+                // Egymás melletti vagy vezető elválasztók elhagyása — a
+                // saját menü rendezettsége fontosabb, mint a natív menü
+                // pontos másolása.
+                if (nodes.Count > 0 && !nodes[^1].IsSeparator)
+                {
+                    nodes.Add(new ShellMenuNode { IsSeparator = true });
+                }
+
+                continue;
+            }
+
+            var text = ReadItemText(hMenu, index);
+
+            if (text.Length == 0 || IsBlacklisted(text, blacklist))
+            {
+                continue;
+            }
+
+            var isSubmenu = info.hSubMenu != nint.Zero;
+
+            var children = isSubmenu
+                ? ReadSubmenu(info.hSubMenu, index, blacklist, depth)
+                : [];
+
+            nodes.Add(new ShellMenuNode
+            {
+                Text = text,
+                CommandId = isSubmenu ? 0 : info.wID,
+                IsEnabled = (info.fState & NativeMenuInterop.MFS_GRAYED) == 0,
+                IsChecked = (info.fState & NativeMenuInterop.MFS_CHECKED) != 0,
+                IsDefault = (info.fState & NativeMenuInterop.MFS_DEFAULT) != 0,
+                Icon = NativeMenuInterop.TryConvertBitmap(info.hbmpItem),
+                Verb = isSubmenu ? null : ReadVerb(info.wID),
+                Children = children,
+            });
         }
 
         // Záró elválasztó levágása.
@@ -571,6 +562,91 @@ public sealed class ShellMenuSession : IDisposable
         }
 
         return ReadMenu(hSubMenu, blacklist, depth + 1);
+    }
+
+    /// <summary>
+    /// Egy menüelem szövege KÉT LÉPÉSBEN: előbb a hossz, aztán a tartalom.
+    /// </summary>
+    /// <remarks>
+    /// Fix méretű pufferrel a hosszú elemek csonkolódnának — néhány bővítmény
+    /// teljes útvonalat ír a menübe („Kibontás ide: …"), és az simán túlnő egy
+    /// kényelmesnek gondolt kereten.
+    /// </remarks>
+    private static string ReadItemText(nint hMenu, int index)
+    {
+        var probe = new NativeMenuInterop.MENUITEMINFO
+        {
+            cbSize = (uint)Marshal.SizeOf<NativeMenuInterop.MENUITEMINFO>(),
+            fMask = NativeMenuInterop.MIIM_STRING,
+            dwTypeData = nint.Zero,
+            cch = 0,
+        };
+
+        // Első hívás `dwTypeData = null`-lal: a cch-ba a SZÜKSÉGES hossz kerül.
+        if (!NativeMenuInterop.GetMenuItemInfo(hMenu, (uint)index, byPosition: true, ref probe) || probe.cch == 0)
+        {
+            return string.Empty;
+        }
+
+        // +1 a lezáró nullának.
+        var length = probe.cch + 1;
+        var buffer = Marshal.AllocHGlobal((int)length * sizeof(char));
+
+        try
+        {
+            probe.dwTypeData = buffer;
+            probe.cch = length;
+
+            if (!NativeMenuInterop.GetMenuItemInfo(hMenu, (uint)index, byPosition: true, ref probe))
+            {
+                return string.Empty;
+            }
+
+            return (Marshal.PtrToStringUni(buffer) ?? string.Empty)
+                .Replace("&", string.Empty)
+                .Trim();
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    /// <summary>
+    /// A parancs verb-je (<c>open</c>, <c>copy</c>, …) diagnosztikához és
+    /// nyelvfüggetlen azonosításhoz.
+    /// </summary>
+    /// <remarks>
+    /// Sok bővítmény nem valósítja meg, vagy hibát ad — ilyenkor egyszerűen
+    /// nincs verb. Ez nem hiba, csak hiányzó kényelmi adat.
+    /// </remarks>
+    private string? ReadVerb(uint commandId)
+    {
+        if (commandId < FirstCommandId || _contextMenu is null)
+        {
+            return null;
+        }
+
+        var buffer = Marshal.AllocHGlobal(512 * sizeof(char));
+
+        try
+        {
+            // A verb a NULLÁTÓL indexelt parancssorszám — ugyanaz az eltolás,
+            // mint az InvokeCommand-nál.
+            _contextMenu.GetCommandString(
+                (nuint)(commandId - FirstCommandId), GCS.GCS_VERBW, default, buffer, 256);
+
+            var verb = Marshal.PtrToStringUni(buffer);
+            return string.IsNullOrWhiteSpace(verb) ? null : verb;
+        }
+        catch (Exception ex) when (ex is COMException or Win32Exception or NotImplementedException or ArgumentException)
+        {
+            return null;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 
     private static bool IsBlacklisted(string text, IReadOnlyCollection<string> blacklist) =>

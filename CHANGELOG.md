@@ -169,11 +169,31 @@ előhívható.
   74–77%), és egyetlen, 196–1343 ms-os szünet maradt — a dokumentum átadása az
   AvalonEdit nézetének, ami kötelezően a UI-szálon fut. „Mégse" után nem marad
   félig betöltött fül.
+- **A jobbklikk-menü összeomlasztotta a programot a második megnyitásnál.**
+  MÉRVE (Release, éles menü-út): a folyamat `0xC0000374`
+  (heap-korrupció) hibával elszállt, mind a négy forgatókönyvben az 1–2.
+  körben. A hibát a `Vanara.Windows.Shell` `ShellContextMenu.CreateFromItems`
+  hívása okozta. A bizonyítás a MŰKÖDŐ oldalról indult, egyszerre egy változót
+  mozgatva (`tools/ShellCrashRepro/`): a minimál, nyers P/Invoke harness
+  4×10/10 tisztán fut; pumpálás nélkül is 3×10/10; csak a `ShellItem`
+  életciklusával is 3×10/10; a `CreateFromItems`-szel viszont 3-ból 3-szor
+  elszáll — a Vanara 5.0.6-tal is. Ezért a fájlmenü mostantól közvetlenül a
+  shell API-ját hívja (`SHParseDisplayName` → `SHBindToParent` →
+  `GetUIObjectOf`); a menüolvasó, az ikonkonverter és a mappa-háttér ág
+  változatlan. Utána: mind a négy forgatókönyv 10/10, és 200 menünyitásból
+  nulla összeomlás. Részletes bisect-táblázat: `docs/CONTEXT-MENU.md`.
+- **A shell-szál lezárása megölte a folyamatot.** A `StaWorker.Dispose()`
+  eldobta a munkasort, miközben a szivattyú szál még benne állt a
+  `GetConsumingEnumerable()` ciklusban; a keletkező `ObjectDisposedException`
+  a `foreach`-en kívül csapódott ki, tehát kezeletlenül vitte a folyamatot
+  (`0xE0434352`). Jellemzően akkor, amikor egy időtúllépés miatt eldobtuk a
+  közös szálat. MÉRVE: 200 menünyitásból 3 futás halt így meg; a javítás után
+  nulla. A sort mostantól az a szál szabadítja fel, amelyik olvassa.
 - **Kettős felszabadítás a jobbklikk-menüben.** A shell-menü `ShellItem`-jeit
-  mi is elengedtük, pedig azok a Vanara `keepAlive` objektumának tulajdonai, és
-  a `keepAlive` a menü ELŐTT szabadult fel, pedig túl kellene élnie. MÉRVE: a
-  javítás egy terheléses fájlmenü-sorozat összeomlási arányát 5/6-ról 1/6-ra
-  vitte le. (A maradékról lásd az Ismert korlátokat.)
+  előbb kétszer engedtük el, majd egyáltalán nem — utóbbitól a GC véglegesítő
+  szálára (MTA) kerültek, ami apartment-kötött COM-objektumnál szintén
+  memóriasérülés. A helyes felszabadítási sorrend a kód kommentjében,
+  táblázattal rögzítve.
 - **A csendes eltávolítás törölte a felhasználó beállításait.** MÉRVE: a
   `/VERYSILENT` eltávolítás a `%APPDATA%\Pilaster` mappát elvitte, pedig az
   alapértelmezés a megtartás. A csendes ág többé nem a megerősítő párbeszéd
@@ -190,27 +210,17 @@ előhívható.
 
 Ezek **nem hibák**, hanem tudatosan a v1.1-re halasztott munkák.
 
-- **Folyamat-izoláció a shell-menühöz — MÉRVE összeomlik.** A kivétel, a
-  beragadás és a hibás menüfa ellen védve vagyunk; egy natív hozzáférési hiba
-  egy bővítményben viszont ma is viszi a folyamatot. Ez nem elméleti: egy
-  terheléses mérésben (futásonként 8 **fájl**-menü lekérdezés) a folyamat
-  `0xC0000374` (heap-korrupció) hibával **10-ből 5 futásban** elszállt.
-  **Mappa**-menüre 6/6 tiszta, és a rendes indulás (1 előmelegítő lekérdezés)
-  is 8/8 tiszta. Méréssel kizártuk a közös STA szálat, az ikon-átalakítást és a
-  saját felszabadítási sorrendet is (két valódi hibát ez a nyomozás talált meg,
-  lásd a Javításokat) — a maradék korrupció a betöltött, harmadik féltől
-  származó bővítmény-DLL-ekben keletkezik, és in-process **nem javítható**.
-  Részletes mérési táblázat: `docs/CONTEXT-MENU.md`.
-  Enyhítésként a v1.0 összeomlás-jelzőt ír a lekérdezés köré — **mostantól az
-  előmelegítés köré is**, különben egy előmelegítés közbeni összeomlás minden
-  indulásnál megismétlődne, és a program elindíthatatlan lenne. Ha a következő
-  indulás beragadt jelzőt talál, a bővítmények KIMARADNAK, a menü tetején egy
-  sorban jelezzük ezt a bűnös útvonalával, és a Beállítások → Jobbklikk menü
-  szakaszban van „Bővítmények újra bekapcsolása" gomb. Aki sokat jobbklikkel
-  fájlokon, annak a bővítmények kikapcsolása ad azonnali, teljes védelmet.
-  A `ShellMenuSession` felülete IPC-kompatibilis marad, tehát a
-  helper-folyamat visszafelé kompatibilisen bevezethető — **ez a v1.1 első
-  feladata**.
+- **Folyamat-izoláció a shell-menühöz.** A kivétel, a beragadás és a hibás
+  menüfa ellen védve vagyunk, és a v1.0-t blokkoló heap-korrupció is elhárult
+  (lásd a Javításokat). Egy natív hozzáférési hiba egy bővítmény kódjában
+  viszont továbbra is viheti a folyamatot — ez ellen csak külön FOLYAMAT
+  védene. Enyhítésként a v1.0 összeomlás-jelzőt ír a lekérdezés köré, és az
+  előmelegítés köré is: ha a következő indulás beragadt jelzőt talál, a
+  bővítmények KIMARADNAK, a menü tetején egy sorban jelezzük ezt a bűnös
+  útvonalával, és a Beállítások → Jobbklikk menü szakaszban van „Bővítmények
+  újra bekapcsolása" gomb. A `ShellMenuSession` felülete IPC-kompatibilis
+  marad, tehát a helper-folyamat visszafelé kompatibilisen bevezethető — ez a
+  **v1.1** feladata.
 - **Lassú shell-bővítmények.** MÉRVE: a fájlmenü ~780 ms-os állandósult
   idejéből 650–790 ms **egyetlen** kezelőé (NVIDIA `NvAppShExt`,
   `nv3dappshext.dll`), és ez az egyetlen, ami nem melegszik be. `Debug`

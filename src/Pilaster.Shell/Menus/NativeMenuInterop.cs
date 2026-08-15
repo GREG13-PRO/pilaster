@@ -124,6 +124,9 @@ internal static class NativeMenuInterop
     internal const uint MFS_GRAYED = 0x00000003;
     internal const uint MFS_CHECKED = 0x00000008;
 
+    /// <summary>Az alapértelmezett parancs — a dupla kattintás ezt indítja.</summary>
+    internal const uint MFS_DEFAULT = 0x00001000;
+
     /// <summary>A menü feltöltésekor küldött üzenet — az <c>IContextMenu3</c> ezt várja a dinamikus almenükhöz.</summary>
     internal const int WM_INITMENUPOPUP = 0x0117;
 

@@ -75,45 +75,55 @@ visszafelé kompatibilis: a `ShellMenuSession` publikus felülete
 (`QueryItemsAsync` / `QueryBackgroundAsync` / `InvokeAsync`) változatlanul
 maradhat, csak a megvalósítása kerülne IPC mögé.
 
-### Ez nem elméleti: MÉRVE összeomlik (v1.1-be halasztva)
+## Miért NYERS a fájlmenü beszerzése — ne tedd vissza a Vanara réteget
 
-A T2-höz készült terheléses mérés közben a folyamat rendszeresen elszállt
-**`0xC0000374` (STATUS_HEAP_CORRUPTION)** hibával. Amit a mérés mutat:
+A fájlmenü a shell API-ját közvetlenül hívja
+(`SHParseDisplayName` → `SHBindToParent` → `GetUIObjectOf`), nem a
+`Vanara.Windows.Shell` objektummodelljét. Ez **nem stíluskérdés**: a
+`ShellContextMenu.CreateFromItems` **heap-korrupcióval** (`0xC0000374`) vitte
+a folyamatot, és a v1.0-t hetekig blokkolta.
 
-| Eset | Összeomlás |
+A bizonyítás a `tools/ShellCrashRepro/` harnessben reprodukálható. A bisect a
+MŰKÖDŐ oldalról indult, egyszerre egy változót mozgatva —
+`C:\Windows\notepad.exe`, 10 kör, Release:
+
+| Lépés | Mit változtat | Eredmény |
+|---|---|---|
+| **H2** | minimál harness, nyers P/Invoke | 4×10/10 tiszta → **nem a bővítmények** |
+| **B1** (`nopump`) | üzenethurok helyett `BlockingCollection` munkasor | 3×10/10 tiszta → **nem a pumpálás hiánya** |
+| **B2a** (`b2a`) | csak a `ShellItem` életciklusa Vanarából | 3×10/10 tiszta → **nem a `ShellItem`** |
+| **B2** (`vanara`) | `ShellItem` + `CreateFromItems` | 3× `0xC0000374` → **EZ a vétkes** |
+| B2 Vanara 5.0.6-tal | ugyanaz, frissebb csomaggal | 3× `0xC0000374` → a verziófrissítés nem old meg |
+
+Korábban méréssel kizártuk a menüolvasót és az ikonkonvertert is (kikapcsolva
+ugyanúgy elszállt), és a felszabadítás időzítését (mindent szándékosan
+megszivárogtatva szintén elszállt).
+
+Két buktató, amit a nyers út magával hoz, és amit könnyű elrontani:
+
+1. A `SHBindToParent` **utolsó PIDL-je BELSŐ MUTATÓ** egy nagyobb allokáción
+   belülre. Tilos felszabadítani; csak addig érvényes, amíg a szülő
+   (abszolút) PIDL él.
+2. A felszabadítás sorrendje: **COM-menü előbb, PIDL-ek utána** — a menü a
+   PIDL-ekre hivatkozik. A `_keepAlive` lista fordítva ürül, ezért a felvétel
+   sorrendje ennek a fordítottja.
+
+### A reprodukciós eszköz
+
+`tools/ShellCrashRepro/` — külön konzolalkalmazás, semmi Pilaster-kód. Módok:
+
+| Kapcsoló | Mit futtat |
 |---|---|
-| **Fájl**-menü, 8 lekérdezés/futás, 150 ms szünet | 5 / 10 futás |
-| **Fájl**-menü, 8 lekérdezés/futás, 1500 ms szünet | 5 / 6 futás |
-| **Mappa**-menü, 8 lekérdezés/futás | **0 / 6 futás** |
-| Rendes indulás (1 előmelegítő lekérdezés), harness nélkül | **0 / 8 futás** |
+| *(nincs)* | nyers P/Invoke, pumpáló STA szálon — a zöld referencia |
+| `nopump` | ugyanaz, munkasorral, üzenethurok nélkül |
+| `vanara` | `ShellItem` + `ShellContextMenu.CreateFromItems` |
+| `b2a` | csak a `ShellItem` életciklusa, a menü nyersen |
 
-Amit kizártunk méréssel:
+Használat: `ShellCrashRepro.exe <útvonal> <körök> [mód]`. Kilépési kód 0, ha
+minden kör lefutott.
 
-- **Nem a közös STA szál okozza.** A régi, menünként új szálas változat
-  ugyanígy omlik (3/6), a közös szálas 2/6 — a különbség a zajban van.
-- **Nem az ikon-átalakítás.** Kikapcsolt `TryConvertBitmap` mellett 7/10.
-- **Nem (csak) a felszabadítás sorrendje.** Mindent szándékosan MEGSZIVÁROGTATVA
-  is 5/6 — sőt így rosszabb, mert a véglegesítők (finalizer) az MTA
-  finalizer-szálon engednék el az apartment-kötött COM-objektumokat.
-
-Két valódi hibát viszont ez a nyomozás talált meg és javított:
-
-1. A `keepAlive` objektumot a `ShellContextMenu` UTÁN kell elengedni (a Vanara
-   dokumentációja szerint túl kell élnie) — a lista fordítva ürült, tehát
-   előbb szabadult fel.
-2. A `ShellItem`-eket NEM mi szabadítjuk fel: azok a `keepAlive` tulajdonai.
-   A dupla felszabadítás önmagában 5/6-ról 1/6-ra vitte le a rátát.
-
-**Következtetés:** a maradék korrupció a betöltött, harmadik féltől származó
-bővítmény-DLL-ekben keletkezik (ezen a gépen 21 db: NVIDIA, AVG, Nextcloud,
-Google DriveFS, OneDrive), és in-process architektúrában **nem javítható** —
-pontosan ezért van a specben a folyamat-izoláció. Ez a **v1.1 első feladata**.
-
-Ami a v1.0-t addig is használhatóvá teszi: a normál használat mintája (egy menü,
-emberi tempóban) a mérésekben **nem** omlott össze, és a `ShellCrashGuard`
-(lásd lent) a következő indulásnál kimenti a felhasználót. Aki gyakran
-jobbklikkel fájlokon, annak a **Beállítások → Jobbklikk menü → shell-bővítmények
-kikapcsolása** ad azonnali, teljes védelmet.
+*(A „nyers PIDL + `CreateFromItems`" változat nem építhető meg: a
+`CreateFromItems` szignatúrája `IEnumerable<ShellItem>`-et vár.)*
 
 ## Előmelegítés és az időkorlát alapértéke
 
@@ -187,7 +197,21 @@ felhasználó helyett. A napló megnevezi a vétkest, a döntés a
 **Beállítások → Jobbklikk menü → Kikapcsolt bővítmények** mezőé.
 
 Ezen a gépen a javaslat: `NvAppShExt` felvétele a feketelistára — ez egymaga
-kb. **650–780 ms-ot** venne le a fájlmenü idejéből.
+kb. **650–780 ms-ot** venne le a fájlmenü idejéből. A program ezt **nem teszi
+meg magától**: egy kezelő kikapcsolása funkciót vesz el, és ez a felhasználó
+döntése.
+
+## Több mappát átfogó kijelölés (Polc / Shelf)
+
+A `GetUIObjectOf` **azonos szülőmappát** vár: egyetlen munkamenet csak egy
+mappa elemeire tud menüt adni. Ma ez nem korlát, mert a kijelölés mindig egy
+listázásból jön.
+
+A **Polc (Shelf)** funkcióval viszont ez meg fog változni: az több helyről
+gyűjt fájlokat. Amikor az készül, a menü **mappánként külön munkamenetet**
+kell hogy nyisson, és a kapott menüfákat össze kell fésülni (az azonos verb-ű
+elemeket egyesítve). A `ShellMenuNode.Verb` már megvan ehhez — szándékosan
+NYELVFÜGGETLEN azonosító, a felirat nem az.
 
 ### A választott alapérték: 2000 ms
 
