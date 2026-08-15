@@ -79,4 +79,13 @@
     <Resource Include="..\..\assets\brand\app.ico" Link="Assets\app.ico" />
   </ItemGroup>
 
+  <!--
+    A tesztkészlet néhány TISZTA, mellékhatás nélküli döntési függvényt
+    (pl. FilePaneView.ResolveDropEffect) internal láthatósággal fed le —
+    ezeknek nincs értelme publikusnak lenniük, csak tesztelhetőnek.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pilaster.Tests" />
+  </ItemGroup>
+
 </Project>

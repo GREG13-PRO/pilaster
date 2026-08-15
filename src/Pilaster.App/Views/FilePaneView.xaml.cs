@@ -333,7 +333,7 @@ public partial class FilePaneView : UserControl
 
         var sourcePaths = e.Data.GetData(DataFormats.FileDrop) as string[] ?? [];
 
-        e.Effects = ResolveDropEffect(sourcePaths, destination) switch
+        e.Effects = ResolveDropEffect(sourcePaths, destination, Keyboard.Modifiers) switch
         {
             PaneDropAction.Copy => DragDropEffects.Copy,
             PaneDropAction.Shortcut => DragDropEffects.Link,
@@ -343,19 +343,30 @@ public partial class FilePaneView : UserControl
         e.Handled = true;
     }
 
-    private static PaneDropAction ResolveDropEffect(IReadOnlyList<string> sourcePaths, string destination)
+    /// <summary>
+    /// A húzás közben lenyomott módosítóból és a kötet-egyezésből dönti el a
+    /// hatást.
+    /// </summary>
+    /// <remarks>
+    /// <c>internal</c>, és a módosítót PARAMÉTERKÉNT kapja (nem az élő
+    /// <see cref="Keyboard.Modifiers"/>-ból olvassa): a <c>Pilaster.Tests</c>
+    /// ezt fedi le közvetlenül (spec A2) — az egérrel húzás maga marad kézi
+    /// ellenőrzés, de a döntési mátrix (melyik módosító melyik hatást adja)
+    /// nem, és a valódi billentyűállapot lekérdezése nélkül tesztelhető.
+    /// </remarks>
+    internal static PaneDropAction ResolveDropEffect(IReadOnlyList<string> sourcePaths, string destination, ModifierKeys modifiers)
     {
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))
+        if (modifiers.HasFlag(ModifierKeys.Alt))
         {
             return PaneDropAction.Shortcut;
         }
 
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        if (modifiers.HasFlag(ModifierKeys.Control))
         {
             return PaneDropAction.Copy;
         }
 
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        if (modifiers.HasFlag(ModifierKeys.Shift))
         {
             return PaneDropAction.Move;
         }
@@ -368,7 +379,8 @@ public partial class FilePaneView : UserControl
     /// forrásnál a másolás a biztonságosabb alapértelmezés, mert az sosem
     /// szüntet meg semmit a forrásoldalon.
     /// </summary>
-    private static bool IsSameVolume(IReadOnlyList<string> sourcePaths, string destination)
+    /// <remarks><c>internal</c>: lásd <see cref="ResolveDropEffect"/>.</remarks>
+    internal static bool IsSameVolume(IReadOnlyList<string> sourcePaths, string destination)
     {
         if (sourcePaths.Count == 0)
         {
@@ -405,7 +417,7 @@ public partial class FilePaneView : UserControl
         }
 
         Activated?.Invoke(this, EventArgs.Empty);
-        FilesDropped?.Invoke(this, (filtered, destinationDir, ResolveDropEffect(filtered, destinationDir)));
+        FilesDropped?.Invoke(this, (filtered, destinationDir, ResolveDropEffect(filtered, destinationDir, Keyboard.Modifiers)));
     }
 
     private void OnBreadcrumbClick(object sender, RoutedEventArgs e)
