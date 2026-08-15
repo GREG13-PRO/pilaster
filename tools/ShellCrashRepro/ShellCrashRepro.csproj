@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SZÁNDÉKOSAN MINIMÁLIS. Se Pilaster-kód, se Vanara, se WPF — csak nyers
+    P/Invoke. Ez a referencia annak eldöntésére, hogy a shell-bővítmények
+    önmagukban rontják-e a hívó folyamat heapjét, vagy a Pilaster
+    shell-gazdálkodása a hibás.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <RootNamespace>ShellCrashRepro</RootNamespace>
+    <AssemblyName>ShellCrashRepro</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
