@@ -1,4 +1,4 @@
-# Változásnapló
+﻿# Változásnapló
 
 A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
 
@@ -90,23 +90,41 @@ beállítások, és teljes téma-audit.
   helyett **Pilaster Classic (kétpaneles)** és **Pilaster Modern
   (Explorer-szerű)**. A viselkedés változatlan, csak a felirat más. A
   felhasználónak látható felületen sehol nem szerepel idegen terméknév.
-- A jobbklikk-menü shell-elemeinek **időkorlátja 2500 ms** (a specifikációban
-  javasolt 400 ms helyett). Mérés szerint az első lekérdezés 2263 ms — 400 ms
-  mellett a shell elemek első használatkor sosem jelennének meg. Részletes
-  indoklás: `docs/CONTEXT-MENU.md`.
+- **A shell-menü előmelegítése induláskor**, alacsony prioritású háttérszálon.
+  MÉRVE: az első jobbklikk enélkül 2186 ms, vele 1132 ms — a különbség a COM
+  apartment indulása és a bővítmény-DLL-ek betöltése, ami egyszeri költség.
+- A jobbklikk-menü shell-elemeinek **időkorlátja 2000 ms** (a specifikációban
+  javasolt 400 ms helyett). Az érték mérésből származik: az előmelegítés utáni
+  legrosszabb első lekérdezés 1132 ms, ×1,75 biztonsági szorzóval. Ez nem
+  lassít semmit: a menü megnyitása MÉRVE 96 ms, a shell elemek utólag
+  csúsznak be. Részletes számok: `docs/CONTEXT-MENU.md`.
+- **A telepítő mindig per-user ágon fut.** MÉRVE: a korábbi
+  `PrivilegesRequiredOverridesAllowed=dialog` mellett a csendes telepítés
+  per-machine ágra ment (HKLM-be írt, a parancsikonokat a Public Desktopra
+  tette); `commandline dialog` mellett pedig a mód-választó ablak `/VERYSILENT`
+  mellett is felugrott. Most csak `commandline` marad — per-machine telepítés
+  az `/ALLUSERS` kapcsolóval kérhető.
 - A szerkesztő alapértelmezett betűkészlete Consolas (nem Cascadia Mono: az
   utóbbi a Windows Terminallal érkezik, nem magával a Windowsszal).
 
-#### Breaking változás: `Ctrl+R`
+#### Breaking változás: `Ctrl+R` — **csak a Pilaster Classic kiosztásban**
 
-A Pilaster Classic kiosztásban a `Ctrl+R` **eddig frissítés volt**; mostantól
-a klasszikus kétpaneles konvenciót követi, és a jobb panel útvonalát viszi a
-balra. A frissítés `Ctrl+Shift+R`-re került, a `Alt+F5` pedig mindkét panelt
-frissíti. A Pilaster Modern kiosztásban az `F5` továbbra is frissítés.
+| Preset | `Ctrl+R` | `Ctrl+Shift+R` | `F5` | `Alt+F5` |
+|---|---|---|---|---|
+| **Pilaster Classic** | jobb panel útvonala a balra *(változás)* | frissítés | másolás a másik panelbe | mindkét panel frissítése |
+| **Pilaster Modern** | frissítés *(változatlan)* | – | frissítés *(változatlan)* | mindkét panel frissítése |
+| Egyedi | a felhasználó kiosztása szerint | | | |
 
-*Migráció:* nincs teendő — a kiosztás nem konfigurációs adat, csak a
-megszokást kell átállítani. A teljes lista a Beállítások → Billentyűzet →
-„Kiosztás megtekintése" gombjával bármikor előhívható.
+A Pilaster Modern kiosztás az Explorer/böngésző konvencióját követi: a `Ctrl+R`
+és az `F5` is frissít, pontosan úgy, mint eddig. **Aki a Modern kiosztást
+használja, nem tapasztal semmilyen változást.**
+
+A Classic kiosztásban a `Ctrl+R` eddig frissítés volt; mostantól a klasszikus
+kétpaneles konvenciót követi. A frissítés ott `Ctrl+Shift+R`-re került.
+
+*Migráció:* nincs teendő — a kiosztás nem konfigurációs adat. A teljes lista a
+Beállítások → Billentyűzet → „Kiosztás megtekintése" gombjával bármikor
+előhívható.
 
 #### Migrációk (automatikusak, adatvesztés nélkül)
 
@@ -141,8 +159,41 @@ megszokást kell átállítani. A teljes lista a Beállítások → Billentyűze
   helyére; az aktív panelnek így egy pillanatra nem volt aktív füle.
 - Az AvalonEdit `TextDocument` szálhoz kötött; a szerkesztő minden
   megnyitáskor `NullReferenceException`-t dobott a mérési fázisban.
+- **A csendes eltávolítás törölte a felhasználó beállításait.** MÉRVE: a
+  `/VERYSILENT` eltávolítás a `%APPDATA%\Pilaster` mappát elvitte, pedig az
+  alapértelmezés a megtartás. A csendes ág többé nem a megerősítő párbeszéd
+  alapértelmezésétől függ: csak a kifejezett `/DELETESETTINGS=1` kapcsolóra
+  töröl. Interaktív eltávolításnál marad a kérdés, „Nem" alapértelmezéssel.
+- **A három „halott" beállítás mostantól hat**: a kiterjesztés-megjelenítés, a
+  rendszerfájlok kapcsolója (a rejtett elemektől függetlenül) és a sűrűség
+  (sormagasság és margó a fájllistában, a gyorselérésben és a Beállításokban).
+  Mindhárom azonnal érvényesül, újraindítás nélkül, mindkét panelen és minden
+  nyitott fülön. Az átnevezés továbbra is a TELJES nevet szerkeszti, tehát a
+  kiterjesztés akkor sem veszik el, ha nincs megjelenítve.
 
 ### Ismert korlátok
+
+Ezek **nem hibák**, hanem tudatosan a v1.1-re halasztott munkák.
+
+- **Folyamat-izoláció a shell-menühöz.** A kivétel, a beragadás és a hibás
+  menüfa ellen védve vagyunk; egy natív hozzáférési hiba (AV) egy bővítményben
+  viszont ma is viszi a folyamatot. Enyhítésként a v1.0 összeomlás-jelzőt ír a
+  lekérdezés köré: ha a következő indulás beragadt jelzőt talál, a
+  bővítmények KIMARADNAK, a menü tetején egy sorban jelezzük ezt a bűnös
+  útvonalával, és a Beállítások → Jobbklikk menü szakaszban van „Bővítmények
+  újra bekapcsolása" gomb. A `ShellMenuSession` felülete IPC-kompatibilis
+  marad, tehát a helper-folyamat visszafelé kompatibilisen bevezethető.
+- **Kódaláírás.** A `signtool` hook helye megvan a build scriptben,
+  tanúsítvány viszont nincs.
+- **Egyedi kiosztás-szerkesztő UI.** A `Custom` preset és a tároló mező
+  (`CustomKeyBindings`) megvan; a hozzárendelések ma még csak kézzel, a
+  `settings.json`-ben adhatók meg. A preset-választó és a „Kiosztás
+  megtekintése" táblázat működik.
+- **Nagy fájl memóriaigénye a szerkesztőben.** MÉRVE: egy 122,7 MB-os
+  naplófájl megnyitása 4,6 mp, és 701 MB felügyelt memóriát köt le (871 MB
+  working set). A fájl helyesen csak olvasható módban nyílik, a görgetés és a
+  keresés gyors (807 ms, illetve 161 ms), de a memóriaigény a fájlméret
+  ~5,7-szerese — ezt a v1.1 memóriaképezett betöltéssel csökkentheti.
 
 - **A jobbklikk-menü shell-lekérdezése nem külön folyamatban fut.** A kivétel,
   a beragadás és a hibás menüfa ellen védve vagyunk, egy natív hozzáférési

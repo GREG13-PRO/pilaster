@@ -95,8 +95,9 @@
                 SelectedItem="{Binding SelectedCategory, Mode=TwoWay}">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="10,8" />
-                        <Setter Property="Margin" Value="0,1" />
+                        <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
+                        <Setter Property="Margin" Value="{DynamicResource TokenRowMargin}" />
+                        <Setter Property="MinHeight" Value="{DynamicResource TokenRowHeight}" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}" />
                     </Style>
@@ -466,6 +467,30 @@
                         </Grid>
                     </Border>
 
+                    <!--  Összeomlás utáni visszakapcsolás (spec P3)  -->
+                    <Border Style="{StaticResource CardStyle}" Visibility="{Binding ShellDisabledAfterCrash, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_ShellReenable}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellReenableHint}" />
+                            <StackPanel Margin="0,6,0,0" Orientation="Horizontal" Visibility="{Binding ShellCrashPath, Converter={StaticResource NullToCollapsed}}">
+                                <TextBlock
+                                    Margin="0,0,6,0"
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TokenTextMuted}"
+                                    Text="{loc:Loc Settings_ShellCrashPath}" />
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TokenWarning}"
+                                    Text="{Binding ShellCrashPath}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <ui:Button
+                                Margin="0,10,0,0"
+                                HorizontalAlignment="Left"
+                                Command="{Binding ReenableShellExtensionsCommand}"
+                                Content="{loc:Loc Settings_ShellReenable}" />
+                        </StackPanel>
+                    </Border>
                     <Border Style="{StaticResource CardStyle}" Tag="contextmenu.blacklist" IsEnabled="{Binding ShellExtensionsEnabled}">
                         <StackPanel>
                             <TextBlock Text="{loc:Loc Settings_ShellBlacklist}" />

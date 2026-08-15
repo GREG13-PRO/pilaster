@@ -312,6 +312,7 @@ public sealed partial class TabViewModel : ObservableObject
                     : GetExtensionLowerInvariant(newName);
                 item.IsRenaming = false;
                 item.RenameError = null;
+                item.RefreshDisplayName(ShowExtensions);
             }).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -553,6 +554,36 @@ public sealed partial class TabViewModel : ObservableObject
     [ObservableProperty]
     public partial bool ShowHiddenItems { get; set; }
 
+    /// <summary>
+    /// Rendszerfájlok megjelenítése — a rejtett elemek kapcsolójától
+    /// FÜGGETLENÜL. A kettő nem ugyanaz: a <c>System</c> attribútum a
+    /// rendszer által védett elemeket jelöli, amiket az Intéző is külön
+    /// kapcsolóval kezel.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool ShowSystemItems { get; set; }
+
+    partial void OnShowSystemItemsChanged(bool value) => _ = RefreshAsync();
+
+    /// <summary>Kiterjesztések megjelenítése a névben — lásd <see cref="FileSystemItem.DisplayName"/>.</summary>
+    [ObservableProperty]
+    public partial bool ShowExtensions { get; set; } = true;
+
+    partial void OnShowExtensionsChanged(bool value) => RefreshDisplayNames();
+
+    /// <summary>
+    /// A megjelenő nevek újraszámolása a betöltött elemeken. Olcsó O(n)
+    /// bejárás, és csak a beállítás váltásakor fut — a kötések maguktól
+    /// követik a <see cref="FileSystemItem.DisplayName"/> változását.
+    /// </summary>
+    public void RefreshDisplayNames()
+    {
+        foreach (var item in Items)
+        {
+            item.RefreshDisplayName(ShowExtensions);
+        }
+    }
+
     [ObservableProperty]
     public partial SortKey SortKey { get; set; } = SortKey.Name;
 
@@ -777,7 +808,8 @@ public sealed partial class TabViewModel : ObservableObject
 
         try
         {
-            var options = new ListingOptions(ShowHiddenItems, ShowHiddenItems);
+            // A rejtett és a rendszerfájlok KÜLÖN kapcsolók (spec K1).
+            var options = new ListingOptions(ShowHiddenItems, ShowSystemItems);
 
             await foreach (var item in _provider
                 .EnumerateAsync(path, options, token)
@@ -838,6 +870,14 @@ public sealed partial class TabViewModel : ObservableObject
         if (token.IsCancellationRequested)
         {
             return;
+        }
+
+        // A megjelenő nevek a rendezés UTÁN, egyszer állnak elő — enélkül a
+        // "Kiterjesztések megjelenítése" beállítás csak a következő
+        // navigációnál érvényesülne az új elemeken.
+        foreach (var item in sorted)
+        {
+            item.RefreshDisplayName(ShowExtensions);
         }
 
         await OnUiAsync(() =>

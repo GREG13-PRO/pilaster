@@ -716,7 +716,8 @@ public partial class MainWindow : FluentWindow
             container,
             BuildFileMenuEntries(item, selectedPaths, extendedVerbs),
             (timeout, blacklist) => ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
-            _settings.Current);
+            _settings.Current,
+            item.FullPath);
 
         await Task.CompletedTask;
     }
@@ -1111,24 +1112,44 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
+        var ctrl = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control);
+        var shift = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
+        var alt = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt);
+
         // Ctrl+E MINDKÉT kiosztásban megnyitja a beépített szerkesztőt — csak
         // az F4 az, ami a Pilaster Classic kiosztás sajátja (spec F2).
-        if (e.Key == System.Windows.Input.Key.E
-            && System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        if (e.Key == System.Windows.Input.Key.E && ctrl)
         {
             e.Handled = true;
             EditActiveSelection();
             return;
         }
 
-        if (_settings.Current.Keymap != KeymapPreset.PilasterClassic)
+        // Alt+F5 (mindkét panel frissítése) MINDKÉT presetben él — lásd az
+        // alábbi Alt-ágat, ami a preset-ellenőrzés ELŐTT fut.
+        if (alt && e.SystemKey == System.Windows.Input.Key.F5)
         {
+            e.Handled = true;
+            _ = _viewModel.RefreshBothPanesCommand.ExecuteAsync(null);
             return;
         }
 
-        var ctrl = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control);
-        var shift = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
-        var alt = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt);
+        if (_settings.Current.Keymap != KeymapPreset.PilasterClassic)
+        {
+            // Pilaster Modern: az Explorer/böngésző konvenció. A Ctrl+R és az
+            // F5 is FRISSÍT — a Classic ág panel-műveletei (F5 másolás,
+            // Ctrl+R útvonal-átadás) itt nem foglalják le ezeket (spec K2).
+            switch (e.Key)
+            {
+                case System.Windows.Input.Key.R when ctrl:
+                case System.Windows.Input.Key.F5:
+                    e.Handled = true;
+                    RefreshActiveTab();
+                    break;
+            }
+
+            return;
+        }
 
         // Alt+F7 / Alt+F5 — az Alt-tal lenyomott billentyűt a rendszer
         // e.SystemKey-ben adja át, e.Key ilyenkor System marad, ezért külön ág.
@@ -1142,10 +1163,6 @@ public partial class MainWindow : FluentWindow
                     QuickFilterBox.SelectAll();
                     return;
 
-                case System.Windows.Input.Key.F5:
-                    e.Handled = true;
-                    _ = _viewModel.RefreshBothPanesCommand.ExecuteAsync(null);
-                    return;
             }
         }
 
@@ -1224,10 +1241,11 @@ public partial class MainWindow : FluentWindow
                 InvertActiveSelection();
                 break;
 
-            // Panelműveletek (spec F7). A Ctrl+R BREAKING változás: a v0.9-ig
-            // frissítés volt, most — a klasszikus kétpaneles konvenciót
-            // követve — a jobb panel útvonalát viszi a balra. A frissítés
-            // Ctrl+Shift+R-re és Alt+F5-re (mindkét panel) került.
+            // Panelműveletek — CSAK a Pilaster Classic presetben. A Ctrl+R itt
+            // breaking változás a v0.9-hez képest (addig frissítés volt), de a
+            // klasszikus kétpaneles konvenciót követi; a frissítés
+            // Ctrl+Shift+R-re és Alt+F5-re került. A Pilaster Modern presetben
+            // a Ctrl+R változatlanul frissít (lásd fentebb, spec K2).
             case System.Windows.Input.Key.U when ctrl:
                 e.Handled = true;
                 _viewModel.SwapPanesCommand.Execute(null);

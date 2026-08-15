@@ -36,6 +36,44 @@ public sealed partial class FileSystemItem : ObservableObject
     [ObservableProperty]
     public partial string Extension { get; set; } = string.Empty;
 
+    /// <summary>
+    /// A LISTÁBAN megjelenő név — a „Kiterjesztések megjelenítése" beállítástól
+    /// függően a teljes név, vagy a kiterjesztés nélküli része.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Szándékosan külön, megfigyelhető tulajdonság, nem konverter: a beállítás
+    /// globális és ritkán változik, viszont a nézetnek AZONNAL követnie kell —
+    /// egy konverter a kötés forrásának változása nélkül nem futna le újra. Így
+    /// a beállítás átbillentésekor elég egyszer végigmenni a betöltött
+    /// elemeken (lásd <c>TabViewModel.RefreshDisplayNames</c>).
+    /// </para>
+    /// <para>
+    /// FONTOS: az ÁTNEVEZÉS továbbra is a teljes <see cref="Name"/>-en dolgozik
+    /// (lásd <c>EditableName</c>), különben a kiterjesztés elveszne, amint a
+    /// felhasználó elmenti a rövidített nevet.
+    /// </para>
+    /// </remarks>
+    [ObservableProperty]
+    public partial string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// A <see cref="DisplayName"/> újraszámolása.
+    /// </summary>
+    /// <param name="showExtensions">A „Kiterjesztések megjelenítése" beállítás.</param>
+    public void RefreshDisplayName(bool showExtensions)
+    {
+        // Mappánál és kiterjesztés nélküli fájlnál nincs mit levágni; a
+        // ponttal KEZDŐDŐ nevek (.gitignore) is teljes egészében maradnak,
+        // mert ott a „kiterjesztés" valójában maga a név.
+        DisplayName = showExtensions
+            || Kind != FileSystemItemKind.File
+            || Extension.Length == 0
+            || Name.LastIndexOf('.') <= 0
+                ? Name
+                : Name[..Name.LastIndexOf('.')];
+    }
+
     /// <summary>Méret bájtban. Mappáknál -1, amíg ki nem számoltuk.</summary>
     public long SizeBytes { get; init; } = -1;
 

@@ -1,4 +1,4 @@
-# Jobbklikk menü — architektúra és korlátok (F4)
+﻿# Jobbklikk menü — architektúra és korlátok (F4)
 
 A Pilaster saját jobbklikk-menüje **teljes egészében a mi designunk**
 (lekerekítés, téma-tokenek, ikonok, animáció), de megjeleníti a telepített
@@ -70,17 +70,80 @@ visszafelé kompatibilis: a `ShellMenuSession` publikus felülete
 (`QueryItemsAsync` / `QueryBackgroundAsync` / `InvokeAsync`) változatlanul
 maradhat, csak a megvalósítása kerülne IPC mögé.
 
-## Az időkorlát alapértéke
+## Előmelegítés és az időkorlát alapértéke
 
-A spec 400 ms-ot javasolt. **Mérés szerint** az első lekérdezés ennél
-lényegesen tovább tart — a fejlesztői gépen `C:\Windows\notepad.exe`-re
-**2263 ms** —, mert ilyenkor indul a COM apartment, és töltődnek be a
-bővítmény-DLL-ek; a további lekérdezések már ezredmásodpercesek.
+### Mért számok
 
-400 ms mellett tehát a shell elemek az **első** használatkor sosem jelennének
-meg, ami pontosan az a hiba, amit ez a funkció orvosolni hivatott. Ezért az
-alapérték **2500 ms**. Hosszabb időkorlát semmibe nem kerül, ha a lekérdezés
-gyors: a menü akkor is azonnal megnyílik. A Beállításokban szabadon állítható.
+Fejlesztői gép, `C:\Windows\notepad.exe` (28 menüelem), 6 egymás utáni
+lekérdezés futásonként:
+
+| Eset | Első lekérdezés | Többi mediánja |
+|---|---|---|
+| Hidegen, előmelegítés nélkül | **2186 ms** | 898 ms |
+| Csak mappa-előmelegítés után | 1825 ms | 869 ms |
+| Mappa + fájl előmelegítés után | **1132 ms** | **777 ms** |
+
+Mappára (`C:\Windows\System32`, 29 elem), előmelegítés után: első **1566 ms**,
+többi mediánja **324 ms**.
+
+### Amit ebből megtanultunk
+
+1. Az első lekérdezés költsége EGYSZERI: COM apartment indulás +
+   bővítmény-DLL-ek betöltése. Ez előmelegítéssel a felhasználó elől
+   elrejthető — ezért fut a `ShellMenuSession.WarmUp()` induláskor,
+   alacsony prioritású STA háttérszálon.
+2. A **mappa** és a **fájl** menü KÜLÖN DLL-készletet használ. Csak a mappát
+   melegítve az első fájl-lekérdezés alig gyorsult (2186 → 1825 ms); mindkettőt
+   melegítve viszont 1132 ms-ra esett. Ezért melegít a `WarmUp()` mind a
+   felhasználói profilra (mappa-menü), mind a saját futtatható fájlunkra
+   (fájl-menü).
+3. Az állandósult költség fájlokon **777 ms** — ez nem COM-indulás, hanem a
+   telepített kezelők (tömörítők, víruskereső, szerkesztők) tényleges munkája
+   fájlonként.
+
+### A választott alapérték: 2000 ms
+
+A spec 400 ms-ot javasolt, és 800 ms-ra való visszatérést, HA az előmelegítés
+utáni első lekérdezés stabilan 800 ms alatt marad. **Nem marad: 1132 ms.** Sőt,
+a fájlokra vonatkozó állandósult 777 ms is épphogy a küszöb alatt van, tehát
+800 ms mellett a menük jelentős részéről lemaradnának a bővítmények.
+
+Az alapérték ezért az előmelegítés utáni legrosszabb mért értékből számol:
+**1132 ms × 1,75 ≈ 1980 → 2000 ms.** A szorzó a lassabb gépek tartaléka.
+
+Ez nem kerül semmibe, mert a menü nem várja meg a lekérdezést — lásd alább.
+
+## A menü nem blokkol (mérve)
+
+A `PilasterContextMenu.Show()` szinkron felépíti a saját elemeket, megnyitja a
+menüt, és csak UTÁNA indítja a shell-lekérdezést. Mérve:
+
+- `Show()` **96 ms** alatt visszatér, a menü nyitva, mind a 3 saját elem látszik;
+- 2,5 másodperccel később az elemszám 3 → 24, vagyis a shell elemek utólag
+  csúsztak be.
+
+Amíg a bővítmények töltődnek, egy szeparátor alatt alacsony kontrasztú
+„Bővítmények betöltése…" sor foglalja a helyet, hogy a menü ne ugráljon,
+amikor az elemek megérkeznek.
+
+*A mérés korlátja:* a harness futásonként egy mintát adott, mert egy WPF
+`ContextMenu` programozott bezárása és azonnali újranyitása ugyanabban a
+futásban megbízhatatlannak bizonyult. A 96 ms egyetlen, de egyértelmű minta —
+és a 3 saját elem jelenléte önmagában bizonyítja, hogy nincs várakozás.
+
+## Összeomlás-felismerés (P3)
+
+A lekérdezés és a parancsvégrehajtás köré a `ShellCrashGuard` jelzőfájlt ír
+(`%LOCALAPPDATA%\Pilaster\shell.inflight`), és sikeres befejezéskor törli. Ha a
+következő indulás beragadt jelzőt talál, az azt jelenti, hogy a folyamat egy
+shell-hívás közben halt meg:
+
+- a bővítmények betöltése **kimarad** (a warmup sem indul),
+- a jobbklikk-menü tetején egy sor jelzi ezt, a bűnös **útvonalával**,
+- a Beállítások → Jobbklikk menü szakaszban megjelenik a „Bővítmények újra
+  bekapcsolása" gomb.
+
+Ez pontosan azt az esetet menti ki, amire a folyamat-izoláció kellett volna.
 
 ## Mért eredmény (fejlesztői gép)
 

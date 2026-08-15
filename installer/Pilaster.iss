@@ -1,4 +1,4 @@
-; Pilaster telepítő — Inno Setup 6
+﻿; Pilaster telepítő — Inno Setup 6
 ;
 ; Fordítás:
 ;   iscc /DAppVersion=1.0.0 /DArch=x64 /DSourceDir=..\publish\win-x64 Pilaster.iss
@@ -17,8 +17,9 @@
 ;   2. Az alapértelmezett fájlkezelővé állítás úgyis a HKCU kulcs alá ír,
 ;      tehát rendszerszintű jogosultságra sehol nincs szükség.
 ;   3. Rendszergazdai telepítőt a víruskeresők eleve gyanakvóbban néznek.
-;   A felhasználó a varázslóban per-machine telepítést is választhat
-;   (PrivilegesRequiredOverridesAllowed=dialog) — az kéri az admin jogot.
+;   Per-machine telepítés az /ALLUSERS parancssori kapcsolóval kérhető — az
+;   kéri az admin jogot. Lásd a PrivilegesRequiredOverridesAllowed melletti
+;   mérési jegyzetet, hogy miért nem a varázsló-párbeszéd adja ezt.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -71,7 +72,17 @@ DisableReadyPage=no
 AllowNoIcons=yes
 
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+
+; MÉRVE, két lépésben:
+;   1. "dialog" override mellett a CSENDES telepítés (/VERYSILENT) per-machine
+;      ágra ment: HKLM-be írt, a parancsikonokat a Public Desktopra tette.
+;   2. "commandline dialog" mellett a "Telepítési mód kiválasztása" ablak
+;      /VERYSILENT mellett is FELUGROTT, és megakasztotta a telepítést.
+; Mindkettő ellentétes a tervezett viselkedéssel (per-user alapértelmezés,
+; UAC és párbeszéd nélkül). Csak a "commandline" marad: a telepítés mindig a
+; PrivilegesRequired értékét (lowest) követi, a per-machine telepítés pedig
+; kifejezetten kérhető az /ALLUSERS kapcsolóval.
+PrivilegesRequiredOverridesAllowed=commandline
 
 OutputDir=..\dist
 OutputBaseFilename=Pilaster-{#AppVersion}-{#Arch}-setup
@@ -308,15 +319,31 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ConfigDir: String;
+  Remove: Boolean;
 begin
-  if CurUninstallStep = usPostUninstall then
-  begin
-    ConfigDir := ExpandConstant('{userappdata}\Pilaster');
+  if CurUninstallStep <> usPostUninstall then
+    Exit;
 
-    if DirExists(ConfigDir) then
-    begin
-      if MsgBox(CustomMessage('RemoveSettings'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-        DelTree(ConfigDir, True, True, True);
-    end;
-  end;
+  ConfigDir := ExpandConstant('{userappdata}\Pilaster');
+
+  if not DirExists(ConfigDir) then
+    Exit;
+
+  {
+    MÉRVE: csendes eltávolításnál (/VERYSILENT) a MsgBox NEM az MB_DEFBUTTON2
+    alapértelmezésével tért vissza, hanem a beállítások TÖRLŐDTEK. Ez a
+    legrosszabb fajta hiba: a felhasználó adatait veszi el, méghozzá némán.
+
+    Ezért a csendes ág többé nem a MsgBox-tól függ: alapból MEGTARTJA a
+    beállításokat, és csak akkor törli, ha ezt a /DELETESETTINGS=1 kapcsolóval
+    kifejezetten kérték. Interaktív eltávolításnál marad a kérdés, Nem
+    alapértelmezéssel.
+  }
+  if UninstallSilent then
+    Remove := ExpandConstant('{param:DELETESETTINGS|0}') = '1'
+  else
+    Remove := MsgBox(CustomMessage('RemoveSettings'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+
+  if Remove then
+    DelTree(ConfigDir, True, True, True);
 end;

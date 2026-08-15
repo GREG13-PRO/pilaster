@@ -1239,4 +1239,25 @@
   <data name="Editor_TooLarge" xml:space="preserve">
     <value>A fájl nagyobb 50 MB-nál, ezért csak olvasható módban nyílt meg.</value>
   </data>
+  <data name="ContextMenu_ShellDisabledAfterCrash" xml:space="preserve">
+    <value>A shell bővítmények ki vannak kapcsolva egy korábbi összeomlás miatt.</value>
+  </data>
+  <data name="ContextMenu_LoadingShell" xml:space="preserve">
+    <value>Bővítmények betöltése…</value>
+  </data>
+  <data name="ContextMenu_ShellDisabledAfterCrashAt" xml:space="preserve">
+    <value>Bővítmények kikapcsolva — a legutóbbi összeomlás itt történt: {0}</value>
+  </data>
+  <data name="Settings_ShellReenableHint" xml:space="preserve">
+    <value>Egy korábbi összeomlás után a bővítmények kimaradnak. Ezzel újra megpróbálja betölteni őket.</value>
+  </data>
+  <data name="Settings_ShellReenable" xml:space="preserve">
+    <value>Bővítmények újra bekapcsolása</value>
+  </data>
+  <data name="Settings_ShellReenabled" xml:space="preserve">
+    <value>A bővítmények újra be vannak kapcsolva.</value>
+  </data>
+  <data name="Settings_ShellCrashPath" xml:space="preserve">
+    <value>A legutóbbi összeomlás itt történt:</value>
+  </data>
 </root>

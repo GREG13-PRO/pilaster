@@ -97,22 +97,107 @@ public sealed class PilasterContextMenu
         UIElement placementTarget,
         IReadOnlyList<PilasterMenuEntry> ownItems,
         Func<TimeSpan, IReadOnlyCollection<string>, Task<ShellMenuSession?>>? shellQuery,
-        Core.Settings.AppSettings settings)
+        Core.Settings.AppSettings settings,
+        string? shellTarget = null,
+        string shellKind = "items")
     {
         var glass = (GlassEffectService)services.GetService(typeof(GlassEffectService))!;
-        var menu = new PilasterContextMenu(glass);
+        var guard = (ShellCrashGuard)services.GetService(typeof(ShellCrashGuard))!;
+        var menu = new PilasterContextMenu(glass) { _guard = guard, _shellTarget = shellTarget, _shellKind = shellKind };
 
         menu.BuildOwnItems(ownItems);
+
+        // Ha az előző futás egy shell-lekérdezés közben halt meg, a
+        // bővítmények kimaradnak — és ezt MEGMONDJUK, a bűnös útvonalával
+        // együtt, hogy a felhasználó ki tudja feketelistázni (spec P3).
+        if (guard.CrashDetected)
+        {
+            menu.AddCrashNotice(guard.LastCrash);
+        }
+
+        var loadsShell = shellQuery is not null && settings.ShellExtensionsEnabled && !guard.CrashDetected;
+
+        if (loadsShell)
+        {
+            // Helyfoglaló, MIELŐTT a menü megnyílik: enélkül a menü
+            // átméreteződne, amikor a shell elemek beérkeznek, és a kurzor
+            // alatt elmozdulnának a saját elemek (spec K4).
+            menu.AddLoadingPlaceholder();
+        }
 
         menu._menu.PlacementTarget = placementTarget;
         menu._menu.IsOpen = true;
 
-        if (shellQuery is not null && settings.ShellExtensionsEnabled)
+        if (loadsShell)
         {
-            _ = menu.LoadShellItemsAsync(shellQuery, settings);
+            _ = menu.LoadShellItemsAsync(shellQuery!, settings);
         }
 
         return menu;
+    }
+
+    /// <summary>A megnyílás pillanatának mérése — a kiadás-kapu K4 pontja használja.</summary>
+    internal void MeasureOpened(Action onOpened) => _menu.Opened += (_, _) => onOpened();
+
+
+    /// <summary>Szeparátor + alacsony kontrasztú „Betöltés…" sor, amíg a shell elemek jönnek.</summary>
+    private void AddLoadingPlaceholder()
+    {
+        _loadingSeparator = new Separator();
+
+        _loadingItem = new MenuItem
+        {
+            Header = TranslationSource.Instance["ContextMenu_LoadingShell"],
+            IsEnabled = false,
+            FontSize = 11,
+        };
+
+        _menu.Items.Add(_loadingSeparator);
+        _menu.Items.Add(_loadingItem);
+    }
+
+    private Separator? _loadingSeparator;
+    private MenuItem? _loadingItem;
+    private ShellCrashGuard? _guard;
+    private string? _shellTarget;
+    private string? _shellKind;
+
+    /// <summary>
+    /// Egysoros figyelmeztetés a menü tetején, ha a shell-bővítmények egy
+    /// korábbi összeomlás miatt ki vannak kapcsolva.
+    /// </summary>
+    private void AddCrashNotice(ShellInflightRecord? crash)
+    {
+        var text = crash is null
+            ? TranslationSource.Instance["ContextMenu_ShellDisabledAfterCrash"]
+            : string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                TranslationSource.Instance["ContextMenu_ShellDisabledAfterCrashAt"],
+                crash.Path);
+
+        _menu.Items.Add(new Separator());
+        _menu.Items.Add(new MenuItem
+        {
+            Header = text,
+            IsEnabled = false,
+            FontSize = 11,
+        });
+    }
+
+    /// <summary>A helyfoglaló eltávolítása — a shell elemek helyére.</summary>
+    private void RemoveLoadingPlaceholder()
+    {
+        if (_loadingItem is not null)
+        {
+            _menu.Items.Remove(_loadingItem);
+            _loadingItem = null;
+        }
+
+        if (_loadingSeparator is not null)
+        {
+            _menu.Items.Remove(_loadingSeparator);
+            _loadingSeparator = null;
+        }
     }
 
     private void BuildOwnItems(IReadOnlyList<PilasterMenuEntry> entries)
@@ -172,9 +257,25 @@ public sealed class PilasterContextMenu
         Func<TimeSpan, IReadOnlyCollection<string>, Task<ShellMenuSession?>> shellQuery,
         Core.Settings.AppSettings settings)
     {
-        var session = await shellQuery(
-            TimeSpan.FromMilliseconds(settings.ShellMenuTimeoutMs),
-            settings.ShellHandlerBlacklist);
+        // A jelző a lekérdezés ELŐTT íródik ki és utána törlődik: ha a
+        // folyamat közben hal meg (natív AV egy bővítményben), a következő
+        // indulás ebből tudja, hogy shell nélkül kell indulnia (spec P3).
+        _guard?.MarkInflight(_shellTarget ?? string.Empty, _shellKind ?? "items");
+
+        ShellMenuSession? session;
+
+        try
+        {
+            session = await shellQuery(
+                TimeSpan.FromMilliseconds(settings.ShellMenuTimeoutMs),
+                settings.ShellHandlerBlacklist);
+        }
+        finally
+        {
+            _guard?.Clear();
+        }
+
+        RemoveLoadingPlaceholder();
 
         if (session is null)
         {

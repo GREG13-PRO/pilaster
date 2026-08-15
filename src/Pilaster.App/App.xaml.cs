@@ -68,6 +68,7 @@ public partial class App : Application
         services.AddSingleton<GlassEffectService>();
         services.AddSingleton<QuickActionService>();
         services.AddSingleton<QuickAccessService>();
+        services.AddSingleton<ShellCrashGuard>();
         services.AddSingleton<FolderSizeService>();
         services.AddSingleton<FileMetadataService>();
         services.AddSingleton<FilePreviewService>();
@@ -103,6 +104,9 @@ public partial class App : Application
         _services = services.BuildServiceProvider();
 
         var settings = _services.GetRequiredService<ISettingsService>();
+
+        // A beragadt shell-jelző felismerése MÉG az első menü előtt (spec P3).
+        _services.GetRequiredService<ShellCrashGuard>().CheckOnStartup();
 
         ApplyStartupCulture(settings.Current);
         _services.GetRequiredService<ThemeService>().ApplyInitial();
@@ -159,6 +163,17 @@ public partial class App : Application
         // sem várva indul — hálózati hiba vagy naprakész állapot esetén nem
         // jelenik meg semmi, csak elérhető frissítésnél (lásd UpdateViewModel).
         _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
+
+        // A shell COM-gépezetének előmelegítése (spec K3). MÉRVE: enélkül az
+        // első jobbklikk 2186 ms, vele 1132 ms — a különbség a COM apartment
+        // indulása és a bővítmény-DLL-ek betöltése, ami EGYSZERI költség.
+        // Alacsony prioritású háttérszálon fut, tehát az indulást nem lassítja.
+        // Összeomlás után kimarad, hogy ne ismételjük meg ugyanazt a hibát.
+        if (!_services.GetRequiredService<ShellCrashGuard>().CrashDetected
+            && settings.Current.ShellExtensionsEnabled)
+        {
+            Pilaster.Shell.Menus.ShellMenuSession.WarmUp();
+        }
     }
 
     /// <summary>

@@ -44,7 +44,8 @@ public static class KeymapCatalog
         {
             return
             [
-                new(s["Cmd_Refresh"], "F5", s["Keymap_RefreshHint"]),
+                new(s["Cmd_Refresh"], "F5 / Ctrl+R", s["Keymap_RefreshHint"]),
+                new(s["Keymap_RefreshBoth"], "Alt+F5", s["Keymap_RefreshBothHint"]),
                 new(s["Keymap_Rename"], "F2", s["Keymap_RenameHint"]),
                 new(s["Cmd_Delete"], "Delete", s["Keymap_DeleteHint"]),
                 new(s["Cmd_DeletePermanently"], "Shift+Delete", s["Keymap_DeletePermanentHint"]),

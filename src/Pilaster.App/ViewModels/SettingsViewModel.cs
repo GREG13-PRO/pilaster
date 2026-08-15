@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,6 +28,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly ShellIntegrationCoordinator _shellIntegration;
     private readonly GlassEffectService _glass;
     private readonly FileMetadataService _metadata;
+    private readonly ShellCrashGuard _shellCrashGuard;
 
     /// <summary>
     /// A saját futtatható fájl útvonala — ezt írjuk a registry „open"
@@ -50,7 +51,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         GlassEffectService glass,
         FileMetadataService metadata,
         IBugReportService bugReportService,
-        UpdateViewModel updates)
+        UpdateViewModel updates,
+        ShellCrashGuard shellCrashGuard)
     {
         _settings = settings;
         _theme = theme;
@@ -59,6 +61,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _shellIntegration = shellIntegration;
         _glass = glass;
         _metadata = metadata;
+        _shellCrashGuard = shellCrashGuard;
         Updates = updates;
 
         var current = settings.Current;
@@ -418,6 +421,23 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _shellExtensionsEnabled;
 
     partial void OnShellExtensionsEnabledChanged(bool value) => Persist(s => s.ShellExtensionsEnabled = value);
+
+    /// <summary>
+    /// Igaz, ha a bővítmények egy korábbi összeomlás miatt vannak kikapcsolva
+    /// — ekkor jelenik meg az „Újra bekapcsolás" gomb (spec P3).
+    /// </summary>
+    public bool ShellDisabledAfterCrash => _shellCrashGuard.CrashDetected;
+
+    /// <summary>A legutóbbi összeomlás útvonala, hogy a felhasználó ki tudja feketelistázni a bűnöst.</summary>
+    public string? ShellCrashPath => _shellCrashGuard.LastCrash?.Path;
+
+    [RelayCommand]
+    private void ReenableShellExtensions()
+    {
+        _shellCrashGuard.Acknowledge();
+        OnPropertyChanged(nameof(ShellDisabledAfterCrash));
+        StatusMessage = TranslationSource.Instance["Settings_ShellReenabled"];
+    }
 
     [ObservableProperty]
     private int _shellMenuTimeoutMs;

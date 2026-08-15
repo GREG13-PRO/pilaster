@@ -275,17 +275,34 @@ public sealed class AppSettings
     /// betöltését.
     /// </summary>
     /// <remarks>
-    /// Az alapérték szándékosan bőkezű. A v1.0 specifikációja 400 ms-ot
-    /// javasolt, de MÉRÉS szerint az ELSŐ lekérdezés ennél lényegesen tovább
-    /// tart (ezen a fejlesztői gépen 2263 ms), mert ilyenkor indul a COM
-    /// apartment, és töltődnek be a bővítmény-DLL-ek; a további lekérdezések
-    /// már ezredmásodpercesek. 400 ms mellett tehát a shell elemek az első
-    /// használatkor SOSEM jelennének meg, ami pontosan az a hiba, amit ez a
-    /// funkció orvosolni hivatott. Hosszabb időkorlát semmibe nem kerül, ha a
-    /// lekérdezés gyors: a menü akkor is azonnal megnyílik, a shell elemek
-    /// pedig amint megérkeznek, becsúsznak.
+    /// <para>
+    /// Az alapérték MÉRÉSBŐL származik, nem becslésből. A fejlesztői gépen,
+    /// egy fájlra (<c>notepad.exe</c>, 28 menüelem) mérve:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>hidegen, előmelegítés nélkül az első lekérdezés <b>2186 ms</b>;</item>
+    /// <item>előmelegítés után (mappa + fájl, ~3 mp-cel az indulás után) az
+    /// első lekérdezés <b>1132 ms</b>;</item>
+    /// <item>a további lekérdezések mediánja <b>777 ms</b> (maximum 798 ms);</item>
+    /// <item>mappára (<c>C:\Windows\System32</c>) ugyanez 1566 ms / 324 ms.</item>
+    /// </list>
+    /// <para>
+    /// A v1.0 specifikációja 400 ms-ot javasolt, és 800 ms-ra való
+    /// visszatérést, HA az előmelegítés utáni első lekérdezés stabilan 800 ms
+    /// alatt marad. Nem marad: 1132 ms. Sőt, a fájlokra vonatkozó ÁLLANDÓSULT
+    /// költség is 777 ms — a küszöböt épphogy súrolná, tehát a menük felénél
+    /// levágná a bővítményeket.
+    /// </para>
+    /// <para>
+    /// Az alapérték ezért az előmelegítés utáni legrosszabb mért értékből
+    /// (1132 ms) számolt, 1,75-ös biztonsági szorzóval: <b>2000 ms</b>. Ez nem
+    /// kerül semmibe: a menü megnyitása MÉRVE 96 ms (a saját elemek azonnal
+    /// megjelennek), a shell elemek utólag csúsznak be, tehát a hosszabb
+    /// időkorlát nem lassítja a felhasználót — csak azt engedi meg, hogy egy
+    /// lassabb gépen is beérjenek.
+    /// </para>
     /// </remarks>
-    public int ShellMenuTimeoutMs { get; set; } = 2500;
+    public int ShellMenuTimeoutMs { get; set; } = 2000;
 
     /// <summary>
     /// Kikapcsolt shell-bővítmények neve vagy CLSID-je. A lassú vagy hibás

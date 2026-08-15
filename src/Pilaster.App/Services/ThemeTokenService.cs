@@ -1,5 +1,6 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
+using Pilaster.Core.Settings;
 using Wpf.Ui.Appearance;
 
 namespace Pilaster.App.Services;
@@ -28,7 +29,7 @@ namespace Pilaster.App.Services;
 /// <c>docs/THEME-CHECKLIST.md</c> táblázatában vannak kimérve.
 /// </para>
 /// </remarks>
-public sealed class ThemeTokenService
+public sealed class ThemeTokenService(ISettingsService settings)
 {
     // --- Háttér ---
     public const string BgApp = "TokenBgApp";
@@ -67,6 +68,17 @@ public sealed class ThemeTokenService
     public const string Overlay = "TokenOverlay";
     public const string Shadow = "TokenShadow";
 
+    // --- Sűrűség (spec K1) ---
+
+    /// <summary>Egy listasor magassága képpontban.</summary>
+    public const string RowHeight = "TokenRowHeight";
+
+    /// <summary>Egy listasor belső margója.</summary>
+    public const string RowPadding = "TokenRowPadding";
+
+    /// <summary>Egy listasor külső margója — ez adja a sorok közti rést.</summary>
+    public const string RowMargin = "TokenRowMargin";
+
     /// <summary>Igaz, ha a jelenleg alkalmazott téma sötét.</summary>
     public static bool IsDark => ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark;
 
@@ -83,6 +95,11 @@ public sealed class ThemeTokenService
     {
         ApplicationThemeManager.Changed += (_, _) => Apply();
         Apply();
+
+        // A sűrűség nem téma-függő, de ugyanez a szolgáltatás tartja karban,
+        // mert a fájllista-stílusok egyetlen tokenkészletből olvasnak.
+        ApplyDensity(settings.Current.Density);
+        settings.Changed += (_, _) => ApplyDensity(settings.Current.Density);
     }
 
     /// <summary>A teljes tokenkészlet (újra)írása az aktuális témához.</summary>
@@ -139,5 +156,35 @@ public sealed class ThemeTokenService
         var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(argb)!);
         brush.Freeze();
         app.Resources[key] = brush;
+    }
+
+    /// <summary>
+    /// A sűrűség-tokenek alkalmazása.
+    /// </summary>
+    /// <remarks>
+    /// Szándékosan TOKENEK, nem szétszórt számok a stílusokban: a három érték
+    /// (magasság, belső és külső margó) együtt mozog, és a fájllista, a
+    /// gyorselérés-lista meg a Beállítások listái mind ugyanezt olvassák
+    /// <c>DynamicResource</c>-ként — így a váltás azonnal, újraindítás nélkül
+    /// érvényesül minden nyitott fülön és mindkét panelen.
+    /// </remarks>
+    /// <param name="density"><c>Compact</c>, <c>Comfortable</c> vagy <c>Relaxed</c>.</param>
+    public static void ApplyDensity(string density)
+    {
+        if (Application.Current is not { } app)
+        {
+            return;
+        }
+
+        var (height, padding, margin) = density switch
+        {
+            "Compact" => (24.0, new Thickness(6, 0, 6, 0), new Thickness(4, 0, 4, 0)),
+            "Relaxed" => (40.0, new Thickness(10, 0, 10, 0), new Thickness(4, 3, 4, 3)),
+            _ => (32.0, new Thickness(8, 0, 8, 0), new Thickness(4, 1, 4, 1)),
+        };
+
+        app.Resources[RowHeight] = height;
+        app.Resources[RowPadding] = padding;
+        app.Resources[RowMargin] = margin;
     }
 }

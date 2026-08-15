@@ -109,6 +109,62 @@ public sealed class ShellMenuSession : IDisposable
         }
     }
 
+    /// <summary>
+    /// A shell COM-gépezetének előmelegítése.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// MÉRVE: az első lekérdezés lényegesen tovább tart, mint a többi, mert
+    /// ilyenkor indul a COM apartment és töltődnek be a bővítmény-DLL-ek. Ez
+    /// EGYSZERI költség, nem menünkénti — ha induláskor, háttérben elvégezzük,
+    /// az első valódi jobbklikk már a gyors úton megy.
+    /// </para>
+    /// <para>
+    /// Alacsony prioritású háttérszálon fut, és minden hibát elnyel: egy
+    /// sikertelen előmelegítés semmit nem ront el, csak az első menü lesz
+    /// lassabb.
+    /// </para>
+    /// </remarks>
+    public static void WarmUp()
+    {
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+                // MAPPA-menü: a Directory/Background kezelőket tölti be.
+                QueryBackgroundAsync(profile, false, TimeSpan.FromSeconds(20), [])
+                    .GetAwaiter().GetResult()?.Dispose();
+
+                // FÁJL-menü: MÉRVE, ez KÜLÖN DLL-készlet (tömörítők,
+                // víruskeresők, szerkesztők). A mappa-menü előmelegítése
+                // önmagában alig gyorsított a fájlokon — a kettőt együtt kell
+                // melegíteni. Célnak a saját futtatható fájlunk a
+                // legbiztonságosabb: mindig létezik, és a rá vonatkozó
+                // kezelők ugyanazok, mint bármely más fájlnál.
+                if (Environment.ProcessPath is { Length: > 0 } self)
+                {
+                    QueryItemsAsync([self], false, TimeSpan.FromSeconds(20), [])
+                        .GetAwaiter().GetResult()?.Dispose();
+                }
+            }
+            catch (Exception)
+            {
+                // Az előmelegítés hibája sosem érdekes.
+            }
+        })
+        {
+            IsBackground = true,
+            Priority = ThreadPriority.BelowNormal,
+            Name = "Pilaster.ShellWarmUp",
+        };
+
+        // A shell-bővítményekhez STA kell — lásd StaWorker.
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+    }
+
     private static ShellMenuSession? CreateForItems(StaWorker worker, IReadOnlyList<string> paths)
     {
         if (paths.Count == 0)

@@ -249,8 +249,8 @@
 
         <!--  Oldalsáv sor  -->
         <Style x:Key="SidebarItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="10,7" />
-            <Setter Property="Margin" Value="6,1" />
+            <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
+            <Setter Property="Margin" Value="{DynamicResource TokenRowMargin}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <!--
                 Húzás indítása: a gyorselérés sorai áthúzhatók egymásra az
@@ -512,8 +512,8 @@
 
         <!--  Fájllista sor a részletes nézetben  -->
         <Style x:Key="FileRowStyle" TargetType="ListViewItem">
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
+            <Setter Property="Height" Value="{DynamicResource TokenRowHeight}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
@@ -532,10 +532,10 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
                         <!--  Background="Transparent": lásd a SidebarItemStyle megjegyzését.  -->
-                        <Grid Margin="4,1" Background="Transparent">
+                        <Grid Margin="{DynamicResource TokenRowMargin}" Background="Transparent">
                             <Border
                                 x:Name="Hover"
-                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                Background="{DynamicResource TokenHover}"
                                 CornerRadius="6"
                                 Opacity="0" />
                             <Border
@@ -1318,7 +1318,7 @@
                                                     Item="{Binding}" />
                                                 <TextBlock
                                                     VerticalAlignment="Center"
-                                                    Text="{Binding Name}"
+                                                    Text="{Binding DisplayName}"
                                                     TextTrimming="CharacterEllipsis"
                                                     Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
                                                 <ContentPresenter
@@ -1411,7 +1411,7 @@
                                         MaxHeight="34"
                                         HorizontalAlignment="Center"
                                         FontSize="12"
-                                        Text="{Binding Name}"
+                                        Text="{Binding DisplayName}"
                                         TextAlignment="Center"
                                         TextTrimming="CharacterEllipsis"
                                         TextWrapping="Wrap"
@@ -1528,7 +1528,7 @@
                                                         <TextBlock
                                                             Grid.Column="1"
                                                             VerticalAlignment="Center"
-                                                            Text="{Binding Name}"
+                                                            Text="{Binding DisplayName}"
                                                             TextTrimming="CharacterEllipsis" />
                                                         <ui:SymbolIcon
                                                             Grid.Column="2"

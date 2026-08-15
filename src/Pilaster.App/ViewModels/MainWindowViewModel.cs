@@ -100,6 +100,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             RefreshQuickActions();
             RefreshSidebarDetails();
+            PropagateFileListSettings();
             OnPropertyChanged(nameof(IsDarkTheme));
             OnPropertyChanged(nameof(ThemeIcon));
             OnPropertyChanged(nameof(ShowFunctionKeyBar));
@@ -847,8 +848,29 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private TabViewModel CreateTab() => new(_provider, _folderSizes, _metadata)
     {
         ShowHiddenItems = _settings.Current.ShowHiddenItems,
+        ShowSystemItems = _settings.Current.ShowSystemItems,
+        ShowExtensions = _settings.Current.ShowExtensions,
         ViewMode = _settings.Current.LastViewMode,
     };
+
+    /// <summary>
+    /// A globális fájllista-beállítások átvezetése MINDEN nyitott fülre,
+    /// mindkét panelen — a Beállítások változására hívva (spec K1: azonnal
+    /// érvényesüljön, újraindítás nélkül).
+    /// </summary>
+    private void PropagateFileListSettings()
+    {
+        var current = _settings.Current;
+
+        foreach (var tab in AllTabs())
+        {
+            // A ShowSystemItems saját OnChanged-je újratölti a fület, a
+            // ShowExtensions pedig újraszámolja a megjelenő neveket — mindkettő
+            // csak akkor fut, ha ténylegesen változott az érték.
+            tab.ShowSystemItems = current.ShowSystemItems;
+            tab.ShowExtensions = current.ShowExtensions;
+        }
+    }
 
     /// <summary>
     /// Egy újonnan létrejött fül bekötése: a fülenként állítható, de menteni

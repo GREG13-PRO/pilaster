@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="Pilaster.App.Views.FilePaneView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -33,7 +33,8 @@
             réteg, kerekített sarok), csak itt, önállóan definiálva.
         -->
         <Style x:Key="PaneRowStyle" TargetType="ListViewItem">
-            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
+            <Setter Property="Height" Value="{DynamicResource TokenRowHeight}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{DynamicResource TokenTextPrimary}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
@@ -41,7 +42,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
-                        <Grid Margin="3,1" Background="Transparent">
+                        <Grid Margin="{DynamicResource TokenRowMargin}" Background="Transparent">
                             <Border
                                 x:Name="Hover"
                                 Background="{DynamicResource TokenHover}"
@@ -117,7 +118,7 @@
                     VerticalAlignment="Center"
                     IconSize="16"
                     Item="{Binding}" />
-                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
 
                 <!--  Címke-színminták — ugyanaz a vezérlő, mint a fő fájllistán (lásd Controls/TagSwatch.cs).  -->
                 <ItemsControl Margin="6,0,0,0" VerticalAlignment="Center" ItemsSource="{Binding Tags}">

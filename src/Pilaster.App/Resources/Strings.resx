@@ -1239,4 +1239,25 @@
   <data name="Editor_TooLarge" xml:space="preserve">
     <value>The file is larger than 50 MB, so it opened read-only.</value>
   </data>
+  <data name="ContextMenu_ShellDisabledAfterCrash" xml:space="preserve">
+    <value>Shell extensions are disabled after an earlier crash.</value>
+  </data>
+  <data name="ContextMenu_LoadingShell" xml:space="preserve">
+    <value>Loading extensions…</value>
+  </data>
+  <data name="ContextMenu_ShellDisabledAfterCrashAt" xml:space="preserve">
+    <value>Extensions disabled - the last crash happened at: {0}</value>
+  </data>
+  <data name="Settings_ShellReenableHint" xml:space="preserve">
+    <value>After an earlier crash the extensions are skipped. This tries loading them again.</value>
+  </data>
+  <data name="Settings_ShellReenable" xml:space="preserve">
+    <value>Re-enable extensions</value>
+  </data>
+  <data name="Settings_ShellReenabled" xml:space="preserve">
+    <value>Extensions are enabled again.</value>
+  </data>
+  <data name="Settings_ShellCrashPath" xml:space="preserve">
+    <value>The last crash happened at:</value>
+  </data>
 </root>

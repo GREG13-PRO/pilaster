@@ -67,6 +67,7 @@ public partial class EditorWindow : FluentWindow
         BindActiveDocument();
     }
 
+
     private void ApplyEditorOptions()
     {
         var current = _settings.Current;

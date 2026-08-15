@@ -1,4 +1,4 @@
-<ui:FluentWindow
+﻿<ui:FluentWindow
     x:Class="Pilaster.App.Views.QuickAccessEditorWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -67,7 +67,8 @@
                     SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
-                            <Setter Property="Padding" Value="8,6" />
+                            <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
+                            <Setter Property="MinHeight" Value="{DynamicResource TokenRowHeight}" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         </Style>
                     </ListBox.ItemContainerStyle>
