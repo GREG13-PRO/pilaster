@@ -40,11 +40,12 @@ internal static class Program
         var pump = !args.Contains("nopump", StringComparer.OrdinalIgnoreCase);
 
         UseVanara = args.Contains("vanara", StringComparer.OrdinalIgnoreCase);
+        UseShellItemOnly = args.Contains("b2a", StringComparer.OrdinalIgnoreCase);
 
         Console.WriteLine($"cel      : {target}");
         Console.WriteLine($"korok    : {rounds}");
         Console.WriteLine($"pumpalas : {(pump ? "IGEN (uzenethurok)" : "NEM (BlockingCollection munkasor)")}");
-        Console.WriteLine($"reteg    : {(UseVanara ? "VANARA (ShellItem + CreateFromItems)" : "nyers P/Invoke")}");
+        Console.WriteLine($"reteg    : {(UseShellItemOnly ? "B2a (csak ShellItem, menu nyersen)" : UseVanara ? "VANARA (ShellItem + CreateFromItems)" : "nyers P/Invoke")}");
         Console.WriteLine($"letezik  : {File.Exists(target) || Directory.Exists(target)}");
         Console.WriteLine();
 
@@ -202,8 +203,31 @@ internal static class Program
     /// <summary>B2: a Pilaster Vanara-útja — <c>ShellItem</c> + <c>ShellContextMenu.CreateFromItems</c>.</summary>
     private static bool UseVanara { get; set; }
 
+    /// <summary>
+    /// B2a: CSAK a <c>ShellItem</c> életciklusa Vanarából, a menü nyers úton.
+    /// </summary>
+    /// <remarks>
+    /// A „nyers PIDL + CreateFromItems" változat (B2b) NEM építhető meg: a
+    /// <c>ShellContextMenu.CreateFromItems</c> szignatúrája
+    /// <c>IEnumerable&lt;ShellItem&gt;</c>-et vár, tehát ShellItem nélkül nem
+    /// hívható. A szétválasztás ezért így néz ki: ha a B2a tiszta, de a teljes
+    /// B2 elszáll, akkor a vétkes a <c>CreateFromItems</c>.
+    /// </remarks>
+    private static bool UseShellItemOnly { get; set; }
+
     private static void QueryOnce(string target)
     {
+        if (UseShellItemOnly)
+        {
+            // A Vanara ShellItem létrehozása és elengedése — semmi más.
+            var probe = Vanara.Windows.Shell.ShellItem.Open(target);
+            probe.Dispose();
+
+            // A menüt nyers úton kérjük le, hogy a kör egyébként azonos legyen.
+            QueryOnceRaw(target);
+            return;
+        }
+
         if (UseVanara)
         {
             QueryOnceVanara(target);

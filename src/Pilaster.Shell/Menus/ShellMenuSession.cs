@@ -244,58 +244,147 @@ public sealed class ShellMenuSession : IDisposable
         }
 
         var session = new ShellMenuSession(worker);
-        var items = new ShellItem[paths.Count];
 
         try
         {
-            // ┌──────────────────────────────────────────────────────────────┐
-            // │ A FELSZABADÍTÁSI SORREND KRITIKUS. NE „RENDEZD ÁT".          │
-            // └──────────────────────────────────────────────────────────────┘
+            // A menüt a shell API-jától KÖZVETLENÜL kérjük el.
             //
-            // A _keepAlive lista FORDÍTVA ürül (lásd Dispose), tehát az
-            // UTOLJÁRA hozzáadott elem szabadul fel ELŐSZÖR. A három lehetséges
-            // változatból kettő MÉRVE 0xC0000374 (heap-korrupció) hibával
-            // vitte a folyamatot; csak a harmadik jó:
-            //
-            //   felvétel sorrendje    →  ürítés sorrendje        eredmény
-            //   ─────────────────────────────────────────────────────────────
-            //   items, menü, keepAlive → keepAlive, menü, items  ROSSZ: a menü
-            //                                                   már felszabadított
-            //                                                   memóriára hivatkozik
-            //                                                   (a Vanara szerint a
-            //                                                   keepAlive-nak TÚL kell
-            //                                                   élnie a menüt)
-            //
-            //   keepAlive, menü        → menü, keepAlive         ROSSZ: a ShellItem-ek
-            //                                                   felszabadítatlanul a GC
-            //                                                   VÉGLEGESÍTŐ szálára
-            //                                                   kerülnek — az MTA, a
-            //                                                   shell-objektumok viszont
-            //                                                   apartment-kötöttek
-            //
-            //   items, keepAlive, menü → menü, keepAlive, items  JÓ ✔
-            //
-            // A második változat Release buildben azonnal látszik (a lokálisok
-            // hamarabb válnak begyűjthetővé), Debugban jóval ritkábban — ezért
-            // az ilyet CSAK Release buildben van értelme mérni.
-            for (var i = 0; i < paths.Count; i++)
+            // MÉRVE (tools/ShellCrashRepro, Release, C:\Windows\notepad.exe,
+            // 10 kör): a korábbi Vanara-út (ShellItem +
+            // ShellContextMenu.CreateFromItems) már a 0. kör után
+            // 0xC0000374 heap-korrupcióval vitte a folyamatot, 3 futásból
+            // 3-szor — a Vanara 5.0.6-tal is. UGYANAZ a menetrend nyers
+            // P/Invoke-kal 4×10/10 tisztán fut. A szűkítés szerint a ShellItem
+            // önmagában ártalmatlan (3×10/10), a CreateFromItems a vétkes.
+            NativeMenuInterop.SHParseDisplayName(paths[0], nint.Zero, out var absolutePidl, 0, out _);
+
+            if (absolutePidl == nint.Zero)
             {
-                items[i] = ShellItem.Open(paths[i]);
-                session._keepAlive.Add(items[i]);
+                session.Dispose();
+                return null;
             }
 
-            var menu = ShellContextMenu.CreateFromItems(items, out var keepAlive);
+            session._keepAlive.Add(new PidlRelease(absolutePidl, isAbsolute: true));
 
-            session._keepAlive.Add(keepAlive);
-            session._keepAlive.Add(menu);
-            session._contextMenu = menu.ComInterface;
+            var folderIid = NativeMenuInterop.IID_IShellFolder;
 
-            return session;
+            if (NativeMenuInterop.SHBindToParent(absolutePidl, ref folderIid, out var folderPtr, out var lastPidl) < 0
+                || folderPtr == nint.Zero)
+            {
+                session.Dispose();
+                return null;
+            }
+
+            var folder = (NativeMenuInterop.IShellFolderRaw)Marshal.GetObjectForIUnknown(folderPtr);
+
+            // A becsomagolt objektum saját hivatkozást tart; a nyers mutató
+            // innentől elengedhető. A csomagolót a `finally` engedi el — NEM a
+            // véglegesítő szál, ami MTA, és apartment-kötött objektumot nem
+            // szabadíthat fel.
+            Marshal.Release(folderPtr);
+
+            try
+            {
+                var relativePidls = new nint[paths.Count];
+
+                // A lastPidl a szülő PIDL-jébe MUTAT BELE — belső mutató, tilos
+                // felszabadítani, és csak amíg az abszolút PIDL él, addig
+                // érvényes. Ezért van az abszolút PIDL a keepAlive listában.
+                relativePidls[0] = lastPidl;
+
+                for (var i = 1; i < paths.Count; i++)
+                {
+                    uint eaten = 0;
+                    uint attributes = 0;
+
+                    if (folder.ParseDisplayName(
+                            nint.Zero, nint.Zero, Path.GetFileName(paths[i]), ref eaten, out var relative, ref attributes) < 0)
+                    {
+                        session.Dispose();
+                        return null;
+                    }
+
+                    relativePidls[i] = relative;
+
+                    // Ezek MIÉNK — a shell foglalta, nekünk kell elengedni.
+                    session._keepAlive.Add(new PidlRelease(relative, isAbsolute: false));
+                }
+
+                var menuIid = NativeMenuInterop.IID_IContextMenu;
+
+                if (folder.GetUIObjectOf(nint.Zero, (uint)relativePidls.Length, relativePidls, ref menuIid, nint.Zero, out var menuPtr) < 0
+                    || menuPtr == nint.Zero)
+                {
+                    session.Dispose();
+                    return null;
+                }
+
+                var contextMenu = (IContextMenu)Marshal.GetObjectForIUnknown(menuPtr);
+                Marshal.Release(menuPtr);
+
+                session._contextMenu = contextMenu;
+
+                // ┌──────────────────────────────────────────────────────────┐
+                // │ A FELSZABADÍTÁSI SORREND KRITIKUS. NE „RENDEZD ÁT".      │
+                // └──────────────────────────────────────────────────────────┘
+                //
+                // A _keepAlive lista FORDÍTVA ürül (lásd Dispose), tehát az
+                // UTOLJÁRA hozzáadott elem szabadul fel ELŐSZÖR. A helyes
+                // sorrend: a COM-menü ELŐBB, a PIDL-ek UTÁNA — a menü ugyanis
+                // a PIDL-ekre hivatkozik.
+                //
+                // A korábbi, Vanara-alapú változatnál ugyanez a szabály három
+                // változatban volt mérve, és kettő 0xC0000374-gyel elszállt:
+                // ha a keepAlive a menü ELŐTT szabadult fel, a menü már
+                // felszabadított memóriára hivatkozott; ha a ShellItem-eket
+                // egyáltalán nem szabadítottuk fel, azokat a GC VÉGLEGESÍTŐ
+                // szála engedte el — az MTA, a shell-objektumok viszont
+                // apartment-kötöttek. Release buildben mindkettő azonnal
+                // látszik, Debugban jóval ritkábban.
+                session._keepAlive.Add(new ComRelease(contextMenu));
+
+                return session;
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(folder);
+            }
         }
         catch (Exception ex) when (ex is COMException or ArgumentException or InvalidOperationException or Win32Exception or FileNotFoundException)
         {
             session.Dispose();
             return null;
+        }
+    }
+
+    /// <summary>Egy PIDL felszabadítása <see cref="IDisposable"/> alakban, hogy a keep-alive lista egységes lehessen.</summary>
+    /// <remarks>
+    /// Az abszolút PIDL <c>ILFree</c>-t kap, a <c>ParseDisplayName</c> által
+    /// adott gyerek-PIDL <c>CoTaskMemFree</c>-t. A <c>SHBindToParent</c>
+    /// utolsó PIDL-je EGYIKET SEM: az belső mutató egy nagyobb allokáción
+    /// belülre, és a felszabadítása tankönyvi heap-korrupció lenne.
+    /// </remarks>
+    private sealed class PidlRelease(nint pidl, bool isAbsolute) : IDisposable
+    {
+        private nint _pidl = pidl;
+
+        public void Dispose()
+        {
+            if (_pidl == nint.Zero)
+            {
+                return;
+            }
+
+            if (isAbsolute)
+            {
+                NativeMenuInterop.ILFree(_pidl);
+            }
+            else
+            {
+                NativeMenuInterop.CoTaskMemFree(_pidl);
+            }
+
+            _pidl = nint.Zero;
         }
     }
 

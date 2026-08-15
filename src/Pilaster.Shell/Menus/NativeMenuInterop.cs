@@ -42,6 +42,75 @@ internal static class NativeMenuInterop
     [DllImport("gdi32.dll")]
     internal static extern int GetBitmapBits(nint hBitmap, int count, nint bits);
 
+    // --- A fájlmenü NYERS beszerzési útja ---
+    //
+    // MÉRVE (tools/ShellCrashRepro): a Vanara
+    // ShellContextMenu.CreateFromItems 10 körből már a 0. után 0xC0000374
+    // heap-korrupcióval viszi a folyamatot, míg UGYANAZ a menetrend nyers
+    // P/Invoke-kal 4×10/10 tisztán fut. Ezért a fájlmenü a shell API-ját
+    // közvetlenül hívja.
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int SHParseDisplayName(string name, nint bindContext, out nint pidl, uint sfgaoIn, out uint sfgaoOut);
+
+    [DllImport("shell32.dll")]
+    internal static extern int SHBindToParent(nint pidl, ref Guid riid, out nint ppv, out nint pidlLast);
+
+    [DllImport("shell32.dll")]
+    internal static extern void ILFree(nint pidl);
+
+    [DllImport("ole32.dll")]
+    internal static extern void CoTaskMemFree(nint pv);
+
+    internal static readonly Guid IID_IShellFolder = new("000214E6-0000-0000-C000-000000000046");
+
+    internal static readonly Guid IID_IContextMenu = new("000214E4-0000-0000-C000-000000000046");
+
+    /// <summary>
+    /// Az <c>IShellFolder</c> saját deklarációja.
+    /// </summary>
+    /// <remarks>
+    /// A név szándékosan „Raw": a <c>Vanara.PInvoke.Shell32</c> is deklarál
+    /// <c>IShellFolder</c>-t, és a <c>using static</c> miatt a kettő elfedné
+    /// egymást. A vtable sorrendje KÖTELEZŐ — egy metódust sem szabad
+    /// kihagyni vagy átrendezni, még a nem használtakat sem.
+    /// </remarks>
+    [ComImport]
+    [Guid("000214E6-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IShellFolderRaw
+    {
+        [PreserveSig]
+        int ParseDisplayName(nint hwnd, nint pbc, [MarshalAs(UnmanagedType.LPWStr)] string name, ref uint eaten, out nint pidl, ref uint attributes);
+
+        [PreserveSig]
+        int EnumObjects(nint hwnd, int flags, out nint enumIdList);
+
+        [PreserveSig]
+        int BindToObject(nint pidl, nint pbc, ref Guid riid, out nint ppv);
+
+        [PreserveSig]
+        int BindToStorage(nint pidl, nint pbc, ref Guid riid, out nint ppv);
+
+        [PreserveSig]
+        int CompareIDs(nint lParam, nint pidl1, nint pidl2);
+
+        [PreserveSig]
+        int CreateViewObject(nint hwndOwner, ref Guid riid, out nint ppv);
+
+        [PreserveSig]
+        int GetAttributesOf(uint cidl, [In][MarshalAs(UnmanagedType.LPArray)] nint[] apidl, ref uint inOut);
+
+        [PreserveSig]
+        int GetUIObjectOf(nint hwndOwner, uint cidl, [In][MarshalAs(UnmanagedType.LPArray)] nint[] apidl, ref Guid riid, nint reserved, out nint ppv);
+
+        [PreserveSig]
+        int GetDisplayNameOf(nint pidl, uint flags, nint name);
+
+        [PreserveSig]
+        int SetNameOf(nint hwnd, nint pidl, [MarshalAs(UnmanagedType.LPWStr)] string name, uint flags, out nint pidlOut);
+    }
+
     // --- MENUITEMINFO maszkok és típusok ---
     internal const uint MIIM_STATE = 0x00000001;
     internal const uint MIIM_ID = 0x00000002;

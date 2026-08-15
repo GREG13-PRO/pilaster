@@ -23,8 +23,8 @@
     alap referencia-mérés továbbra is teljesen külső függőség nélküli.
   -->
   <ItemGroup>
-    <PackageReference Include="Vanara.PInvoke.Shell32" Version="5.0.5" />
-    <PackageReference Include="Vanara.Windows.Shell.Common" Version="5.0.5" />
+    <PackageReference Include="Vanara.PInvoke.Shell32" Version="5.0.6" />
+    <PackageReference Include="Vanara.Windows.Shell.Common" Version="5.0.6" />
   </ItemGroup>
 
 </Project>
