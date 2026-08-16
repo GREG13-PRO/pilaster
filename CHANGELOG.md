@@ -50,12 +50,15 @@ megjelenítése változott.
   külön** mentődik (`AppSettings.LeftPane…`/`RightPane…`). A Név oszlop
   tölti ki a maradék helyet — a `GridViewColumn` nem támogat „*" méretezést,
   ezért ezt a code-behind számolja újra a panel és az oszlopok
-  átméretezésekor.
+  átméretezésekor. A Beállítások → Panelek kategóriában is megjelenik
+  (húzással állítható, a kategória „Alapértelmezettek visszaállítása"
+  gombja innen is nullázza).
 - **Az oszlopelrendezés zsúfolt volt.** Méret jobbra igazítva, Típus és
   Módosítva fix szélességgel, a Név a maradékot tölti ki hosszú névnél `…`-vel.
 - **A sorok nehezen követhetők.** A kijelölés/hover mostantól 4 px-rel
   beljebb kezdődik mindkét oldalon, lekerekítve. Új, alapból bekapcsolt
-  páros/páratlan csíkozás (`AppSettings.DualPaneRowStriping`).
+  páros/páratlan csíkozás (`AppSettings.DualPaneRowStriping`), kapcsolóval a
+  Beállítások → Panelek kategóriában, azonnali hatással.
 - **Négy sornyi vezérlő a tartalom előtt.** Az eszköztár (vissza/előre/fel/
   frissítés) és az útvonalsáv egy sorba vonva — egy teljes sornyi hellyel
   több jut a fájloknak.

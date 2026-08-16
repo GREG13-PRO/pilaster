@@ -1129,6 +1129,18 @@
   <data name="Settings_SplitRatio" xml:space="preserve">
     <value>Splitter position</value>
   </data>
+  <data name="Settings_RowStriping" xml:space="preserve">
+    <value>Row striping</value>
+  </data>
+  <data name="Settings_RowStripingHint" xml:space="preserve">
+    <value>Alternate row background in the dual-pane file list, for easier reading.</value>
+  </data>
+  <data name="Settings_ColumnWidths" xml:space="preserve">
+    <value>Column widths</value>
+  </data>
+  <data name="Settings_ColumnWidthsHint" xml:space="preserve">
+    <value>Remembered per pane by dragging a column border. Use the button below to restore the defaults.</value>
+  </data>
   <data name="Settings_EditorTabWidth" xml:space="preserve">
     <value>Tab width</value>
   </data>

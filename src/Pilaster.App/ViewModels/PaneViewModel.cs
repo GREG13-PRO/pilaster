@@ -50,10 +50,26 @@ public sealed partial class PaneViewModel : ObservableObject
         ModifiedColumnWidth = _isLeft ? settings.Current.LeftPaneModifiedColumnWidth : settings.Current.RightPaneModifiedColumnWidth;
 
         // K3 (v1.0.1): páros/páratlan sorok csíkozása — globális, nem
-        // panelenkénti beállítás, egyszer olvasva a konstruktorban (nincs
-        // hozzá még Beállítások-UI, ez a kör kizárólag a meglévő
-        // megjelenítési hibákat javítja, új felületet nem ad hozzá).
+        // panelenkénti beállítás.
         RowStriping = settings.Current.DualPaneRowStriping;
+
+        // A Beállítások ablak (Panelek kategória) innen tudja azonnal
+        // érvényesíteni a csíkozás-kapcsolót és az „Alapértelmezettek
+        // visszaállítása" gombot az oszlopszélességekre — enélkül a
+        // konstruktorban egyszer beolvasott érték csak új panel
+        // létrehozásakor frissülne. A LeftPane/RightPane egy-egy példánya az
+        // app teljes élettartamára él, ezért a feliratkozást sosem kell
+        // leválasztani.
+        settings.Changed += OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        RowStriping = _settings.Current.DualPaneRowStriping;
+
+        SizeColumnWidth = _isLeft ? _settings.Current.LeftPaneSizeColumnWidth : _settings.Current.RightPaneSizeColumnWidth;
+        TypeColumnWidth = _isLeft ? _settings.Current.LeftPaneTypeColumnWidth : _settings.Current.RightPaneTypeColumnWidth;
+        ModifiedColumnWidth = _isLeft ? _settings.Current.LeftPaneModifiedColumnWidth : _settings.Current.RightPaneModifiedColumnWidth;
     }
 
     [ObservableProperty]
@@ -108,7 +124,8 @@ public sealed partial class PaneViewModel : ObservableObject
     }
 
     /// <summary>Páros/páratlan sorok csíkozása (spec K3, v1.0.1) — lásd a konstruktor megjegyzését.</summary>
-    public bool RowStriping { get; }
+    [ObservableProperty]
+    public partial bool RowStriping { get; set; }
 
     /// <summary>A panel azonosítója (<c>"left"</c> / <c>"right"</c>) — a mentett munkamenet ezzel párosítja vissza a füleket.</summary>
     public string Id { get; }

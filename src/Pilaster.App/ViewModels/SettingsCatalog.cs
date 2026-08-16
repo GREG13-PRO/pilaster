@@ -131,6 +131,8 @@ public static class SettingsCatalog
         new("panes.dual", Panes, "Settings_DualPane", "Settings_DualPaneHint", "kétpaneles dual pane panel"),
         new("panes.vertical", Panes, "Settings_DualPaneVertical", "Settings_DualPaneVerticalHint", "elrendezés layout vízszintes függőleges"),
         new("panes.splitRatio", Panes, "Settings_SplitRatio", "Settings_SplitRatioHint", "elválasztó splitter arány ratio"),
+        new("panes.rowStriping", Panes, "Settings_RowStriping", "Settings_RowStripingHint", "csíkozás zebra sávozás sor row stripe striping"),
+        new("panes.columnWidths", Panes, "Settings_ColumnWidths", "Settings_ColumnWidthsHint", "oszlop column szélesség width méret size típus type módosítva modified"),
 
         // Fájllista
         new("filelist.hidden", FileList, "Cmd_ToggleHidden", "Settings_HiddenHint", "rejtett hidden"),

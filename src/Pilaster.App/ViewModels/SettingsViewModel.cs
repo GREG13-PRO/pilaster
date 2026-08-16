@@ -76,6 +76,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _singleInstance = current.SingleInstance;
         _checkForUpdates = current.CheckForUpdates;
         _startupFolder = current.StartupFolder;
+        _dualPaneRowStriping = current.DualPaneRowStriping;
         _density = current.Density;
         _showSystemItems = current.ShowSystemItems;
         _showExtensions = current.ShowExtensions;
@@ -233,6 +234,20 @@ public sealed partial class SettingsViewModel : ObservableObject
                 current.DualPaneEnabled = defaults.DualPaneEnabled;
                 current.DualPaneVertical = defaults.DualPaneVertical;
                 current.DualPaneSplitRatio = defaults.DualPaneSplitRatio;
+                current.DualPaneRowStriping = defaults.DualPaneRowStriping;
+                DualPaneRowStriping = defaults.DualPaneRowStriping;
+
+                // Az oszlopszélességeknek nincs saját szerkesztő vezérlőjük
+                // (lásd Settings_ColumnWidthsHint) — húzással állítódnak, itt
+                // csak a visszaállítás éri el őket. A PaneViewModel a
+                // _settings.Changed eseményen keresztül veszi át az új
+                // értéket, ugyanúgy, mint a RowStriping-et.
+                current.LeftPaneSizeColumnWidth = defaults.LeftPaneSizeColumnWidth;
+                current.LeftPaneTypeColumnWidth = defaults.LeftPaneTypeColumnWidth;
+                current.LeftPaneModifiedColumnWidth = defaults.LeftPaneModifiedColumnWidth;
+                current.RightPaneSizeColumnWidth = defaults.RightPaneSizeColumnWidth;
+                current.RightPaneTypeColumnWidth = defaults.RightPaneTypeColumnWidth;
+                current.RightPaneModifiedColumnWidth = defaults.RightPaneModifiedColumnWidth;
                 break;
 
             case SettingsCatalog.FileList:
@@ -396,6 +411,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private string _density = "Comfortable";
 
     partial void OnDensityChanged(string value) => Persist(s => s.Density = value);
+
+    /// <summary>Páros/páratlan sorok csíkozása a kétpaneles nézetben (spec K3, v1.0.1 — Beállítások-UI hozzáadva a 2. ellenőrzési körben).</summary>
+    [ObservableProperty]
+    private bool _dualPaneRowStriping;
+
+    partial void OnDualPaneRowStripingChanged(bool value) => Persist(s => s.DualPaneRowStriping = value);
 
     [ObservableProperty]
     private bool _showSystemItems;

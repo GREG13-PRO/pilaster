@@ -352,6 +352,30 @@
                             <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_SplitRatioHint}" />
                         </StackPanel>
                     </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="panes.rowStriping">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_RowStriping}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_RowStripingHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                IsChecked="{Binding DualPaneRowStriping, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="panes.columnWidths">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_ColumnWidths}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ColumnWidthsHint}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!--  ===== Fájllista =====  -->

@@ -1129,6 +1129,18 @@
   <data name="Settings_SplitRatio" xml:space="preserve">
     <value>Elválasztó helyzete</value>
   </data>
+  <data name="Settings_RowStriping" xml:space="preserve">
+    <value>Sorok csíkozása</value>
+  </data>
+  <data name="Settings_RowStripingHint" xml:space="preserve">
+    <value>Váltakozó sorháttér a kétpaneles fájllistában, a könnyebb olvashatóságért.</value>
+  </data>
+  <data name="Settings_ColumnWidths" xml:space="preserve">
+    <value>Oszlopszélességek</value>
+  </data>
+  <data name="Settings_ColumnWidthsHint" xml:space="preserve">
+    <value>Panelenként megjegyezve az oszlophatár húzásával. Az alábbi gombbal állítható vissza az alapértelmezettre.</value>
+  </data>
   <data name="Settings_EditorTabWidth" xml:space="preserve">
     <value>Tabulátor szélessége</value>
   </data>
