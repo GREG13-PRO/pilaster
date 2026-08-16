@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pilaster.Core.FileSystem;
+using Pilaster.Core.Settings;
 
 namespace Pilaster.App.ViewModels;
 
@@ -31,13 +32,83 @@ namespace Pilaster.App.ViewModels;
 public sealed partial class PaneViewModel : ObservableObject
 {
     private readonly Func<TabViewModel> _tabFactory;
+    private readonly ISettingsService _settings;
+    private readonly bool _isLeft;
 
-    public PaneViewModel(string id, Func<TabViewModel> tabFactory)
+    public PaneViewModel(string id, Func<TabViewModel> tabFactory, ISettingsService settings)
     {
         Id = id;
         _tabFactory = tabFactory;
+        _settings = settings;
+        _isLeft = id == "left";
         Tabs = [];
+
+        // K1 (v1.0.1): oszlopszélesség panelenként külön mentve — lásd az
+        // AppSettings.LeftPane…/RightPane… párokat.
+        SizeColumnWidth = _isLeft ? settings.Current.LeftPaneSizeColumnWidth : settings.Current.RightPaneSizeColumnWidth;
+        TypeColumnWidth = _isLeft ? settings.Current.LeftPaneTypeColumnWidth : settings.Current.RightPaneTypeColumnWidth;
+        ModifiedColumnWidth = _isLeft ? settings.Current.LeftPaneModifiedColumnWidth : settings.Current.RightPaneModifiedColumnWidth;
+
+        // K3 (v1.0.1): páros/páratlan sorok csíkozása — globális, nem
+        // panelenkénti beállítás, egyszer olvasva a konstruktorban (nincs
+        // hozzá még Beállítások-UI, ez a kör kizárólag a meglévő
+        // megjelenítési hibákat javítja, új felületet nem ad hozzá).
+        RowStriping = settings.Current.DualPaneRowStriping;
     }
+
+    [ObservableProperty]
+    public partial double SizeColumnWidth { get; set; }
+
+    partial void OnSizeColumnWidthChanged(double value)
+    {
+        if (_isLeft)
+        {
+            _settings.Current.LeftPaneSizeColumnWidth = value;
+        }
+        else
+        {
+            _settings.Current.RightPaneSizeColumnWidth = value;
+        }
+
+        _settings.NotifyChanged();
+    }
+
+    [ObservableProperty]
+    public partial double TypeColumnWidth { get; set; }
+
+    partial void OnTypeColumnWidthChanged(double value)
+    {
+        if (_isLeft)
+        {
+            _settings.Current.LeftPaneTypeColumnWidth = value;
+        }
+        else
+        {
+            _settings.Current.RightPaneTypeColumnWidth = value;
+        }
+
+        _settings.NotifyChanged();
+    }
+
+    [ObservableProperty]
+    public partial double ModifiedColumnWidth { get; set; }
+
+    partial void OnModifiedColumnWidthChanged(double value)
+    {
+        if (_isLeft)
+        {
+            _settings.Current.LeftPaneModifiedColumnWidth = value;
+        }
+        else
+        {
+            _settings.Current.RightPaneModifiedColumnWidth = value;
+        }
+
+        _settings.NotifyChanged();
+    }
+
+    /// <summary>Páros/páratlan sorok csíkozása (spec K3, v1.0.1) — lásd a konstruktor megjegyzését.</summary>
+    public bool RowStriping { get; }
 
     /// <summary>A panel azonosítója (<c>"left"</c> / <c>"right"</c>) — a mentett munkamenet ezzel párosítja vissza a füleket.</summary>
     public string Id { get; }
@@ -54,6 +125,18 @@ public sealed partial class PaneViewModel : ObservableObject
 
     /// <summary>Az aktív fül indexe, vagy <c>-1</c>, ha nincs — a munkamenet mentése ezt tárolja.</summary>
     public int ActiveTabIndex => ActiveTab is null ? -1 : Tabs.IndexOf(ActiveTab);
+
+    /// <summary>
+    /// Igaz, amíg ez a panel kétpaneles nézetben (<see cref="FilePaneView"/>-n
+    /// keresztül) jelenik meg (spec E1, v1.0.1) — ilyenkor a <see cref="NewTab"/>
+    /// NEM a virtuális Kezdőlapot nyitja meg, hanem egy valódi mappát, mert a
+    /// Kezdőlap-irányítópultnak (kártyák, meghajtók) nincs kétpaneles
+    /// megfelelője, és üresen maradna. Egypaneles nézetben (ahol VAN
+    /// irányítópult) ez hamis, és a Kezdőlap továbbra is elérhető marad.
+    /// A <see cref="MainWindowViewModel"/> állítja be a <c>DualPaneEnabled</c>
+    /// váltásakor.
+    /// </summary>
+    public bool SuppressHomeTab { get; set; }
 
     /// <summary>Egy új fül jött létre ebben a panelben — a főablak-modell erre köti be a fül figyelését.</summary>
     public event EventHandler<TabViewModel>? TabCreated;
@@ -90,9 +173,26 @@ public sealed partial class PaneViewModel : ObservableObject
         return tab;
     }
 
-    /// <summary>Ctrl+T — új fül a kezdőlapon.</summary>
+    /// <summary>
+    /// Ctrl+T — új fül. Egypaneles nézetben a Kezdőlapon, kétpaneles
+    /// nézetben egy valódi mappán — lásd <see cref="SuppressHomeTab"/>.
+    /// </summary>
     [RelayCommand]
-    private void NewTab() => AddTab(TabViewModel.HomeMarker, ActiveTab?.ViewMode, ActiveTab?.ShowHiddenItems ?? false);
+    private void NewTab() => AddTab(
+        SuppressHomeTab ? DefaultRealFolder() : TabViewModel.HomeMarker,
+        ActiveTab?.ViewMode,
+        ActiveTab?.ShowHiddenItems ?? false);
+
+    /// <summary>
+    /// Valódi mappa a virtuális Kezdőlap helyett (spec E1, v1.0.1): a
+    /// beállított kezdőmappa, vagy ennek híján a felhasználói profil —
+    /// pontosan az, amit a <c>StartupFolder</c> beállítás egyébként induláskor
+    /// is használna (lásd <c>AppSettings.StartupFolder</c>).
+    /// </summary>
+    private string DefaultRealFolder() =>
+        _settings.Current.StartupFolder is { Length: > 0 } folder
+            ? folder
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     /// <summary>
     /// Ctrl+W — a megadott (vagy az aktív) fül bezárása. Az utolsó fül nem

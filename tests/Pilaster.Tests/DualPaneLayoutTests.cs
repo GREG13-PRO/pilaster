@@ -40,7 +40,7 @@ public class DualPaneLayoutTests
     };
 
     private static PaneViewModel CreatePane(string id) =>
-        new(id, () => new TabViewModel(null!, null!, new App.Services.FileMetadataService()));
+        new(id, () => new TabViewModel(null!, null!, new App.Services.FileMetadataService()), new FakeSettingsService());
 
     /// <summary>
     /// Panel VALÓDI provider mögött — így a fülek tényleg navigálnak, és az
@@ -51,7 +51,7 @@ public class DualPaneLayoutTests
         var provider = new Pilaster.Providers.Local.LocalFileSystemProvider();
         var sizes = new App.Services.FolderSizeService(provider);
 
-        return new PaneViewModel(id, () => new TabViewModel(provider, sizes, new App.Services.FileMetadataService()));
+        return new PaneViewModel(id, () => new TabViewModel(provider, sizes, new App.Services.FileMetadataService()), new FakeSettingsService());
     }
 
     /// <summary>

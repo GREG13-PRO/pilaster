@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Pilaster.App.Controls;
 using Pilaster.App.Services;
 using Pilaster.App.ViewModels;
 using Pilaster.Core.FileSystem;
@@ -43,6 +44,37 @@ public partial class FilePaneView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+
+        // K2 (v1.0.1): a Név oszlop tölti ki a maradék helyet. A GridViewColumn
+        // nem támogat "*" méretezést, ezért a szélessége futásidőben, kézzel
+        // számolt — újra kell futnia a panel átméretezésekor ÉS a másik három
+        // oszlop húzással történő átméretezésekor is.
+        List.SizeChanged += (_, _) => RecalculateNameColumnWidth();
+
+        foreach (var column in new[] { SizeColumn, TypeColumn, ModifiedColumn })
+        {
+            DependencyPropertyDescriptor
+                .FromProperty(GridViewColumn.WidthProperty, typeof(GridViewColumn))
+                .AddValueChanged(column, (_, _) => RecalculateNameColumnWidth());
+        }
+
+        Loaded += (_, _) => RecalculateNameColumnWidth();
+    }
+
+    /// <summary>Lásd a konstruktor megjegyzését a <see cref="List"/> SizeChanged feliratkozásánál.</summary>
+    private void RecalculateNameColumnWidth()
+    {
+        if (List.ActualWidth <= 0)
+        {
+            return;
+        }
+
+        var othersWidth = SizeColumn.ActualWidth + TypeColumn.ActualWidth + ModifiedColumn.ActualWidth;
+
+        // ~24 px a görgetősávnak és a sorok belső margójának — enélkül a Név
+        // oszlop pontosan a lista szélére érne, és a görgetősáv megjelenése
+        // vízszintes görgetést váltana ki.
+        NameColumn.Width = Math.Max(80, List.ActualWidth - othersWidth - 24);
     }
 
     /// <summary>A panel bármelyik pontjára kattintva jelez — a szülő ezzel dönti el, melyik panel az „aktív".</summary>
@@ -425,6 +457,78 @@ public partial class FilePaneView : UserControl
         if (((FrameworkElement)sender).Tag is string path && Tab is { } tab)
         {
             _ = tab.NavigateAsync(path);
+        }
+    }
+
+    /// <summary>
+    /// E1 (v1.0.1) tartalék-lista sora: a Kezdőlap-fülre EBBEN a panelben
+    /// navigál, nem a globálisan aktívba — lásd a XAML megjegyzését a
+    /// tartalék <c>ItemsControl</c>-nál.
+    /// </summary>
+    private void OnHomeFallbackItemClick(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).Tag is string path && Tab is { } tab)
+        {
+            _ = tab.NavigateAsync(path);
+        }
+    }
+
+    /// <summary>
+    /// Oszlopfejléc-kattintás: rendezés az oszlop szempontja szerint — ugyanaz
+    /// a minta, mint a <c>MainWindow</c> egypaneles Részletes nézetén.
+    /// </summary>
+    private void OnPaneColumnHeaderClick(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not GridViewColumnHeader { Column: { } column } || Tab is not { } tab)
+        {
+            return;
+        }
+
+        var key = GridViewSort.GetSortKey(column);
+        var descending = key == tab.SortKey && !tab.SortDescending;
+        tab.ApplySort(key, descending);
+        SyncColumnHeaderIndicators();
+    }
+
+    private void SyncColumnHeaderIndicators()
+    {
+        if (Tab is not { } tab)
+        {
+            return;
+        }
+
+        foreach (var header in FindVisualChildren<GridViewColumnHeader>(List))
+        {
+            if (header.Column is not { } column)
+            {
+                continue;
+            }
+
+            var key = GridViewSort.GetSortKey(column);
+
+            GridViewSort.SetIndicator(
+                header,
+                key != tab.SortKey
+                    ? SortIndicator.None
+                    : tab.SortDescending ? SortIndicator.Descending : SortIndicator.Ascending);
+        }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+
+            if (child is T typed)
+            {
+                yield return typed;
+            }
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
         }
     }
 

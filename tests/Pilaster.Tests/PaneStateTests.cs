@@ -32,7 +32,7 @@ public class PaneStateTests
     /// ezért a null-továbbadás itt biztonságos, és nem húz be WPF-függést.
     /// </summary>
     private static PaneViewModel CreatePane(string id) =>
-        new(id, () => new TabViewModel(null!, null!, new App.Services.FileMetadataService()));
+        new(id, () => new TabViewModel(null!, null!, new App.Services.FileMetadataService()), new FakeSettingsService());
 
     [Fact]
     public void KetPanelFuljeiTeljesenKulonallnak()

@@ -65,8 +65,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // A két panel MINDEN fájllista-állapotot birtokol (fülek, aktív fül, és
         // fülönként útvonal/előzmény/kijelölés/rendezés/nézetmód/görgetés/szűrő).
         // Globálisan csak az „melyik az aktív" és az elrendezés marad itt.
-        LeftPane = new PaneViewModel("left", CreateTab);
-        RightPane = new PaneViewModel("right", CreateTab);
+        LeftPane = new PaneViewModel("left", CreateTab, _settings);
+        RightPane = new PaneViewModel("right", CreateTab, _settings);
+
+        // E1 (v1.0.1): a kétpaneles FilePaneView-nak nincs Kezdőlap-
+        // irányítópultja — lásd PaneViewModel.SuppressHomeTab.
+        LeftPane.SuppressHomeTab = _settings.Current.DualPaneEnabled;
+        RightPane.SuppressHomeTab = _settings.Current.DualPaneEnabled;
 
         foreach (var pane in new[] { LeftPane, RightPane })
         {
@@ -212,6 +217,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         _settings.Current.DualPaneEnabled = value;
         _settings.NotifyChanged();
+
+        // E1 (v1.0.1): lásd PaneViewModel.SuppressHomeTab — a meglévő fülek
+        // állapotát ez nem érinti, csak az EZUTÁN nyíló új füleket.
+        LeftPane.SuppressHomeTab = value;
+        RightPane.SuppressHomeTab = value;
 
         // Egypaneles módra váltva a bal panel lesz az aktív, DE a jobb panel
         // fülei/előzményei érintetlenül megmaradnak — visszakapcsoláskor

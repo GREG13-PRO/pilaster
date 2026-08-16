@@ -720,9 +720,18 @@ public partial class MainWindow : FluentWindow
         return
         [
             new("Cmd_Open", SymbolRegular.Open24, () => _ = OpenItemAsync(item)),
-            new("Cmd_OpenNewTab", SymbolRegular.TabAdd24, () => _viewModel.ActivePane.AddTab(item.FullPath), item.IsNavigable),
+            // J4 (v1.0.1): fájlon (nem navigálható elemen) ez a két parancs
+            // ELVILEG sem értelmezhető — IsVisible-lel tűnnek el, nem
+            // IsEnabled-del szürkülnek, mert egy letiltott saját elem azt
+            // sugallja, hogy elromlott valami. "Megnyitás a másik panelen"
+            // ráadásul csak akkor van értelme, ha TÉNYLEG van másik,
+            // aktív panel (kétpaneles nézet) — egypaneles nézetben ugyanígy
+            // eltűnik, nem szürkén áll ott.
+            new("Cmd_OpenNewTab", SymbolRegular.TabAdd24, () => _viewModel.ActivePane.AddTab(item.FullPath),
+                IsVisible: item.IsNavigable),
             new("QuickAccess_OpenOther", SymbolRegular.DualScreen24,
-                () => _ = _viewModel.InactivePane.NavigateAsync(item.FullPath), item.IsNavigable && dual),
+                () => _ = _viewModel.InactivePane.NavigateAsync(item.FullPath),
+                IsVisible: item.IsNavigable && dual),
             new("Cmd_OpenWith", SymbolRegular.AppGeneric24, () => OpenWithDialog(item.FullPath), !item.IsNavigable),
 
             new("Cmd_EditWithPilaster", SymbolRegular.Code24, () => OpenInEditor(item.FullPath), !item.IsNavigable),
@@ -746,7 +755,7 @@ public partial class MainWindow : FluentWindow
             new("Cmd_CopyName", SymbolRegular.Copy24, () => CopyTextToClipboard(item.Name)),
             new("Cmd_OpenTerminal", SymbolRegular.WindowConsole20, () => OpenTerminalAt(item)),
             new("Cmd_PinToQuickAccess", SymbolRegular.Pin24,
-                () => _viewModel.PinToQuickAccessCommand.Execute(item.FullPath), item.IsNavigable),
+                () => _viewModel.PinToQuickAccessCommand.Execute(item.FullPath), IsVisible: item.IsNavigable),
             new("Cmd_Tags", SymbolRegular.Tag24, () => ShowTagPickerFor(item, null)),
 
             PilasterMenuEntry.Separator,

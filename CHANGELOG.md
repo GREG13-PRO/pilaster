@@ -2,6 +2,109 @@
 
 A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
 
+## v1.0.1
+
+Tisztán UI-javítások a v1.0.0 kiadás utáni valós használatból — **nincs benne
+új funkció**, a jobbklikk-menü és a kétpaneles nézet kizárólag a
+megjelenítése változott.
+
+### Javítások — jobbklikk menü
+
+- **Üres szürke doboz a menü tetején.** A beépített keresőmező dísztelen,
+  natív `TextBox` volt — placeholder és ikon nélkül üres dobozként ütött el.
+  Most a WPF-UI `TextBox`-ának `PlaceholderText`/`Icon` tulajdonságaival
+  ugyanaz a minta, mint a Beállítások keresőjén.
+- **A menü levágódott a képernyő alján.** A `ContextMenu` nem korlátozta
+  magát a munkaterülethez. Megnyíláskor mostantól lekérdezi a natív
+  `MonitorFromWindow`/`GetMonitorInfo`-val a MEGFELELŐ (nem feltétlenül
+  elsődleges) monitor munkaterületét, a monitor saját DPI-jével átváltva
+  WPF-egységre, és ehhez korlátozza a `MaxHeight`-ot — ez aktiválja a natív
+  `ContextMenu`-sablon beépített görgetését (fel/le nyilak), mint az
+  Intézőben. MÉRVE: egy 68 elemes menü (természetes magassága ~1900+ px)
+  972 px-re korlátozódott egy 1032 px munkaterületen — a görgetés helyesen
+  bekapcsolt.
+- **Duplikált „Megnyitás".** A saját „Megnyitás" mellett az „Egyéb
+  alkalmazások" szekcióban egy shell-eredetű „Megnyitás" is megjelent. A
+  szűrés a shell-elem NYELVFÜGGETLEN verbje alapján történik
+  (`IContextMenu.GetCommandString(GCS_VERBW)`); ha egy bővítmény nem ad
+  verbet, a másodlagos jelző az `MFS_DEFAULT` állapot. A szűrt elemet
+  `Debug` szinten naplózzuk.
+- **Indokolatlanul letiltott saját elemek.** A „Megnyitás új fülön",
+  „Megnyitás a másik panelen" és „Rögzítés a gyorseléréshez" fájlon (nem
+  navigálható elemen) szürkén jelent meg, ahelyett hogy eltűnt volna — egy
+  letiltott saját elem azt sugallja, hogy elromlott valami. A
+  `PilasterMenuEntry` mostantól `IsVisible`/`IsEnabled` között
+  különböztet: ami elvileg sosem értelmezhető az adott elemtípuson (fájlon a
+  fenti három, vagy „Megnyitás a másik panelen" kétpaneles nézet nélkül),
+  az EGYÁLTALÁN NEM kerül a menübe.
+- **Az „Egyéb alkalmazások" felirat beleolvadt.** Üres ikont kapott — ugyanazt
+  az ikon-oszlopot foglalja le, mint egy valódi elem —, így pixelre egybeesik
+  a többi sor szövegének bal szélével, és egyenletes függőleges térközt kapott.
+
+### Javítások — kétpaneles nézet
+
+- **Nem voltak oszlopfejlécek.** A panelek fájllistája mostantól `GridView`-t
+  használ Név/Méret/Típus/Módosítva oszlopokkal — kattintással rendezhető
+  (ugyanaz a `TabViewModel.ApplySort`, mint az egypaneles Részletes nézeten),
+  húzással átméretezhető, és a Méret/Típus/Módosítva szélessége **panelenként
+  külön** mentődik (`AppSettings.LeftPane…`/`RightPane…`). A Név oszlop
+  tölti ki a maradék helyet — a `GridViewColumn` nem támogat „*" méretezést,
+  ezért ezt a code-behind számolja újra a panel és az oszlopok
+  átméretezésekor.
+- **Az oszlopelrendezés zsúfolt volt.** Méret jobbra igazítva, Típus és
+  Módosítva fix szélességgel, a Név a maradékot tölti ki hosszú névnél `…`-vel.
+- **A sorok nehezen követhetők.** A kijelölés/hover mostantól 4 px-rel
+  beljebb kezdődik mindkét oldalon, lekerekítve. Új, alapból bekapcsolt
+  páros/páratlan csíkozás (`AppSettings.DualPaneRowStriping`).
+- **Négy sornyi vezérlő a tartalom előtt.** Az eszköztár (vissza/előre/fel/
+  frissítés) és az útvonalsáv egy sorba vonva — egy teljes sornyi hellyel
+  több jut a fájloknak.
+- **Az aktív panel jelzése túl hangsúlyos volt.** A mind a négy oldalán
+  1,5 px-es akcentusszínű keret helyett a keret mindig semleges, csak a
+  FELSŐ éle vastagodik és színeződik akcentusra, amíg a panel aktív.
+- **Rendereléshiba a bal panel jobb felső sarkában.** A panelek közötti
+  szinkronizálás/csere gomb korábban `VerticalAlignment="Top"` mellett
+  pontosan a panelek saját fülsávjával azonos magasságban lebegett — keskeny
+  ablaknál vagy DPI-nél ez egymásra csúszott az „+" új fül gombbal.
+  Függőlegesen középre helyezve a választóra float-ol, ami szélességtől és
+  DPI-től függetlenül sosem esik egybe egyik panel fejlécével sem.
+- **Nem volt állapotsor.** Egy közös sor a két panel alatt, az AKTÍV panel
+  elemszámával, kijelölésével és a kötet szabad helyével.
+
+### Javítások — gyorselérés
+
+- **Túl vékony sorok.** A `SidebarItemStyle`-nak korábban nem volt explicit
+  magassága — a `TokenRowPadding` mindhárom sűrűségnél 0 függőleges paddingot
+  ad, tehát a sormagasság pusztán a tartalomra zsugorodott, a
+  sűrűség-beállítástól függetlenül. Most a `TokenRowHeight`-re kötve
+  „kényelmes" sűrűségben 32 px (a kért 32–36 px tartomány alján), „tömör"
+  sűrűségben a korábbi szűkebb 24 px marad. A kijelölés 4 px-rel beljebb
+  kezdődik, 4 px lekerekítéssel. A szekciócím bal margója igazodik a
+  listaelemekhez, egyenletesebb térközzel.
+
+### Javítások — egyéb
+
+- **A hibabejelentőhöz csatolt képernyőmentés üresen jelent meg sötét
+  témában.** Gyökérok: a `RenderTargetBitmap`-alapú rögzítés a WPF vizuális
+  fát DWM-kompozitálás NÉLKÜL rendereli — ez a legtöbb felületen
+  pixelpontos, de a félig áttetsző, Mica-rétegre épülő „liquid glass"
+  oldalsávon (`GlassPanelBrush`) sötét témában derengő, majdnem üres
+  eredményt adott, mert a valódi Mica-alapszín hiányában az alfa-keverés a
+  háttér nélküli feloldásra esik vissza. A képrögzítés mostantól elsődlegesen
+  a natív `PrintWindow`-t hívja `PW_RENDERFULLCONTENT` jelzővel — ez a
+  TÉNYLEGESEN összeállított, DWM-kompozitált felületet másolja, Mica-val
+  együtt, és akkor is működik, ha az ablakot közben más takarja ki. Hiba
+  esetén visszaesik az eredeti `RenderTargetBitmap`-útra.
+- **A kétpaneles nézet Kezdőlap füle üres maradt.** A panelek fájllistája
+  (`FilePaneView`) nem ismeri a Kezdőlap-irányítópultot (kártyák, meghajtók)
+  — ez a v1.1 feladata marad. Ehelyett az ÚJ fülek kétpaneles nézetben
+  mostantól valódi mappát nyitnak (a beállított kezdőmappát, vagy ennek
+  híján a felhasználói profilt) a virtuális Kezdőlap helyett. Ha egy fül
+  mégis Kezdőlap-állapotba kerülne (pl. régebbi mentett munkamenetből), ott
+  legalább a gyorselérés-lista jelenik meg, nem üres felület.
+- A „Ismert korlátok" szakasz duplikált pontjai (folyamat-izoláció,
+  kódaláírás, egyedi kiosztás-szerkesztő) összevonva.
+
 ## v1.0.0
 
 Az első kiadás, ami nem egy mérföldkő, hanem egy **kerek termék**: a

@@ -16,6 +16,7 @@
             </ResourceDictionary.MergedDictionaries>
 
             <conv:ByteSizeConverter x:Key="ByteSize" />
+            <conv:DriveFreeSpaceConverter x:Key="DriveFreeSpace" />
             <conv:FolderAwareSizeConverter x:Key="FolderAwareSize" />
             <conv:FileTypeConverter x:Key="FileType" />
             <conv:LocalDateConverter x:Key="LocalDate" />

@@ -362,6 +362,26 @@ public sealed class AppSettings
     public double DualPaneSplitRatio { get; set; } = 0.5;
 
     /// <summary>
+    /// A kétpaneles nézet Méret/Típus/Módosítva oszlopainak szélessége,
+    /// panelenként külön (spec K1, v1.0.1) — húzással állítható, és ide
+    /// mentődik, hogy a következő indításkor is megmaradjon.
+    /// </summary>
+    public double LeftPaneSizeColumnWidth { get; set; } = 90;
+
+    public double LeftPaneTypeColumnWidth { get; set; } = 110;
+
+    public double LeftPaneModifiedColumnWidth { get; set; } = 140;
+
+    public double RightPaneSizeColumnWidth { get; set; } = 90;
+
+    public double RightPaneTypeColumnWidth { get; set; } = 110;
+
+    public double RightPaneModifiedColumnWidth { get; set; } = 140;
+
+    /// <summary>Páros/páratlan sorok enyhe csíkozása a kétpaneles nézetben (spec K3, v1.0.1).</summary>
+    public bool DualPaneRowStriping { get; set; } = true;
+
+    /// <summary>
     /// Kilépéskor mentődjön-e a nyitott fülek állapota, és induláskor
     /// álljon-e vissza. Kikapcsolva mindkét panel egy Kezdőlap-füllel indul.
     /// </summary>

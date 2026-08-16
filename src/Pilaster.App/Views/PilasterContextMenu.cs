@@ -10,7 +10,6 @@ using Wpf.Ui.Controls;
 using ContextMenu = System.Windows.Controls.ContextMenu;
 using MenuItem = System.Windows.Controls.MenuItem;
 using Separator = System.Windows.Controls.Separator;
-using TextBox = System.Windows.Controls.TextBox;
 
 namespace Pilaster.App.Views;
 
@@ -20,12 +19,21 @@ namespace Pilaster.App.Views;
 /// <param name="Action">Kattintáskor futó művelet.</param>
 /// <param name="IsEnabled">Engedélyezett-e.</param>
 /// <param name="SubItems">Almenü elemei; üres, ha nincs almenü.</param>
+/// <param name="IsVisible">
+/// Hamis esetén az elem EGYÁLTALÁN NEM kerül a menübe (spec J4 v1.0.1):
+/// egy olyan parancs, ami az adott elemtípuson sosem értelmezhető (pl.
+/// "Megnyitás a másik panelen" fájlon), ne szürkén álljon ott — az azt
+/// sugallná, hogy elromlott valami —, hanem tűnjön el. <see cref="IsEnabled"/>
+/// arra való, amikor a parancs ELVILEG helyénvaló, csak épp most nem
+/// hajtható végre.
+/// </param>
 public sealed record PilasterMenuEntry(
     string LabelKey,
     SymbolRegular Icon,
     Action? Action = null,
     bool IsEnabled = true,
-    IReadOnlyList<PilasterMenuEntry>? SubItems = null)
+    IReadOnlyList<PilasterMenuEntry>? SubItems = null,
+    bool IsVisible = true)
 {
     /// <summary>Elválasztó — a <see cref="LabelKey"/> üres.</summary>
     public static PilasterMenuEntry Separator { get; } = new(string.Empty, SymbolRegular.Empty);
@@ -54,15 +62,21 @@ public sealed record PilasterMenuEntry(
 public sealed class PilasterContextMenu
 {
     private readonly ContextMenu _menu = new();
-    private readonly TextBox _searchBox;
+    private readonly Wpf.Ui.Controls.TextBox _searchBox;
     private ShellMenuSession? _session;
 
     private PilasterContextMenu(GlassEffectService glass)
     {
-        _searchBox = new TextBox
+        // J1 (v1.0.1): a keresőmező korábban dísztelen, natív TextBox volt —
+        // placeholder és ikon nélkül üres szürke dobozként ütött el a menü
+        // tetején. A Wpf.Ui.Controls.TextBox PlaceholderText/Icon
+        // tulajdonságaival ugyanaz a minta, mint a Beállítások keresőjén.
+        _searchBox = new Wpf.Ui.Controls.TextBox
         {
             Margin = new Thickness(8, 6, 8, 6),
             MinWidth = 200,
+            PlaceholderText = TranslationSource.Instance["ContextMenu_SearchPlaceholder"],
+            Icon = new SymbolIcon { Symbol = SymbolRegular.Search24 },
         };
 
         _searchBox.TextChanged += (_, _) => ApplyFilter(_searchBox.Text);
@@ -70,6 +84,14 @@ public sealed class PilasterContextMenu
         // MÉRVE: az üvegeffektus alkalmazása 1–2 ms, tehát nem érdemes
         // halasztani vagy feltételhez kötni.
         _menu.Opened += (_, _) => glass.ApplyToContextMenu(_menu);
+
+        // J2 (v1.0.1): a menü korábban simán túlnyúlt a képernyő alján — a
+        // Popup nem korlátozta magát a munkaterülethez. A MaxHeight
+        // beállítása a natív ContextMenu-sablon BEÉPÍTETT ScrollViewerét
+        // aktiválja (fel/le görgető nyilak, mint az Intézőben), tehát nem
+        // kell saját görgetés-logikát írni — csak a felső korlátot kell
+        // helyesen, a MEGFELELŐ monitoron és annak DPI-jével megadni.
+        _menu.Opened += (_, _) => LimitHeightToWorkArea();
 
         // A munkamenetet a menü bezárásakor el KELL dobni, különben a
         // bővítmények COM-objektumai és a hozzájuk tartozó STA szál bent
@@ -201,8 +223,10 @@ public sealed class PilasterContextMenu
     private void BuildOwnItems(IReadOnlyList<PilasterMenuEntry> entries)
     {
         // A kereső csak akkor jelenik meg, ha van mit szűrni — egy három
-        // elemű menü tetején felesleges és zavaró volna.
-        if (entries.Count(e => !e.IsSeparator) >= 8)
+        // elemű menü tetején felesleges és zavaró volna. A rejtett (nem
+        // IsVisible) elemek nem számítanak bele — azok úgysem kerülnek a
+        // menübe.
+        if (entries.Count(e => !e.IsSeparator && e.IsVisible) >= 8)
         {
             _menu.Items.Add(_searchBox);
             _menu.Items.Add(new Separator());
@@ -214,15 +238,36 @@ public sealed class PilasterContextMenu
         }
     }
 
+    /// <summary>
+    /// A <see cref="PilasterMenuEntry"/>-fa WPF vezérlőkké alakítása. A nem
+    /// <see cref="PilasterMenuEntry.IsVisible"/> elemek EGYÁLTALÁN NEM
+    /// kerülnek bele (spec J4 v1.0.1), és az emiatt egymás mellé kerülő
+    /// elválasztók összevonódnak — lásd az osztályszintű megjegyzést a
+    /// <see cref="ShellMenuSession"/>-nél ugyanerről a mintáról.
+    /// </summary>
     private IEnumerable<Control> Convert(IReadOnlyList<PilasterMenuEntry> entries)
     {
+        var lastWasSeparator = true;
+
         foreach (var entry in entries)
         {
             if (entry.IsSeparator)
             {
-                yield return new Separator();
+                if (!lastWasSeparator)
+                {
+                    lastWasSeparator = true;
+                    yield return new Separator();
+                }
+
                 continue;
             }
+
+            if (!entry.IsVisible)
+            {
+                continue;
+            }
+
+            lastWasSeparator = false;
 
             var item = new MenuItem
             {
@@ -325,13 +370,57 @@ public sealed class PilasterContextMenu
                 Header = TranslationSource.Instance["ContextMenu_OtherApps"],
                 IsEnabled = false,
                 FontSize = 11,
+                Margin = new Thickness(0, 6, 0, 4),
+                // J5 (v1.0.1): üres ikon a valódi elemekével AZONOS ikon-
+                // oszlopot foglalja le, így a felirat pixelre egybeesik a
+                // többi sor szövegének bal szélével — nem egy kézzel
+                // eltalált margóérték, ami a natív MenuItem-sablon
+                // változásával elcsúszhatna.
+                Icon = new SymbolIcon { Symbol = SymbolRegular.Empty },
             });
         }
 
         foreach (var node in session.Items)
         {
+            // J3 (v1.0.1): a saját menü mindig felkínálja a "Megnyitás"-t
+            // (Cmd_Open, lásd BuildFileMenuEntries) — a shell saját
+            // "Megnyitás" verbje ugyanezt csinálná még egyszer. A verb
+            // NYELVFÜGGETLEN (lásd ShellMenuNode.Verb dokumentációja),
+            // ezért erre szűrünk, nem a feliratra. Ha egy bővítmény nem ad
+            // verbet, a másodlagos jelző az MFS_DEFAULT állapot — a natív
+            // menüben egyszerre csak EGY elem lehet alapértelmezett, tehát
+            // ez legfeljebb egy elemet szűr ki.
+            if (IsDuplicateOpenCommand(node))
+            {
+                Serilog.Log.Debug(
+                    "Jobbklikk-menü: shell 'Megnyitás' elem kiszűrve (verb={Verb}, alapértelmezett={IsDefault}): {Text}",
+                    node.Verb,
+                    node.IsDefault,
+                    node.Text);
+                continue;
+            }
+
             _menu.Items.Add(ConvertShellNode(node));
         }
+    }
+
+    /// <summary>
+    /// Igaz, ha ez a felső szintű shell-elem ugyanazt a "Megnyitás" parancsot
+    /// adná, mint a saját <c>Cmd_Open</c> — lásd a hívási hely megjegyzését.
+    /// </summary>
+    private static bool IsDuplicateOpenCommand(ShellMenuNode node)
+    {
+        if (node.IsSeparator || node.HasChildren)
+        {
+            return false;
+        }
+
+        if (node.Verb is { Length: > 0 } verb)
+        {
+            return verb.Equals("open", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return node.IsDefault;
     }
 
     private Control ConvertShellNode(ShellMenuNode node)
@@ -460,6 +549,73 @@ public sealed class PilasterContextMenu
         {
             e.Handled = true;
             _searchBox.Clear();
+        }
+    }
+
+    /// <summary>
+    /// A menü magasságának korlátozása arra a munkaterületre, amelyiken
+    /// megnyílik (spec J2 v1.0.1) — a natív <c>MonitorFromWindow</c>/
+    /// <c>GetMonitorInfo</c> adja a FIZIKAI pixelekben mért munkaterületet,
+    /// amit a placement-ablak DPI-jével kell WPF-egységekre váltani, mert a
+    /// <see cref="SystemParameters.WorkArea"/> csak az ELSŐDLEGES monitorra
+    /// adna helyes értéket — több monitornál rossz korlátot szabna.
+    /// </summary>
+    private void LimitHeightToWorkArea()
+    {
+        if (Window.GetWindow(_menu.PlacementTarget) is not { } window)
+        {
+            return;
+        }
+
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+
+        if (hwnd == nint.Zero)
+        {
+            return;
+        }
+
+        var monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        var info = new NativeMethods.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.MONITORINFO>() };
+
+        if (monitor == nint.Zero || !NativeMethods.GetMonitorInfo(monitor, ref info))
+        {
+            return;
+        }
+
+        var dpi = VisualTreeHelper.GetDpi(window);
+        var workAreaHeightPx = info.rcWork.Bottom - info.rcWork.Top;
+
+        // 24 px levegő fent-lent — enélkül a menü pontosan a munkaterület
+        // szélére tapadna, ami ugyanolyan "levágott" hatást keltene.
+        _menu.MaxHeight = Math.Max(100, workAreaHeightPx / dpi.DpiScaleY - 24);
+    }
+
+    private static class NativeMethods
+    {
+        public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        public static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        public struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
         }
     }
 }

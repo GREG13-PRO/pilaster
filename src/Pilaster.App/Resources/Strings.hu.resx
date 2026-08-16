@@ -191,6 +191,10 @@
     <value>{0} kijelölve · {1}</value>
     <comment>{0} = darabszám, {1} = formázott összméret</comment>
   </data>
+  <data name="Status_FreeSpace" xml:space="preserve">
+    <value>{0} szabad</value>
+    <comment>{0} = formázott szabad hely, pl. „146 GB"</comment>
+  </data>
   <data name="Status_Loading" xml:space="preserve">
     <value>Betöltés…</value>
   </data>
@@ -1166,6 +1170,9 @@
   </data>
   <data name="ContextMenu_OtherApps" xml:space="preserve">
     <value>Egyéb alkalmazások</value>
+  </data>
+  <data name="ContextMenu_SearchPlaceholder" xml:space="preserve">
+    <value>Keresés a menüben…</value>
   </data>
   <data name="Cmd_CopyName" xml:space="preserve">
     <value>Név másolása</value>

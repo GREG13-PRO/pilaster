@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -488,6 +489,38 @@ public sealed class LocalizeKeyConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is string key && key.Length > 0 ? TranslationSource.Instance[key] : string.Empty;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Egy útvonal kötetének szabad helye, „X GB szabad" alakban (spec K7,
+/// v1.0.1) — a kétpaneles nézet állapotsorán. Csendben üres szöveget ad
+/// vissza hálózati vagy pillanatnyilag el nem érhető köteteknél, nem hibát.
+/// </summary>
+public sealed class DriveFreeSpaceConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string path || string.IsNullOrEmpty(path))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var drive = new DriveInfo(Path.GetPathRoot(path) ?? path);
+
+            return drive.IsReady
+                ? string.Format(culture, TranslationSource.Instance["Status_FreeSpace"], ByteSize.Format(drive.AvailableFreeSpace, culture))
+                : string.Empty;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
+    }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

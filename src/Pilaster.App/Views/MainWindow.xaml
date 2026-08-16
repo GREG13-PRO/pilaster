@@ -252,6 +252,17 @@
             <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
             <Setter Property="Margin" Value="{DynamicResource TokenRowMargin}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <!--
+                G1 (v1.0.1): korábban nem volt explicit Height, a sor pusztán
+                a tartalom (ikon+szöveg) magasságára zsugorodott — a
+                TokenRowPadding mind a három sűrűségnél 0 függőleges
+                paddingot ad, tehát a sűrűség-beállítás sem hatott rá. A
+                TokenRowHeight-re kötve a "kényelmes" (alap) sűrűségben 32 px
+                lesz (a kért 32–36 px tartomány alján), a "tömör" 24 px-en
+                marad — pontosan a kért "maradjon a mostani szűkebb változat".
+            -->
+            <Setter Property="Height" Value="{DynamicResource TokenRowHeight}" />
             <!--
                 Húzás indítása: a gyorselérés sorai áthúzhatók egymásra az
                 átrendezéshez (lásd OnSidebarItemPreviewMouseMove). Más
@@ -275,28 +286,39 @@
                             EGÉSZ sor területe kattinthatóvá válik.
                         -->
                         <Grid Background="Transparent">
+                            <!--
+                                G1 (v1.0.1): 4 px-es beljebb-kezdés mindkét
+                                oldalon, 4 px lekerekítéssel — korábban a
+                                kijelölés/hover szél-szélig ért, 7 px
+                                sarokkerekítéssel.
+                            -->
                             <Border
                                 x:Name="Hover"
+                                Margin="4,0"
                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                CornerRadius="7"
+                                CornerRadius="4"
                                 Opacity="0" />
                             <Border
                                 x:Name="Selected"
+                                Margin="4,0"
                                 Background="{DynamicResource AccentSelectionBrush}"
-                                CornerRadius="7"
+                                CornerRadius="4"
                                 Opacity="0" />
-                            <Border Padding="{TemplateBinding Padding}">
-                                <ContentPresenter />
+                            <Border Padding="{TemplateBinding Padding}" VerticalAlignment="Center">
+                                <ContentPresenter VerticalAlignment="Center" />
                             </Border>
                             <!--
                                 Vékony akcentus-sáv a bal szélen — ez teszi
                                 egyértelművé elsőre az aktuálisan megnyitott
                                 mappát, a Windows 11 navigációs mintáját követve.
+                                4 px-es margóval indul, hogy a most beljebb
+                                kezdődő Selected/Hover lekerekített szélén
+                                belül maradjon.
                             -->
                             <Border
                                 x:Name="ActiveBar"
                                 Width="3"
-                                Margin="0,4"
+                                Margin="4,4"
                                 HorizontalAlignment="Left"
                                 Background="{DynamicResource SystemAccentBrush}"
                                 CornerRadius="2"
@@ -1057,7 +1079,7 @@
                                         meg — a Tag adja át a szekció kulcsát a kezelőnek.
                                     -->
                                     <TextBlock
-                                        Margin="16,6,12,4"
+                                        Margin="12,10,12,6"
                                         FontSize="11"
                                         FontWeight="SemiBold"
                                         Foreground="{DynamicResource TokenTextMuted}"
@@ -1732,6 +1754,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid
@@ -1777,14 +1800,24 @@
                         DeleteRequested="OnPaneDeleteRequested"
                         FilesDropped="OnPaneFilesDropped" />
 
-                    <!--  Panelműveletek: szinkronizálás és csere (Ctrl+U)  -->
+                    <!--
+                        Panelműveletek: szinkronizálás és csere (Ctrl+U).
+
+                        K6 (v1.0.1): korábban VerticalAlignment="Top" mellett
+                        pontosan a panelek saját fülsávjával (Grid.Row="0"
+                        a FilePaneView-ban) azonos magasságban lebegett —
+                        keskeny ablaknál vagy DPI-nél ez rendszeresen
+                        egymásra csúszott az "+" új fül gombbal. Függőlegesen
+                        középre helyezve a választóra float-ol, ami
+                        SOHA nem esik egybe egyik panel fejlécével sem,
+                        szélességtől és DPI-től függetlenül.
+                    -->
                     <StackPanel
                         Grid.Column="0"
                         Grid.ColumnSpan="3"
                         Grid.Row="0"
-                        Margin="0,10,0,0"
                         HorizontalAlignment="Center"
-                        VerticalAlignment="Top"
+                        VerticalAlignment="Center"
                         Orientation="Horizontal"
                         Panel.ZIndex="10">
                         <ui:Button
@@ -1812,13 +1845,45 @@
                 </Grid>
 
                 <!--
+                    Közös állapotsor (spec K7, v1.0.1): panelenkénti sor
+                    helyett EGY, a két panel alatt, az AKTÍV panel adataival
+                    — ez nem visz el annyi függőleges helyet, mint kettő
+                    külön sor tenné.
+                -->
+                <Border
+                    Grid.Row="1"
+                    Margin="0,6,0,0"
+                    Padding="10,4"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Column="0"
+                            FontSize="11"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="{Binding ActivePane.ActiveTab.StatusText}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            FontSize="11"
+                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                            Text="{Binding ActivePane.ActiveTab.CurrentPath, Converter={StaticResource DriveFreeSpace}}" />
+                    </Grid>
+                </Border>
+
+                <!--
                     Diszkrét funkcióbillentyű-sáv — kattintható megfelelője a
                     Pilaster Classic billentyűkiosztásnak (lásd MainWindow.xaml.cs
                     OnMainPreviewKeyDown), csak akkor látszik, ha a felhasználó
                     mindkettőt (kétablakos nézet + a billentyűkiosztás) bekapcsolta.
                 -->
                 <Border
-                    Grid.Row="1"
+                    Grid.Row="2"
                     Margin="0,8,0,0"
                     Padding="4"
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"

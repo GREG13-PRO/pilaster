@@ -191,6 +191,10 @@
     <value>{0} selected · {1}</value>
     <comment>{0} = count, {1} = formatted total size</comment>
   </data>
+  <data name="Status_FreeSpace" xml:space="preserve">
+    <value>{0} free</value>
+    <comment>{0} = formatted free space, e.g. "146 GB"</comment>
+  </data>
   <data name="Status_Loading" xml:space="preserve">
     <value>Loading…</value>
   </data>
@@ -1166,6 +1170,9 @@
   </data>
   <data name="ContextMenu_OtherApps" xml:space="preserve">
     <value>Other apps</value>
+  </data>
+  <data name="ContextMenu_SearchPlaceholder" xml:space="preserve">
+    <value>Search in menu…</value>
   </data>
   <data name="Cmd_CopyName" xml:space="preserve">
     <value>Copy name</value>
