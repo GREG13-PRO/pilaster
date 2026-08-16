@@ -245,17 +245,6 @@ Ezek **nem hibák**, hanem tudatosan a v1.1-re halasztott munkák.
   helyes, de az ikongyorsítótár nélküli, FRISS Windows-felhasználói profilon
   végzett ellenőrzés kimaradt — ahhoz új profilt kell létrehozni. Ezt a
   kiadás előtti kézi körben kell megnézni.
-
-- **A jobbklikk-menü shell-lekérdezése nem külön folyamatban fut.** A kivétel,
-  a beragadás és a hibás menüfa ellen védve vagyunk, egy natív hozzáférési
-  hiba (AV) ellen nem. Tudatos, elhalasztott döntés; a helper-folyamat
-  visszafelé kompatibilisen bevezethető. Részletek: `docs/CONTEXT-MENU.md`.
-- **A kódaláírás még nincs bekötve.** A telepítő `signtool` hookja hiányzik,
-  mert tanúsítvány sincs.
-- **Az egyedi billentyű-kiosztás szerkesztője nem készült el.** A `Custom`
-  preset és a tároló mező (`CustomKeyBindings`) megvan, de a hozzárendeléseket
-  ma még csak kézzel, a `settings.json`-ben lehet megadni; a preset-választó
-  és a „Kiosztás megtekintése" táblázat működik.
 - **Néhány új beállítás még nem hat mindenre.** A sűrűség, a rendszerfájlok
   és a kiterjesztés-megjelenítés kapcsolója mentődik, de a fájllista
   megjelenítése még nem olvassa őket.
