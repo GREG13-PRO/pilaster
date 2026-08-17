@@ -109,6 +109,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(IsDarkTheme));
             OnPropertyChanged(nameof(ThemeIcon));
             OnPropertyChanged(nameof(ShowFunctionKeyBar));
+
+            // A Beállítások ablak (Panelek kategória) a saját, a
+            // SettingsViewModel-en élő DualPaneVertical kapcsolóján keresztül ír
+            // a beállításba — enélkül a tulajdonság csak a KÖVETKEZŐ induláskor
+            // érvényesülne. A property-n keresztüli írás (nem a mezőn) a szokásos
+            // OnDualPaneVerticalChanged-et is lefuttatja, ami a MainWindow
+            // PropertyChanged-figyelőjén át azonnal átbillenti az elrendezést —
+            // lásd MainWindow.xaml.cs OnViewModelPropertyChanged. Ha a beállítás
+            // már a jelenlegi értékkel egyezik (pl. a változás máshonnan jött),
+            // a forrásgenerált setter no-op, nincs végtelen kör.
+            DualPaneVertical = _settings.Current.DualPaneVertical;
         };
 
         // Kedvenc/címke hozzáadása/eltávolítása bárhonnan jöhet (fájlsor szív

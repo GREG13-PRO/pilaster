@@ -76,6 +76,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _singleInstance = current.SingleInstance;
         _checkForUpdates = current.CheckForUpdates;
         _startupFolder = current.StartupFolder;
+        _dualPaneVertical = current.DualPaneVertical;
         _dualPaneRowStriping = current.DualPaneRowStriping;
         _density = current.Density;
         _showSystemItems = current.ShowSystemItems;
@@ -233,6 +234,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             case SettingsCatalog.Panes:
                 current.DualPaneEnabled = defaults.DualPaneEnabled;
                 current.DualPaneVertical = defaults.DualPaneVertical;
+                DualPaneVertical = defaults.DualPaneVertical;
                 current.DualPaneSplitRatio = defaults.DualPaneSplitRatio;
                 current.DualPaneRowStriping = defaults.DualPaneRowStriping;
                 DualPaneRowStriping = defaults.DualPaneRowStriping;
@@ -406,6 +408,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     private string? _startupFolder;
 
     partial void OnStartupFolderChanged(string? value) => Persist(s => s.StartupFolder = string.IsNullOrWhiteSpace(value) ? null : value);
+
+    /// <summary>
+    /// Egymás alatt (igaz) vagy egymás mellett (hamis) a két panel (spec K, v1.0.1
+    /// 3. kör). A tényleges élő váltást a <see cref="MainWindowViewModel"/> végzi,
+    /// ami a <c>_settings.Changed</c> eseményen keresztül veszi át ezt az értéket
+    /// — lásd az ottani megjegyzést.
+    /// </summary>
+    [ObservableProperty]
+    private bool _dualPaneVertical;
+
+    partial void OnDualPaneVerticalChanged(bool value) => Persist(s => s.DualPaneVertical = value);
 
     [ObservableProperty]
     private string _density = "Comfortable";

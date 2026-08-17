@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -21,6 +22,18 @@ namespace Pilaster.App;
 public partial class App : Application
 {
     private ServiceProvider? _services;
+
+    /// <summary>
+    /// A folyamat teljes élettartama alatt gyűjti a WPF kötési hibákat — lásd
+    /// <see cref="BindingErrorTraceListener"/>. Az öntesztek (és igény esetén
+    /// egy jövőbeli diagnosztikai nézet) innen olvassák ki.
+    /// </summary>
+    internal static BindingErrorTraceListener? BindingErrorListener { get; private set; }
+
+    public App()
+    {
+        BindingErrorListener = BindingErrorTraceListener.Install();
+    }
 
     /// <summary>
     /// A folyamat alkalmazás-azonosítója a Windows shell felé.
@@ -176,6 +189,15 @@ public partial class App : Application
             return;
         }
 
+        // Diagnosztikai önteszt: sorra megnyitja az összes ablakot/dialógust,
+        // és kilépési kóddal jelzi, ha közben WPF kötési hiba történt (spec
+        // v1.0.1, 3. kör). A tesztkészlet ezt indítja (BindingErrorTests).
+        if (Environment.GetEnvironmentVariable("PILASTER_SELFTEST_BINDINGS") == "1")
+        {
+            RunBindingCheckSelfTest(mainWindow);
+            return;
+        }
+
         // Csendes, nem blokkoló frissítés-ellenőrzés induláskor: a hidegindítás
         // idejét nem szabad terhelnie, ezért az ablak megjelenítése UTÁN, meg
         // sem várva indul — hálózati hiba vagy naprakész állapot esetén nem
@@ -253,6 +275,87 @@ public partial class App : Application
         catch (Exception ex)
         {
             Log.Error(ex, "FINALIZER-ONTESZT kivétellel bukott");
+            exitCode = 2;
+        }
+
+        Log.CloseAndFlush();
+        Environment.Exit(exitCode);
+    }
+
+    /// <summary>
+    /// Diagnosztikai önteszt: sorra megnyitja az összes ablakot/dialógust, és
+    /// a <see cref="BindingErrorTraceListener"/> által eközben begyűjtött
+    /// kötési hibákat egy fájlba írja — a kilépési kód 0, ha egy sem volt
+    /// (spec v1.0.1, 3. kör).
+    /// </summary>
+    /// <remarks>
+    /// SZÁNDÉKOSAN benne marad a kiadott kódban, ugyanazon okból, mint a
+    /// <see cref="RunFinalizerSelfCheckAsync"/>: környezeti változó nélkül
+    /// soha nem fut, de a tesztkészlet bármikor elindíthatja a folyamat-
+    /// határon át (lásd BindingErrorTests).
+    /// </remarks>
+    private void RunBindingCheckSelfTest(MainWindow mainWindow)
+    {
+        var exitCode = 0;
+
+        // MÉRVE: a `Path.GetTempPath()` a tesztkészletből indított
+        // (Process.Start-tal létrehozott) gyermekfolyamatban MÁS útvonalra
+        // oldódott fel, mint a hívó tesztfolyamatban — feltehetően a VSTest
+        // saját, futásonkénti ideiglenes-mappa izolációja miatt. A naplófájl
+        // ugyanígy rögzített, `LocalApplicationData`-alapú helyre ír, és az
+        // MINDIG megtalálható volt — ezért ez a kimenet is oda kerül.
+        var outputPath = Path.Combine(LogFileLocator.LogDirectory, "pilaster-binding-errors.txt");
+
+        // ŐRSZEM, FÜGGETLEN szálon: a `BindingCheckRunner.Run` a Dispatcheren
+        // szinkron pumpál, tehát ha egy ablak véletlenül soha nem záródna be,
+        // a hívó (UI) szál is örökre benne ragadna — semmilyen Dispatcheren
+        // ütemezett időzítő nem futhatna le a MEGMENTÉSÉRE. Ez a szál viszont
+        // teljesen a Dispatchertől függetlenül számol vissza. A 3 perces
+        // határ bőven a közvetlen futtatásnál mért ~10-25 mp fölött van —
+        // egyes környezetekben (pl. szoftveres renderelés) a teljes séta
+        // ennél lassabban fut, de véget ér.
+        var watchdog = new Thread(() =>
+        {
+            Thread.Sleep(TimeSpan.FromMinutes(3));
+
+            try
+            {
+                File.WriteAllText(outputPath, "Az önteszt 3 percen belül sem fejeződött be — egy ablak feltehetően nem záródott be.");
+            }
+            catch
+            {
+                // Az őrszem célja a kilépés, nem a napló — ha épp ez sem
+                // sikerül, nem számít.
+            }
+
+            Environment.Exit(3);
+        })
+        {
+            IsBackground = true,
+            Name = "Pilaster.BindingCheckWatchdog",
+        };
+
+        watchdog.Start();
+
+        try
+        {
+            var errors = BindingCheckRunner.Run(_services!, mainWindow);
+            File.WriteAllLines(outputPath, errors);
+
+            if (errors.Count > 0)
+            {
+                Log.Warning("KÖTÉSHIBA-ÖNTESZT {Count} hibát talált", errors.Count);
+                exitCode = 1;
+            }
+            else
+            {
+                Log.Information("KÖTÉSHIBA-ÖNTESZT rendben");
+            }
+        }
+        catch (Exception ex)
+        {
+            File.WriteAllText(outputPath, $"Az önteszt kivétellel bukott: {ex}");
+            Log.Error(ex, "KÖTÉSHIBA-ÖNTESZT kivétellel bukott");
             exitCode = 2;
         }
 

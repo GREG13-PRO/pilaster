@@ -107,6 +107,30 @@ megjelenítése változott.
   legalább a gyorselérés-lista jelenik meg, nem üres felület.
 - A „Ismert korlátok" szakasz duplikált pontjai (folyamat-izoláció,
   kódaláírás, egyedi kiosztás-szerkesztő) összevonva.
+- A K1 (oszlopszélesség-perzisztencia) és K3 (sorcsíkozás) beállítás
+  mostantól a Beállítások → Panelek kategóriában is elérhető, nem csak a
+  config fájlban — lásd lent.
+
+### Javítások — Beállítások
+
+- **A „Vízszintes elrendezés" kapcsoló a Panelek kategóriában látszott, de
+  nem hatott.** A XAML egy `DualPaneVertical` nevű tulajdonságra kötött, ami
+  a `SettingsViewModel`-en sosem létezett — a kapcsoló némán, hiba nélkül
+  eltűnt kötésként állt ott. Most valódi tulajdonságra köt, ami azonnal
+  átbillenti a látható elrendezést mindkét panelen (a `MainWindowViewModel`
+  a beállítás-változás eseményén keresztül veszi át), és a kategória
+  „Alapértelmezettek visszaállítása" gombja is eléri.
+- **Új sorcsíkozás- és oszlopszélesség-kapcsoló** a Panelek kategóriában —
+  lásd a fenti K1/K3 pontot.
+- **Védelem a néma kötési hibák ellen.** A WPF kötési hibák alapból nem
+  jelennek meg sehol — pontosan ez okozta a fenti `DualPaneVertical`-hibát.
+  Mostantól minden ablak vizuális fáját egy beépített ellenőrző járja be
+  (`BindingErrorScanner`), ami a `BindingExpression.Status` alapján
+  megtalálja a feloldatlan kötéseket; Debug buildben a talált hibák a
+  diagnosztikai naplóba (`CrashDiagnostics`) is bekerülnek. Egy új automata
+  teszt (`BindingErrorTests`) minden ablakot és Beállítások-kategóriát
+  megnyit, és megbukik, ha akár egyetlen kötési hiba is keletkezik — ez a
+  teszt automatikusan elkapta volna a fenti hibát.
 
 ## v1.0.0
 
