@@ -42,6 +42,11 @@ public class BindingErrorTests
         // a VSTest saját, futásonkénti ideiglenes-mappa izolációja miatt),
         // ezért ugyanazt a fájlt sosem találta meg — lásd App.RunBindingCheckSelfTest.
         var outputPath = Path.Combine(LogFileLocator.LogDirectory, "pilaster-binding-errors.txt");
+
+        // Friss gépen (pl. CI-futtatón) a naplókönyvtár még nem létezik —
+        // a File.Delete ilyenkor DirectoryNotFoundException-nel bukna,
+        // holott a törlendő fájl épp emiatt eleve nincs is jelen.
+        Directory.CreateDirectory(LogFileLocator.LogDirectory);
         File.Delete(outputPath);
 
         var start = new ProcessStartInfo(exe)
