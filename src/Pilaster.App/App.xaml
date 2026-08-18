@@ -39,6 +39,76 @@
             <conv:EqualsToVisibilityConverter x:Key="CategoryVisible" />
             <conv:VisibleFlagOpacityConverter x:Key="HiddenOpacityInverse" />
             <conv:ColorToBrushConverter x:Key="ColorToBrush" />
+
+            <!--
+                A WPF-UI saját ContextMenu-sablonjának felülírása (spec
+                v1.0.1, 4. kör — "fekete keret a jobbklikk menü körül").
+
+                MÉRVE (képernyő-BitBlt, nem ablak-PrintWindow — a hiba a DWM-
+                kompozitálás szintjén jelentkezett, egy ablak-tartalom
+                rögzítés nem mutatta volna): a WPF-UI `UiContextMenu` stílusa
+                a menüt egy `EffectThicknessDecorator`-ba csomagolja, ami a
+                MEGNYITÁS UTÁN, dinamikusan 30 px-es Margin-t ír a
+                ContextMenu-re, hogy legyen hely a `Border.Effect`-ként
+                alkalmazott `DropShadowEffect` elmosásának. Amikor a menü a
+                shell-elemek beérkezése után UTÓLAG megnő (szélesebb/
+                magasabb lesz), ez az elmosás-margó a Popup ÚJONNAN feltáruló
+                sávjaiban NEM kap tényleges (transzparens) újrarajzolást —
+                ott egy állott, tömör szürke sáv marad, pontosan a bejelentett
+                "fekete keret/sötét sáv" jelenség. Világos és sötét témában
+                egyaránt reprodukálható volt, a Liquid Glass (natív Acrylic
+                háttér) be- és kikapcsolt állapotában is — tehát nem azzal,
+                hanem a WPF-UI dekorátorának dinamikus Margin-jával függ
+                össze.
+
+                A javítás a WPF beépített, natív `HasDropShadow` mechanizmusát
+                használja (a `SystemDropShadowChrome`-ot, amit maga a
+                `ContextMenu` ad hozzá a Popup köré, ha `AllowsTransparency`
+                és `SystemParameters.DropShadow` is igaz — az előbbi a
+                ContextMenu Popupjára MINDIG igaz) — ez nem dinamikusan
+                módosítja utólag a Popup méretét, ezért nem hagy állott
+                sávot. Csere után a fenti jelenség képernyőmentéssel (mindkét
+                témában, fő menü és almenü) sem volt többé reprodukálható; a
+                menü megnyitási ideje (Release, warmup után) nem romlott.
+
+                A színek TOVÁBBRA IS a WPF-UI saját, téma szerint váltakozó
+                DynamicResource tokenjeire mutatnak (ContextMenuBackground/
+                Foreground/BorderBrush) — csak a sablon geometriája (a
+                dekorátor + effekt helyett natív árnyék) változott.
+            -->
+            <Style TargetType="{x:Type ContextMenu}">
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource ContextMenuForeground}" />
+                <Setter Property="Foreground" Value="{DynamicResource ContextMenuForeground}" />
+                <Setter Property="Background" Value="{DynamicResource ContextMenuBackground}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ContextMenuBorderBrush}" />
+                <Setter Property="MinWidth" Value="140" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="HasDropShadow" Value="True" />
+                <Setter Property="Grid.IsSharedSizeScope" Value="True" />
+                <Setter Property="Popup.PopupAnimation" Value="None" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ContextMenu}">
+                            <Border
+                                x:Name="Border"
+                                Padding="0,3,0,3"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <StackPanel
+                                    ClipToBounds="True"
+                                    IsItemsHost="True"
+                                    KeyboardNavigation.DirectionalNavigation="Cycle"
+                                    Orientation="Vertical" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

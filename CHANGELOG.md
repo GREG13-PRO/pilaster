@@ -2,6 +2,25 @@
 
 A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
 
+## Kiadatlan
+
+### Javítások — jobbklikk menü
+
+- **Fekete keret/sötét sáv a menü körül.** Gyökérok: a WPF-UI
+  `ContextMenu`-sablonja a menüt egy `EffectThicknessDecorator`-ba
+  csomagolja, ami MEGNYITÁS UTÁN, dinamikusan 30 px Margin-t ad a menühöz
+  a `DropShadowEffect`-alapú árnyék elmosásának. Amikor a menü a
+  shell-elemek beérkezése után utólag megnő, ez a margó a Popup újonnan
+  feltáruló sávjaiban nem kap tényleges (átlátszó) újrarajzolást — állott,
+  tömör szürke/sötét sáv marad ott. MÉRVE: mindkét témában, a natív
+  Acrylic háttértől (Liquid Glass) függetlenül reprodukálható volt. A
+  sablon mostantól a WPF beépített, natív `HasDropShadow` mechanizmusát
+  használja a dekorátor+effekt helyett — ez nem módosítja utólag
+  dinamikusan a Popup méretét, így nem hagy állott sávot. Mellékhatásként
+  a menü megnyitási ideje MÉRVE nem romlott, hanem gyorsult (Release,
+  warmup után: ~130 ms → ~90 ms medián), mert a korábbi GPU-effektus és
+  nyitóanimáció elmaradt.
+
 ## v1.0.1
 
 Tisztán UI-javítások a v1.0.0 kiadás utáni valós használatból — **nincs benne
