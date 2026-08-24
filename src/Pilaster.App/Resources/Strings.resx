@@ -1156,6 +1156,12 @@
   <data name="Settings_ShellOwnSection" xml:space="preserve">
     <value>In a separate "Other apps" section</value>
   </data>
+  <data name="Settings_ContextMenuPreload" xml:space="preserve">
+    <value>Preload on selection</value>
+  </data>
+  <data name="Settings_ContextMenuPreloadHint" xml:space="preserve">
+    <value>Starts the shell query for the selected item shortly after selection, so the right-click menu can open with full content immediately. Turn off if it causes issues.</value>
+  </data>
   <data name="Settings_EditorWordWrapHint" xml:space="preserve">
     <value>Long lines wrap at the window edge.</value>
   </data>

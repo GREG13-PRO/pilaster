@@ -86,6 +86,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _shellExtensionsEnabled = current.ShellExtensionsEnabled;
         _shellMenuTimeoutMs = current.ShellMenuTimeoutMs;
         _shellItemsInOwnSection = current.ShellItemsInOwnSection;
+        _contextMenuPreloadEnabled = current.ContextMenuPreloadEnabled;
         _shellBlacklistText = string.Join(Environment.NewLine, current.ShellHandlerBlacklist);
         _editorFontFamily = current.EditorFontFamily;
         _editorFontSize = current.EditorFontSize;
@@ -269,6 +270,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ShellExtensionsEnabled = defaults.ShellExtensionsEnabled;
                 ShellMenuTimeoutMs = defaults.ShellMenuTimeoutMs;
                 ShellItemsInOwnSection = defaults.ShellItemsInOwnSection;
+                ContextMenuPreloadEnabled = defaults.ContextMenuPreloadEnabled;
                 current.ShellHandlerBlacklist.Clear();
                 ShellBlacklistText = string.Empty;
                 break;
@@ -482,6 +484,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _shellItemsInOwnSection;
 
     partial void OnShellItemsInOwnSectionChanged(bool value) => Persist(s => s.ShellItemsInOwnSection = value);
+
+    /// <summary>A2 (v1.0.2): kijelöléskor előre elindított shell-lekérdezés — lásd <c>ShellMenuPreloadCoordinator</c>.</summary>
+    [ObservableProperty]
+    private bool _contextMenuPreloadEnabled;
+
+    partial void OnContextMenuPreloadEnabledChanged(bool value) => Persist(s => s.ContextMenuPreloadEnabled = value);
 
     /// <summary>A shell-bővítmény feketelista soronként — a mentés sorokra bontja.</summary>
     [ObservableProperty]

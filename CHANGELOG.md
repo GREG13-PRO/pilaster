@@ -4,6 +4,47 @@ A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
 
 ## Kiadatlan
 
+## v1.0.2
+
+### Új — jobbklikk menü
+
+- **Nyitóanimáció visszahozva, biztonságosan (A1).** A v1.0.1-ben a fekete
+  keret javítása (lásd lent) az `EffectThicknessDecorator`-ral együtt a
+  hozzá kötött nyitóanimációt is elvitte — a menü ezután animáció nélkül,
+  azonnal jelent meg. Most a menü (és minden almenü) MÁR KÉSZ, végleges
+  méretű tartalmán fut egy halvány felúszás (`Opacity` 0→1 +
+  `RenderTransform.Y` −6→0 px, `CubicEase`/`EaseOut`, 130 ms — csökkentett
+  animációs szinten 70 ms), kód-mögöttes `BeginAnimation`-nel, SOSEM
+  `Style`/`Storyboard`+`DynamicResource` úton. Ez SZÁNDÉKOS: egy korábbi
+  kísérletnél (sorok/csempék hover-kiemelése) pontosan ez a minta
+  („Cannot freeze this Storyboard timeline tree") összeomlást okozott, mert
+  egy `DynamicResource`-öt tartalmazó `Storyboard` nem fagyasztható le. Az
+  új animáció sem a Popup méretét, sem a `Margin`-t nem módosítja utólag,
+  tehát a fekete keret hibáját NEM hozza vissza. A Megjelenés kategória
+  meglévő „Animációk" kapcsolójával (Teljes/Csökkentett/Ki) vezérelhető; Ki
+  állásban a menü animáció nélkül, azonnal jelenik meg. MÉRVE: a
+  megnyitás szinkron költsége nem nőtt (a `BeginAnimation` nem blokkol),
+  a saját elemek ~90 ms-os medián megnyitási ideje változatlan.
+- **Előretöltés kijelöléskor (A2).** Kijelöléskor, egy rövid (200 ms)
+  késleltetés után a program a háttérben előre elindítja a kijelölt
+  elem(ek) shell-menü-lekérdezését — ha a felhasználó ezután UGYANARRA a
+  kijelölésre jobbklikkel, a menü rögtön a TELJES tartalommal (saját ÉS
+  shell-elemekkel együtt) nyílik meg, a szokásos „Bővítmények
+  betöltése…" csúszás nélkül. Ha a kijelölés időközben megváltozik, a még
+  el nem indult előretöltés önként, gyorsan lemond a drága COM-hívásról,
+  hogy a mögötte várakozó (pl. tényleges jobbklikkből induló) lekérdezés
+  szinte azonnal futhasson — egy MÁR ELINDULT hívás, mint eddig is, nem
+  szakítható meg biztonságosan. Egyszerre legfeljebb EGY előretöltött
+  munkamenet él; a régi mindig a megosztott STA száron szabadul fel,
+  mielőtt az új elindulna, és egy ~30 mp-nél tovább használatlan
+  előretöltés is automatikusan felszabadul. MÉRVE (fejlesztői gép, Release
+  build, `notepad.exe`): a shell-elemek beérkezéséig tartó idő kész
+  előretöltéssel ~1081 ms → ~0 ms (fájl), ~240 ms → ~0 ms (mappa
+  elemként); ez a szám azért kicsi, mert ilyenkor a drága COM-hívás már
+  a kijelöléskor lezajlott. Kikapcsolható a Beállítások → Jobbklikk menü
+  alatt (alapból BE); ha bármi problémát okozna, kikapcsolás után a menü a
+  v1.0.1-es (előretöltés nélküli) úton működik tovább.
+
 ### Javítások — jobbklikk menü
 
 - **Fekete keret/sötét sáv a menü körül.** Gyökérok: a WPF-UI

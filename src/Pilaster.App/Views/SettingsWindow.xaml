@@ -491,6 +491,21 @@
                         </Grid>
                     </Border>
 
+                    <!--  Előretöltés kijelöléskor (spec A2, v1.0.2)  -->
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.preload" IsEnabled="{Binding ShellExtensionsEnabled}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_ContextMenuPreload}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuPreloadHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ContextMenuPreloadEnabled, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
                     <!--  Összeomlás utáni visszakapcsolás (spec P3)  -->
                     <Border Style="{StaticResource CardStyle}" Visibility="{Binding ShellDisabledAfterCrash, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel>

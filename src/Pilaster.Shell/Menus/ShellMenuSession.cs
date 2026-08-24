@@ -95,13 +95,19 @@ public sealed class ShellMenuSession : IDisposable
     /// <param name="extendedVerbs">Igaz, ha a Shift le van nyomva (bővített parancsok).</param>
     /// <param name="timeout">Ennyit várunk a bővítményekre; utána üres eredmény jön.</param>
     /// <param name="blacklist">Kikapcsolt bővítmények neve vagy CLSID-je — az illeszkedő elemek kimaradnak.</param>
+    /// <param name="isStillWanted">
+    /// A2 (v1.0.2): önkéntes, gyors lemondás előretöltéshez — lásd
+    /// <see cref="QueryCoreAsync"/> megjegyzését. <c>null</c> = mindig kell
+    /// (ez a normál, jobbklikkből induló lekérdezések viselkedése).
+    /// </param>
     /// <returns>A munkamenet, vagy <c>null</c>, ha a lekérdezés nem sikerült vagy időtúllépés történt.</returns>
     public static Task<ShellMenuSession?> QueryItemsAsync(
         IReadOnlyList<string> paths,
         bool extendedVerbs,
         TimeSpan timeout,
-        IReadOnlyCollection<string> blacklist) =>
-        QueryCoreAsync(worker => CreateForItems(worker, paths), extendedVerbs, timeout, blacklist);
+        IReadOnlyCollection<string> blacklist,
+        Func<bool>? isStillWanted = null) =>
+        QueryCoreAsync(worker => CreateForItems(worker, paths), extendedVerbs, timeout, blacklist, isStillWanted);
 
     /// <summary>Egy mappa HÁTTÉR-menüjének lekérdezése (üres területre kattintva).</summary>
     public static Task<ShellMenuSession?> QueryBackgroundAsync(
@@ -109,18 +115,32 @@ public sealed class ShellMenuSession : IDisposable
         bool extendedVerbs,
         TimeSpan timeout,
         IReadOnlyCollection<string> blacklist) =>
-        QueryCoreAsync(worker => CreateForBackground(worker, folderPath), extendedVerbs, timeout, blacklist);
+        QueryCoreAsync(worker => CreateForBackground(worker, folderPath), extendedVerbs, timeout, blacklist, isStillWanted: null);
 
     private static async Task<ShellMenuSession?> QueryCoreAsync(
         Func<StaWorker, ShellMenuSession?> factory,
         bool extendedVerbs,
         TimeSpan timeout,
-        IReadOnlyCollection<string> blacklist)
+        IReadOnlyCollection<string> blacklist,
+        Func<bool>? isStillWanted)
     {
         var worker = RentShared();
 
         var build = worker.RunAsync(() =>
         {
+            // A2 (v1.0.2): önkéntes, gyors lemondás — ha egy előretöltést
+            // időközben túlhaladott egy újabb kijelölés/jobbklikk, a drága
+            // COM-munka (factory/Populate) helyett AZONNAL null-lal térünk
+            // vissza, hogy a mögötte a közös soron várakozó lekérdezés (pl. a
+            // valódi jobbklikk) szinte rögtön futhasson. Ha a hívás MÁR
+            // ELINDULT (ez a lambda már fut), ez az ellenőrzés ide, az elejére
+            // kerül — tehát csak a MÉG EL NEM KEZDETT munkát tudja megspórolni,
+            // ami pontosan az az eset, amikor egy sor-újrarendezés is segítene.
+            if (isStillWanted?.Invoke() == false)
+            {
+                return null;
+            }
+
             var session = factory(worker);
             session?.Populate(extendedVerbs, blacklist);
             return session;

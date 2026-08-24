@@ -1156,6 +1156,12 @@
   <data name="Settings_ShellOwnSection" xml:space="preserve">
     <value>Külön „Egyéb alkalmazások" szekcióban</value>
   </data>
+  <data name="Settings_ContextMenuPreload" xml:space="preserve">
+    <value>Előretöltés kijelöléskor</value>
+  </data>
+  <data name="Settings_ContextMenuPreloadHint" xml:space="preserve">
+    <value>Kijelölés után röviddel elindítja a shell-lekérdezést a kijelölt elemre, hogy a jobbklikk-menü rögtön a teljes tartalommal nyíljon. Kapcsold ki, ha problémát okozna.</value>
+  </data>
   <data name="Settings_EditorWordWrapHint" xml:space="preserve">
     <value>A hosszú sorok az ablak szélén tördelődnek.</value>
   </data>

@@ -82,6 +82,7 @@ public partial class App : Application
         services.AddSingleton<QuickActionService>();
         services.AddSingleton<QuickAccessService>();
         services.AddSingleton<ShellCrashGuard>();
+        services.AddSingleton<ShellMenuPreloadCoordinator>();
         services.AddSingleton<FolderSizeService>();
         services.AddSingleton<FileMetadataService>();
         services.AddSingleton<FilePreviewService>();
@@ -226,6 +227,23 @@ public partial class App : Application
                 ReportSlowShellHandlers();
             }
         }
+
+        // Diagnosztikai önteszt (spec A2, v1.0.2): a ShellMenuPreloadCoordinator
+        // Q1-táblázatát futtatja le VALÓDI ShellMenuSession/StaWorker hívásokkal,
+        // GUI/egér nélkül — lásd ShellMenuPreloadTests. Külön folyamatban fut,
+        // mint a fenti két önteszt, ugyanazért: a shell-hívások natív
+        // összeomlása (ha lenne) kilépési kóddal fogható meg, kivétellel nem.
+        // SZÁNDÉKOSAN az előmelegítés UTÁN: az előtte futtatott korábbi
+        // változat mindig hideg (előmelegítés nélküli) COM-indulást mért,
+        // ami a dokumentált ~2186 ms-os hideg költség miatt magától
+        // meghaladta az alapértelmezett 2000 ms-os időkorlátot — ez a
+        // teszt-elhelyezés hibája volt, nem az A2 kódjáé (egy éles
+        // felhasználó sosem ér oda az előmelegítés előtt).
+        if (Environment.GetEnvironmentVariable("PILASTER_SELFTEST_PRELOAD") == "1")
+        {
+            _ = RunPreloadSelfCheckAsync();
+            return;
+        }
     }
 
     /// <summary>
@@ -278,6 +296,312 @@ public partial class App : Application
             exitCode = 2;
         }
 
+        Log.CloseAndFlush();
+        Environment.Exit(exitCode);
+    }
+
+    /// <summary>
+    /// Diagnosztikai önteszt (spec A2, v1.0.2): a <c>ShellMenuPreloadCoordinator</c>
+    /// Q1-táblázatát futtatja le — fájl, mappa (mint elem), váltakozó,
+    /// többszörös kijelölés, egyenként 10 kör, plusz az „5. szcenárió" (50
+    /// gyors, egymást túlhaladó kijelölés-váltás, közbe-közbe jobbklikk-szerű
+    /// lekérdezéssel). VALÓDI <see cref="Pilaster.Shell.Menus.ShellMenuSession"/>
+    /// hívásokkal fut, GUI/egér nélkül — a koordinátor egy SAJÁT, a futó
+    /// főablakétól FÜGGETLEN példányán, hogy a főablak saját kijelölés-
+    /// eseményei ne zavarják bele a számlálókba.
+    /// </summary>
+    /// <remarks>
+    /// A tesztkészlet ezt indítja (ShellMenuPreloadTests), pontosan ugyanúgy,
+    /// ahogy a <see cref="RunFinalizerSelfCheckAsync"/>-ot: a kilépési kód és
+    /// a mellékelt eredményfájl (%TEMP%\pilaster-preload-selftest.txt) adja a
+    /// Q1-táblázat számait.
+    /// </remarks>
+    private async Task RunPreloadSelfCheckAsync()
+    {
+        var exitCode = 0;
+        var log = new List<string>();
+        var resultsPath = Path.Combine(Path.GetTempPath(), "pilaster-preload-selftest.txt");
+
+        try
+        {
+            var settingsService = _services!.GetRequiredService<ISettingsService>();
+            settingsService.Current.ContextMenuPreloadEnabled = true;
+
+            var coordinator = new ShellMenuPreloadCoordinator(settingsService);
+
+            var windowsDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var file = Path.Combine(windowsDir, "notepad.exe");
+            var folder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            // A ShellMenuSession.CreateForItems (GetUIObjectOf) AZONOS
+            // szülőmappát vár (lásd docs/CONTEXT-MENU.md) — a többszörös
+            // kijelölés próbájának ezért UGYANABBÓL a mappából kell két valós
+            // fájlt választania, különben a lekérdezés jogosan null-t ad, és
+            // az nem A2, hanem a próba hibája volna.
+            var altFile = Path.Combine(windowsDir, "explorer.exe");
+
+            // Megvárjuk, hogy a háttérben induló ShellMenuSession.WarmUp() a
+            // MEGOSZTOTT STA sorral végezzen — enélkül a Q1-táblázat első
+            // köre(i) a hideg (előmelegítés nélküli) COM-indulás ~2186 ms-os,
+            // DOKUMENTÁLT költségével versenyeznének a szokásos 2000 ms-os
+            // időkorláton, és jogosan, de FÉLREVEZETŐEN buknának — ez a
+            // warmup/valódi-lekérdezés versenyhelyzet MA IS fennáll, A2
+            // nélkül is, ha a felhasználó az indulás utáni 1-2 mp-en belül
+            // kattint; a Q1-táblázat viszont az ÁLLANDÓSULT állapotot méri,
+            // nem ezt a tranziens indulási ablakot. A lekérdezés eredménye
+            // itt nem számít, csak az, hogy a megosztott sor kiürüljön.
+            var warmupSettle = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync(
+                [file], false, TimeSpan.FromSeconds(25), []);
+            warmupSettle?.Dispose();
+            await Task.Delay(300);
+
+            // Időmérés: "menü nyitása ELŐRETÖLTÉS UTÁN" (a kérés által kért
+            // új szám) vs. "menü nyitása ELŐRETÖLTÉS NÉLKÜL" (a mai út) —
+            // mindkettő a shell-elemek beérkezéséig tart, a saját elemek
+            // szinkron IsOpen=true költsége (mérve: ~90 ms, lásd
+            // artifacts/menu-border/timing-comparison.txt) EBBEN nem
+            // szerepel, mert azt A1/A2 egyike sem módosítja.
+            async Task<double> MedianMs(string label, int reps, Func<Task<double>> oneRun)
+            {
+                var samples = new List<double>();
+
+                for (var i = 0; i < reps; i++)
+                {
+                    samples.Add(await oneRun());
+                    await Task.Delay(300);
+                }
+
+                samples.Sort();
+                var median = samples[samples.Count / 2];
+                log.Add($"{label}: [{string.Join(", ", samples.Select(s => s.ToString("F1")))}] ms, median={median:F1} ms");
+                return median;
+            }
+
+            var withoutPreloadFileMs = await MedianMs("MENU NYITAS ELORETOLTES NELKUL (fajl)", 6, async () =>
+            {
+                var sw = Stopwatch.StartNew();
+                var s = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync(
+                    [file], false, TimeSpan.FromMilliseconds(settingsService.Current.ShellMenuTimeoutMs), []);
+                sw.Stop();
+                s?.Dispose();
+                return sw.Elapsed.TotalMilliseconds;
+            });
+
+            var withoutPreloadFolderMs = await MedianMs("MENU NYITAS ELORETOLTES NELKUL (mappa, elemkent)", 6, async () =>
+            {
+                var sw = Stopwatch.StartNew();
+                var s = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync(
+                    [folder], false, TimeSpan.FromMilliseconds(settingsService.Current.ShellMenuTimeoutMs), []);
+                sw.Stop();
+                s?.Dispose();
+                return sw.Elapsed.TotalMilliseconds;
+            });
+
+            var withPreloadReadyMs = await MedianMs("MENU NYITAS ELORETOLTES UTAN (kesz allapotban atveve)", 6, async () =>
+            {
+                coordinator.NotifySelectionChanged([file], false);
+
+                // Bőven a debounce (200 ms) + a mért állandósult lekérdezési
+                // idő (777 ms medián, lásd docs/CONTEXT-MENU.md) fölé — hogy a
+                // mérés pillanatában a lekérdezés MÁR TÉNYLEG kész legyen,
+                // ne csak elinduljon.
+                await Task.Delay(1400);
+
+                var sw = Stopwatch.StartNew();
+                var task = coordinator.TakeIfMatches([file]);
+                var s = task is null ? null : await task;
+                sw.Stop();
+                s?.Dispose();
+                return sw.Elapsed.TotalMilliseconds;
+            });
+
+            log.Add($"GYORSULAS: {withoutPreloadFileMs:F1} ms -> {withPreloadReadyMs:F1} ms (fajl, {(withoutPreloadFileMs - withPreloadReadyMs):F1} ms-mal gyorsabb, ha kesz az eloretoltes)");
+
+            async Task<int> RunScenarioAsync(string label, int rounds, Func<int, IReadOnlyList<string>> pathsFactory)
+            {
+                var pass = 0;
+
+                for (var i = 0; i < rounds; i++)
+                {
+                    var paths = pathsFactory(i);
+                    coordinator.NotifySelectionChanged(paths, false);
+                    await Task.Delay(400);
+
+                    var task = coordinator.TakeIfMatches(paths);
+
+                    if (task is null)
+                    {
+                        log.Add($"{label} #{i}: NINCS ELORETOLTES TALALAT");
+                        continue;
+                    }
+
+                    var session = await task;
+
+                    if (session is null)
+                    {
+                        log.Add($"{label} #{i}: A LEKERDEZES NULL MUNKAMENETET ADOTT");
+                        continue;
+                    }
+
+                    pass++;
+                    session.Dispose();
+                    await Task.Delay(50);
+                }
+
+                log.Add($"{label}: {pass}/{rounds}");
+                return pass;
+            }
+
+            // Kontroll-mérés (NEM az A2 kódját hívja, közvetlenül
+            // ShellMenuSession.QueryItemsAsync-et, előretöltés/koordinátor
+            // nélkül) — ha ez UGYANOLYAN arányban ad null-t, mint a FAJL kör,
+            // az bizonyítja, hogy egy esetleges kihagyás a mögöttes
+            // shell-lekérdezés/időkorlát ISMERT, A2-től FÜGGETLEN ingadozása
+            // (lásd docs/CONTEXT-MENU.md, NvAppShExt 632-783 ms/lekérdezés),
+            // nem az előretöltő kód hibája.
+            var baselinePass = 0;
+
+            for (var i = 0; i < 10; i++)
+            {
+                var baseline = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync(
+                    [file], false, TimeSpan.FromMilliseconds(settingsService.Current.ShellMenuTimeoutMs), []);
+
+                if (baseline is not null)
+                {
+                    baselinePass++;
+                    baseline.Dispose();
+                }
+                else
+                {
+                    log.Add($"ALAP (elofeltoltes nelkul) #{i}: A LEKERDEZES NULL MUNKAMENETET ADOTT");
+                }
+
+                await Task.Delay(450);
+            }
+
+            log.Add($"ALAP (elofeltoltes nelkul, kontroll): {baselinePass}/10");
+
+            var filePass = await RunScenarioAsync("FAJL", 10, _ => [file]);
+            var folderPass = await RunScenarioAsync("MAPPA (elemkent)", 10, _ => [folder]);
+            var altPass = await RunScenarioAsync("VALTAKOZVA", 10, i => i % 2 == 0 ? [file] : [folder]);
+            var multiPass = await RunScenarioAsync("TOBBSZOROS KIJELOLES", 10, _ => [file, altFile]);
+
+            // 5. szcenárió: 50 gyors, egymást túlhaladó kijelölés-váltás,
+            // közbe-közbe egy jobbklikk-szerű TakeIfMatches hívással — ez a
+            // kör kulcsszáma: a lemondás-kezelést teszteli, nem szabad
+            // elakadnia vagy hibás (rossz útvonalú) munkamenetet adnia.
+            var rapidTargets = Enumerable.Range(0, 50)
+                .Select(i => (IReadOnlyList<string>)(i % 3 == 0 ? [folder] : [file]))
+                .ToList();
+
+            var staleHits = 0;
+
+            for (var i = 0; i < rapidTargets.Count; i++)
+            {
+                coordinator.NotifySelectionChanged(rapidTargets[i], false);
+
+                if (i % 7 == 0)
+                {
+                    // "Jobbklikk" a MÉG BE NEM ÁLLT kijelölésre — ha ez
+                    // véletlenül egy KORÁBBI (már túlhaladott) célra adna
+                    // vissza kész munkamenetet, az hibás menütartalmat
+                    // jelentene a valós UI-ban.
+                    var early = coordinator.TakeIfMatches(rapidTargets[i]);
+
+                    if (early is not null)
+                    {
+                        var earlySession = await early;
+                        earlySession?.Dispose();
+                    }
+                }
+
+                await Task.Delay(20);
+            }
+
+            await Task.Delay(500);
+            var finalTarget = rapidTargets[^1];
+            var finalTask = coordinator.TakeIfMatches(finalTarget);
+            var rapidOk = false;
+
+            if (finalTask is not null)
+            {
+                var finalSession = await finalTask;
+
+                if (finalSession is not null)
+                {
+                    rapidOk = true;
+                    finalSession.Dispose();
+                }
+            }
+
+            log.Add($"5. SZCENARIO (gyors valtas+jobbklikk, {rapidTargets.Count} lepes): {(rapidOk ? "OK" : "HIBA")}, korai-talalat={staleHits}");
+
+            // Memóriaellenőrzés: 50 kijelölés-váltás után nincs számottevő
+            // növekedés — sem fel nem halmozódó ShellMenuSession, sem a
+            // koordinátor saját állapota nem hízik.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            var before = GC.GetTotalMemory(true);
+
+            for (var i = 0; i < 50; i++)
+            {
+                coordinator.NotifySelectionChanged(i % 2 == 0 ? [file] : [folder], false);
+                await Task.Delay(15);
+            }
+
+            await Task.Delay(500);
+            var lastMemTask = coordinator.TakeIfMatches(50 % 2 == 0 ? [file] : [folder]);
+
+            if (lastMemTask is not null)
+            {
+                (await lastMemTask)?.Dispose();
+            }
+
+            await Task.Delay(300);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            var after = GC.GetTotalMemory(true);
+            var deltaMb = (after - before) / (1024.0 * 1024.0);
+
+            log.Add($"MEMORIA: elotte={before / 1024}KB, utana={after / 1024}KB, delta={deltaMb:F2}MB");
+
+            coordinator.Dispose();
+
+            var allPass = filePass == 10 && folderPass == 10 && altPass == 10 && multiPass == 10 && rapidOk;
+
+            if (!allPass)
+            {
+                exitCode = 3;
+            }
+
+            // 5 MB fölötti növekedés 50 kör alatt gyanús felhalmozódásra utalna
+            // — ez bőséges tartalék a mérés zajához képest.
+            if (deltaMb > 5.0)
+            {
+                log.Add("FIGYELEM: a memoria-novekedes a kuszob folott van.");
+                exitCode = exitCode == 0 ? 4 : exitCode;
+            }
+
+            log.Add(allPass ? "OSSZESITVE: ZOLD" : "OSSZESITVE: VAN BUKOTT KOR");
+        }
+        catch (Exception ex)
+        {
+            log.Add($"KIVETEL: {ex}");
+            exitCode = 2;
+        }
+
+        try
+        {
+            await File.WriteAllLinesAsync(resultsPath, log);
+        }
+        catch (IOException)
+        {
+            // Az eredményfájl írása nem kritikus — a kilépési kód önmagában is jelez.
+        }
+
+        Log.Information("PRELOAD-ONTESZT vege, kilepokod={ExitCode}, eredmenyek={ResultsPath}", exitCode, resultsPath);
         Log.CloseAndFlush();
         Environment.Exit(exitCode);
     }

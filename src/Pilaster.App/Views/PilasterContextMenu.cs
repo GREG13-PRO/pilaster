@@ -2,6 +2,7 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Pilaster.App.Localization;
 using Pilaster.App.Services;
 using Pilaster.Shell.Menus;
@@ -63,10 +64,13 @@ public sealed class PilasterContextMenu
 {
     private readonly ContextMenu _menu = new();
     private readonly Wpf.Ui.Controls.TextBox _searchBox;
+    private readonly AnimationService _animations;
     private ShellMenuSession? _session;
 
-    private PilasterContextMenu(GlassEffectService glass)
+    private PilasterContextMenu(GlassEffectService glass, AnimationService animations)
     {
+        _animations = animations;
+
         // J1 (v1.0.1): a keresőmező korábban dísztelen, natív TextBox volt —
         // placeholder és ikon nélkül üres szürke dobozként ütött el a menü
         // tetején. A Wpf.Ui.Controls.TextBox PlaceholderText/Icon
@@ -93,6 +97,12 @@ public sealed class PilasterContextMenu
         // helyesen, a MEGFELELŐ monitoron és annak DPI-jével megadni.
         _menu.Opened += (_, _) => LimitHeightToWorkArea();
 
+        // A1 (v1.0.2): a nyitóanimáció visszahozva, de NEM az eredeti hibát
+        // okozó EffectThicknessDecorator+dinamikus Margin útján — ez a menü
+        // MÁR KÉSZ, végleges méretű tartalmán fut, csak Opacity/RenderTransform
+        // animációval, ezért nem módosítja utólag a Popup méretét.
+        _menu.Opened += (_, _) => PlayOpenAnimation(_menu);
+
         // A munkamenetet a menü bezárásakor el KELL dobni, különben a
         // bővítmények COM-objektumai és a hozzájuk tartozó STA szál bent
         // ragadna a folyamat végéig.
@@ -103,6 +113,89 @@ public sealed class PilasterContextMenu
         };
 
         _menu.PreviewKeyDown += OnPreviewKeyDown;
+    }
+
+    /// <summary>Az összes nyitóanimáció közös hossza/görbéje (spec A1, v1.0.2).</summary>
+    private static readonly CubicEase OpenEase = new() { EasingMode = EasingMode.EaseOut };
+
+    /// <summary>
+    /// A menü (és az almenük) nyitóanimációja: halvány felúszás, a menü MÁR
+    /// KÉSZ tartalmán, <c>Opacity</c>/<c>RenderTransform</c> animációval.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// SZÁNDÉKOSAN NEM <c>Style</c>/<c>ControlTemplate.Trigger</c>+
+    /// <c>BeginStoryboard</c>-tal, és SZÁNDÉKOSAN NEM <c>DynamicResource</c>-
+    /// hoz kötött <c>Duration</c>-nal — lásd <see cref="AnimationService"/>
+    /// dokumentációját: egy megosztott <c>Style</c>-ban élő, DynamicResource-öt
+    /// tartalmazó <c>Storyboard</c> az ELSŐ használatkor a <c>Style</c>
+    /// lezárásakor (<c>Seal</c>) "Cannot freeze this Storyboard timeline tree"
+    /// kivétellel elszállt egy korábbi kísérletnél (a sorok/csempék
+    /// hover-kiemelésénél). Ehelyett ez a metódus kód-mögöttes
+    /// <c>BeginAnimation</c>-t hív, KÖZVETLENÜL az adott (mindig ÚJ, sosem
+    /// megosztott) menü/almenü példányán — ez sosem fagy le, mert nem
+    /// <c>Freezable</c> erőforrásként él.
+    /// </para>
+    /// <para>
+    /// A korábbi, fekete keretet okozó hiba (v1.0.1, 4. kör) az
+    /// <c>EffectThicknessDecorator</c> MEGNYITÁS UTÁNI, dinamikus
+    /// <c>Margin</c>-mutatásából jött — ez az animáció nem nyúl a Margin-hoz
+    /// és nem méretezi át a Popupot, csak a MÁR VÉGLEGES MÉRETŰ tartalom
+    /// átlátszóságát/pozícióját mozgatja a saját határain belül.
+    /// </para>
+    /// </remarks>
+    private void PlayOpenAnimation(ContextMenu menu)
+    {
+        if (!_animations.AreAnimationsEnabled)
+        {
+            return;
+        }
+
+        menu.ApplyTemplate();
+
+        if (menu.Template.FindName("Border", menu) is not Border border)
+        {
+            return;
+        }
+
+        AnimateEntrance(border);
+    }
+
+    /// <summary>Ugyanaz az animáció egy almenü gyökér-Bordere alatt (spec A1, v1.0.2).</summary>
+    private void OnSubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (!_animations.AreAnimationsEnabled || sender is not MenuItem item)
+        {
+            return;
+        }
+
+        item.ApplyTemplate();
+
+        // "SubmenuBorder" a WPF-UI MenuItem-sablonjának névadása (4.3.0) — ha
+        // egy jövőbeli verzió átnevezné, a FindName egyszerűen null-t ad, az
+        // almenü animáció nélkül, de HIBA nélkül nyílik.
+        if (item.Template.FindName("SubmenuBorder", item) is not Border border)
+        {
+            return;
+        }
+
+        AnimateEntrance(border);
+    }
+
+    private void AnimateEntrance(Border border)
+    {
+        var duration = TimeSpan.FromMilliseconds(
+            _animations.Current == Pilaster.Core.Settings.AnimationLevel.Reduced ? 70 : 130);
+
+        // ÚJ TranslateTransform minden nyitáskor — sosem osztott, sosem
+        // Freezable-ként lefagyasztott példány, tehát a fenti "Cannot freeze"
+        // hiba osztálya itt nem fordulhat elő.
+        var transform = new TranslateTransform();
+        border.RenderTransform = transform;
+        border.Opacity = 0;
+
+        border.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = OpenEase });
+        transform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-6, 0, duration) { EasingFunction = OpenEase });
     }
 
     /// <summary>
@@ -126,8 +219,9 @@ public sealed class PilasterContextMenu
         string shellKind = "items")
     {
         var glass = (GlassEffectService)services.GetService(typeof(GlassEffectService))!;
+        var animations = (AnimationService)services.GetService(typeof(AnimationService))!;
         var guard = (ShellCrashGuard)services.GetService(typeof(ShellCrashGuard))!;
-        var menu = new PilasterContextMenu(glass) { _guard = guard, _shellTarget = shellTarget, _shellKind = shellKind };
+        var menu = new PilasterContextMenu(glass, animations) { _guard = guard, _shellTarget = shellTarget, _shellKind = shellKind };
 
         menu.BuildOwnItems(ownItems);
 
@@ -282,6 +376,8 @@ public sealed class PilasterContextMenu
                 {
                     item.Items.Add(child);
                 }
+
+                item.SubmenuOpened += OnSubmenuOpened;
             }
             else if (entry.Action is { } action)
             {
@@ -453,6 +549,8 @@ public sealed class PilasterContextMenu
             {
                 item.Items.Add(ConvertShellNode(child));
             }
+
+            item.SubmenuOpened += OnSubmenuOpened;
         }
         else if (node.CommandId != 0)
         {

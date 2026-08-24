@@ -694,11 +694,20 @@ public partial class MainWindow : FluentWindow
         // megjelennek, a shell-elemek aszinkron, időkorláttal csúsznak be.
         var extendedVerbs = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
 
+        // A2 (v1.0.2): ha PONTOSAN erre a kijelölésre van kész (vagy még
+        // folyamatban lévő) előretöltés, azt használjuk friss lekérdezés
+        // helyett — ha már kész, a menü rögtön a teljes tartalommal nyílik.
+        // Ha a kijelölés nem egyezik (pl. a jobbklikk egy nem kijelölt elemre
+        // esett), nincs találat, és a szokásos friss lekérdezés indul.
+        var preloaded = _services.GetService(typeof(ShellMenuPreloadCoordinator)) is ShellMenuPreloadCoordinator preload
+            ? preload.TakeIfMatches(selectedPaths)
+            : null;
+
         PilasterContextMenu.Show(
             _services,
             container,
             BuildFileMenuEntries(item, selectedPaths, extendedVerbs),
-            (timeout, blacklist) => ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
+            (timeout, blacklist) => preloaded ?? ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
             _settings.Current,
             item.FullPath);
 
@@ -1682,6 +1691,16 @@ public partial class MainWindow : FluentWindow
             .Sum();
 
         tab.UpdateStatus(selected.Count, totalBytes);
+
+        // A2 (v1.0.2): a kijelölésre indított, debounce-olt shell-előretöltés
+        // — lásd ShellMenuPreloadCoordinator. Csak fájl-kijelölésre indul (a
+        // mappa-háttér menüje nem kijelöléstől függ), és a felhasználó a
+        // Beállítások → Jobbklikk menü alatt kikapcsolhatja.
+        if (_services.GetService(typeof(ShellMenuPreloadCoordinator)) is ShellMenuPreloadCoordinator preload)
+        {
+            var extendedVerbs = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
+            preload.NotifySelectionChanged(selected.Select(i => i.FullPath).ToList(), extendedVerbs);
+        }
     }
 
     private async void OnSidebarSelectionChanged(object sender, SelectionChangedEventArgs e)

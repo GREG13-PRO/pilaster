@@ -313,6 +313,18 @@ public sealed class AppSettings
     /// <summary>Igaz = a shell elemek külön „Egyéb alkalmazások" szekcióba, hamis = a saját elemek közé sorolva.</summary>
     public bool ShellItemsInOwnSection { get; set; } = true;
 
+    /// <summary>
+    /// A2 (v1.0.2): kijelöléskor, rövid késleltetés (debounce) után előre
+    /// elindítja a shell-lekérdezést a kijelölt elem(ek)re — ha a felhasználó
+    /// utána jobbklikkel UGYANARRA a kijelölésre, a menü rögtön a KÉSZ
+    /// eredménnyel nyílik, a szokásos "Bővítmények betöltése…" csúszás
+    /// nélkül. Kikapcsolható, ha valamiért problémát okozna — lásd a
+    /// <c>ShellMenuPreloadCoordinator</c> osztály megjegyzéseit az öt körös
+    /// heap-korrupciós előzményről, ami miatt ez körültekintően, a meglévő
+    /// megosztott STA-sorral épült.
+    /// </summary>
+    public bool ContextMenuPreloadEnabled { get; set; } = true;
+
     // ---------- Szerkesztő ----------
 
     /// <summary>A beépített szerkesztő betűkészlete.</summary>
