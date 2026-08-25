@@ -443,6 +443,32 @@
                 <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=contextmenu}">
                     <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_ContextMenu}" />
 
+                    <!--  Megjelenítési mód (spec v1.0.3) — a legfontosabb kapcsoló, ezért legfelül.  -->
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.mode">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,10" Text="{loc:Loc Settings_ContextMenuMode}" />
+
+                            <RadioButton
+                                Margin="0,0,0,10"
+                                GroupName="ContextMenuMode"
+                                IsChecked="{Binding ContextMenuMode, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Windows}">
+                                <StackPanel Margin="8,0,0,0">
+                                    <TextBlock Text="{loc:Loc Settings_ContextMenuMode_Windows}" />
+                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuMode_WindowsHint}" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton
+                                GroupName="ContextMenuMode"
+                                IsChecked="{Binding ContextMenuMode, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Pilaster}">
+                                <StackPanel Margin="8,0,0,0">
+                                    <TextBlock Text="{loc:Loc Settings_ContextMenuMode_Pilaster}" />
+                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuMode_PilasterHint}" />
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
+
                     <Border Style="{StaticResource CardStyle}" Tag="contextmenu.shell">
                         <Grid>
                             <Grid.ColumnDefinitions>

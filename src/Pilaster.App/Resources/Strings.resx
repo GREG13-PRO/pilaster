@@ -1156,6 +1156,21 @@
   <data name="Settings_ShellOwnSection" xml:space="preserve">
     <value>In a separate "Other apps" section</value>
   </data>
+  <data name="Settings_ContextMenuMode" xml:space="preserve">
+    <value>Context menu display</value>
+  </data>
+  <data name="Settings_ContextMenuMode_Windows" xml:space="preserve">
+    <value>Windows (default)</value>
+  </data>
+  <data name="Settings_ContextMenuMode_WindowsHint" xml:space="preserve">
+    <value>The native system menu — behaves exactly like in File Explorer.</value>
+  </data>
+  <data name="Settings_ContextMenuMode_Pilaster" xml:space="preserve">
+    <value>Pilaster</value>
+  </data>
+  <data name="Settings_ContextMenuMode_PilasterHint" xml:space="preserve">
+    <value>The app's own design — extension display (icons, submenus, the "Other apps" section) is still being polished.</value>
+  </data>
   <data name="Settings_ContextMenuPreload" xml:space="preserve">
     <value>Preload on selection</value>
   </data>

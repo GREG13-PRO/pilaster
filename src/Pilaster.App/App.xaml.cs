@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Pilaster.App.Controls;
@@ -15,6 +16,7 @@ using Pilaster.Core.FileSystem;
 using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
 using Pilaster.Shell.Imaging;
+using Pilaster.Shell.Menus;
 using Serilog;
 
 namespace Pilaster.App;
@@ -242,6 +244,20 @@ public partial class App : Application
         if (Environment.GetEnvironmentVariable("PILASTER_SELFTEST_PRELOAD") == "1")
         {
             _ = RunPreloadSelfCheckAsync();
+            return;
+        }
+
+        // Diagnosztikai önteszt (spec v1.0.3): a natív jobbklikk-menü
+        // (ShellMenuSession.ShowNativeAsync) Q1-táblázatát futtatja le —
+        // fájl/mappa(elemként)/váltakozva/többszörös kijelölés × 10, plusz a
+        // "nem fagy le az ablak, amíg a menü nyitva van" ellenőrzés. A menüt
+        // a saját folyamaton belül, WM_CANCELMODE postázásával zárja be
+        // (NativeMenuInterop.CancelActiveMenu) — VALÓDI billentyű-/
+        // egérszimuláció NÉLKÜL, tehát a felhasználó élő munkamenetét nem
+        // érintheti. Lásd NativeContextMenuModeTests.
+        if (Environment.GetEnvironmentVariable("PILASTER_SELFTEST_NATIVEMENU") == "1")
+        {
+            _ = RunNativeMenuSelfCheckAsync(mainWindow);
             return;
         }
     }
@@ -602,6 +618,257 @@ public partial class App : Application
         }
 
         Log.Information("PRELOAD-ONTESZT vege, kilepokod={ExitCode}, eredmenyek={ResultsPath}", exitCode, resultsPath);
+        Log.CloseAndFlush();
+        Environment.Exit(exitCode);
+    }
+
+    /// <summary>
+    /// Diagnosztikai önteszt (spec v1.0.3): a natív jobbklikk-menü
+    /// (<see cref="Pilaster.Shell.Menus.ShellMenuSession.ShowNativeAsync"/>)
+    /// Q1-táblázata, plusz a „nem fagy le az ablak, amíg a menü nyitva van"
+    /// ellenőrzés. VALÓDI <c>TrackPopupMenuEx</c> hívásokkal fut, de a menüt
+    /// minden körben a SAJÁT folyamaton belül, <c>WM_CANCELMODE</c>
+    /// postázásával zárja be — nincs szintetikus billentyű-/egérbevitel,
+    /// tehát a felhasználó élő munkamenetét nem érintheti.
+    /// </summary>
+    /// <remarks>
+    /// A tesztkészlet ezt indítja (<c>NativeContextMenuModeTests</c>), a
+    /// másik három önteszthez hasonlóan külön folyamatban — az eredményfájl
+    /// (<c>%TEMP%\pilaster-nativemenu-selftest.txt</c>) adja a Q1-táblázat
+    /// számait és a fagyás-ellenőrzés eredményét.
+    /// </remarks>
+    private async Task RunNativeMenuSelfCheckAsync(MainWindow mainWindow)
+    {
+        var exitCode = 0;
+        var log = new List<string>();
+        var resultsPath = Path.Combine(Path.GetTempPath(), "pilaster-nativemenu-selftest.txt");
+
+        try
+        {
+            var settingsService = _services!.GetRequiredService<ISettingsService>();
+            var ownerHandle = new WindowInteropHelper(mainWindow).Handle;
+            var timeout = TimeSpan.FromMilliseconds(settingsService.Current.ShellMenuTimeoutMs);
+
+            var windowsDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var file = Path.Combine(windowsDir, "notepad.exe");
+            var folder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var altFile = Path.Combine(windowsDir, "explorer.exe");
+
+            // Lásd RunPreloadSelfCheckAsync ugyanezen megjegyzését: a
+            // megosztott STA sor kiürülését várjuk meg, hogy az első kör ne a
+            // hideg COM-indulás ~2186 ms-os, dokumentált költségével
+            // versenyezzen a szokásos időkorláton.
+            var warmupSettle = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync([file], false, TimeSpan.FromSeconds(25), []);
+            warmupSettle?.Dispose();
+            await Task.Delay(300);
+
+            // VALÓDI renderelt ikonnal, NEM nint.Zero-val — az ikon-renderelés
+            // (glyph -> RenderTargetBitmap -> HBITMAP, natív GDI-hívásokkal)
+            // egy valódi, éles hibát rejtett (GetDC rossz DLL-ből importálva:
+            // gdi32 helyett user32 kellett volna), amit egy nint.Zero-s teszt
+            // sosem futtatott volna le, és csak egy kézi próba derített ki.
+            var dummyOwnCommands = new List<NativeOwnCommand>
+            {
+                new(
+                    Pilaster.Shell.Menus.ShellMenuSession.NativeOwnCommandIdBase,
+                    "Onteszt parancs",
+                    NativeMenuIconRenderer.GetOrRender(Wpf.Ui.Controls.SymbolRegular.Code24)),
+            };
+
+            async Task<int> RunScenarioAsync(string label, int rounds, Func<int, IReadOnlyList<string>> pathsFactory)
+            {
+                var pass = 0;
+
+                for (var i = 0; i < rounds; i++)
+                {
+                    var paths = pathsFactory(i);
+                    var session = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync(paths, false, timeout, []);
+
+                    if (session is null)
+                    {
+                        log.Add($"{label} #{i}: A LEKERDEZES NULL MUNKAMENETET ADOTT");
+                        continue;
+                    }
+
+                    try
+                    {
+                        var result = await session.ShowNativeAsync(
+                            dummyOwnCommands, 100, 100, ownerHandle,
+                            onShown: hwnd => _ = Task.Delay(350)
+                                .ContinueWith(_ => Pilaster.Shell.Menus.NativeMenuIconInterop.CancelActiveMenu(hwnd)));
+
+                        if (result.Outcome == NativeMenuOutcome.Cancelled)
+                        {
+                            pass++;
+                        }
+                        else
+                        {
+                            log.Add($"{label} #{i}: VARATLAN EREDMENY ({result.Outcome}) — WM_CANCELMODE utan nem 'Cancelled' jott vissza");
+                        }
+                    }
+                    finally
+                    {
+                        session.Dispose();
+                    }
+
+                    await Task.Delay(150);
+                }
+
+                log.Add($"{label}: {pass}/{rounds}");
+                return pass;
+            }
+
+            var filePass = await RunScenarioAsync("FAJL", 10, _ => [file]);
+            var folderPass = await RunScenarioAsync("MAPPA (elemkent)", 10, _ => [folder]);
+            var altPass = await RunScenarioAsync("VALTAKOZVA", 10, i => i % 2 == 0 ? [file] : [folder]);
+            var multiPass = await RunScenarioAsync("TOBBSZOROS KIJELOLES", 10, _ => [file, altFile]);
+
+            // Almenü-teszt (a kör kulcskérdése): VALÓS billentyű-navigáció a
+            // natív menüben, de KIZÁRÓLAG PostMessage-dzsel a saját
+            // ideiglenes ablakunknak címezve — nem globális szimuláció, a
+            // felhasználó tényleges fókuszát nem érinti. A session.Items MÁR
+            // tartalmazza a fát (a QueryItemsAsync feloldotta a dinamikus
+            // almenüket is a beolvasáskor, lásd ReadSubmenu) — ebből
+            // kiszámítható, hány Le-nyílra van szükség egy almenüs elem
+            // eléréséhez, hiszen a natív menü Le-nyíllal a szeparátorokat
+            // automatikusan átugorja.
+            var submenuOk = false;
+            var submenuNote = "kihagyva (nincs almenüs elem a lekérdezésben)";
+
+            var submenuProbeSession = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync([file], false, timeout, []);
+
+            if (submenuProbeSession is not null)
+            {
+                var selectableBeforeTarget = 0;
+                var targetIndex = -1;
+
+                for (var i = 0; i < submenuProbeSession.Items.Count; i++)
+                {
+                    var node = submenuProbeSession.Items[i];
+
+                    if (node.IsSeparator)
+                    {
+                        continue;
+                    }
+
+                    if (node.HasChildren)
+                    {
+                        targetIndex = i;
+                        break;
+                    }
+
+                    selectableBeforeTarget++;
+                }
+
+                if (targetIndex >= 0)
+                {
+                    // + a saját beszúrt elemek száma — azok a VALÓDI natív
+                    // menüben a shell elemei ELÉ kerülnek, a Le-nyíl navigáció
+                    // ott kezdődik.
+                    var downPresses = dummyOwnCommands.Count + selectableBeforeTarget;
+
+                    async Task NavigateIntoSubmenuAndCloseAsync(nint hwnd)
+                    {
+                        await Task.Delay(300);
+
+                        for (var i = 0; i < downPresses; i++)
+                        {
+                            Pilaster.Shell.Menus.NativeMenuIconInterop.PostMenuNavigationKey(hwnd, Pilaster.Shell.Menus.NativeMenuTestKey.Down);
+                            await Task.Delay(40);
+                        }
+
+                        Pilaster.Shell.Menus.NativeMenuIconInterop.PostMenuNavigationKey(hwnd, Pilaster.Shell.Menus.NativeMenuTestKey.Right);
+                        await Task.Delay(400);
+                        Pilaster.Shell.Menus.NativeMenuIconInterop.CancelActiveMenu(hwnd);
+                    }
+
+                    var submenuResult = await submenuProbeSession.ShowNativeAsync(
+                        dummyOwnCommands, 100, 100, ownerHandle,
+                        onShown: hwnd => _ = NavigateIntoSubmenuAndCloseAsync(hwnd));
+
+                    // >= 2: egy a menü NYITÁSÁÉRT (felső szintű
+                    // WM_INITMENUPOPUP, mindig jár), egy (vagy több) az
+                    // ÉLŐ almenü-hoverért — ez utóbbi híján a natív ablak
+                    // WndProc-ja sosem kapta volna meg/továbbította volna a
+                    // shellnek a dinamikus feltöltés kérését.
+                    submenuOk = submenuResult.ForwardedInitMenuPopupCount >= 2;
+                    submenuNote = $"'{submenuProbeSession.Items[targetIndex].Text}' almenü, {downPresses} Le + 1 Jobbra, "
+                        + $"WM_INITMENUPOPUP továbbítva {submenuResult.ForwardedInitMenuPopupCount}x, "
+                        + $"osszes uzenet a WndProc-on {submenuResult.TotalMessagesReceived} -> {(submenuOk ? "OK" : "GYANUS")}";
+                }
+
+                submenuProbeSession.Dispose();
+            }
+
+            log.Add($"ALMENU-TESZT (7-Zip/Kuldes-szeru dinamikus feltoltes): {submenuNote}");
+
+            // "Nem fagy le az ablak, amig a nat.v menu nyitva van": a UI
+            // Dispatcher folyamatosan pingel egy DispatcherTimer-rel — ha a
+            // szinkron TrackPopupMenuEx valahogy a UI szalat blokkolna
+            // (ahelyett, hogy a megosztott STA szalat), a ping leallna.
+            var pingCount = 0;
+            var pingTimer = new System.Windows.Threading.DispatcherTimer(
+                TimeSpan.FromMilliseconds(30),
+                System.Windows.Threading.DispatcherPriority.Normal,
+                (_, _) => pingCount++,
+                mainWindow.Dispatcher);
+
+            var freezeSession = await Pilaster.Shell.Menus.ShellMenuSession.QueryItemsAsync([file], false, timeout, []);
+            var freezeCheckOk = false;
+            long freezeElapsedMs = 0;
+
+            if (freezeSession is not null)
+            {
+                pingTimer.Start();
+                var sw = Stopwatch.StartNew();
+
+                var freezeResult = await freezeSession.ShowNativeAsync(
+                    dummyOwnCommands, 100, 100, ownerHandle,
+                    onShown: hwnd => _ = Task.Delay(500)
+                        .ContinueWith(_ => Pilaster.Shell.Menus.NativeMenuIconInterop.CancelActiveMenu(hwnd)));
+
+                sw.Stop();
+                pingTimer.Stop();
+                freezeSession.Dispose();
+                freezeElapsedMs = sw.ElapsedMilliseconds;
+
+                // 30 ms-onkénti pingeléssel a menü nyitva léte alatt a
+                // várható ping-szám kb. elapsed/30 — bőséges (felezett)
+                // tűréssel, hogy egy lassabb gépen se adjon hamis riasztást.
+                var expectedMinimum = Math.Max(3, (int)(freezeElapsedMs / 30 / 2));
+                freezeCheckOk = pingCount >= expectedMinimum;
+                log.Add($"DIAGNOSZTIKA (fagyas-teszt menuje): WndProc osszes uzenet={freezeResult.TotalMessagesReceived}, WM_INITMENUPOPUP={freezeResult.ForwardedInitMenuPopupCount}");
+            }
+
+            log.Add(freezeSession is null
+                ? "FAGYAS-ELLENORZES: kihagyva (a lekerdezes nem sikerult)"
+                : $"FAGYAS-ELLENORZES: {pingCount} UI-ping {freezeElapsedMs} ms alatt (menu nyitva) -> {(freezeCheckOk ? "OK, a UI valaszkepes maradt" : "GYANUS, lehet hogy lefagyott")}");
+
+            var allPass = filePass == 10 && folderPass == 10 && altPass == 10 && multiPass == 10 && freezeCheckOk && submenuOk;
+
+            if (!allPass)
+            {
+                exitCode = 3;
+            }
+
+            log.Add(allPass ? "OSSZESITVE: ZOLD" : "OSSZESITVE: VAN BUKOTT KOR");
+        }
+        catch (Exception ex)
+        {
+            log.Add($"KIVETEL: {ex}");
+            exitCode = 2;
+        }
+
+        try
+        {
+            await File.WriteAllLinesAsync(resultsPath, log);
+        }
+        catch (IOException)
+        {
+            // Az eredményfájl írása nem kritikus — a kilépési kód önmagában is jelez.
+        }
+
+        Log.Information("NATIVEMENU-ONTESZT vege, kilepokod={ExitCode}, eredmenyek={ResultsPath}", exitCode, resultsPath);
         Log.CloseAndFlush();
         Environment.Exit(exitCode);
     }

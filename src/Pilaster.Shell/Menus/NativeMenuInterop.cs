@@ -14,6 +14,79 @@ namespace Pilaster.Shell.Menus;
 /// és a projekt Vanara-csomagjai ezt a szeletet nem fedik le olyan
 /// kényelmesen, hogy az extra függőség megérné.
 /// </remarks>
+/// <summary>
+/// A natív menü-ikonokhoz szükséges, PUBLIKUS résznek szánt átalakítás — lásd
+/// <see cref="NativeMenuInterop.CreateHBitmapFromPbgra32"/>. Az App réteg
+/// (WPF glyph-renderelés) ezen keresztül éri el, mert maga a
+/// <see cref="NativeMenuInterop"/> osztály <c>internal</c>, a nyers
+/// P/Invoke-deklarációk assembly-határon kívüli közzététele nem indokolt.
+/// </summary>
+public static class NativeMenuIconInterop
+{
+    /// <summary>Lásd <see cref="NativeMenuInterop.CreateHBitmapFromPbgra32"/>.</summary>
+    public static nint CreateHBitmapFromPbgra32(byte[] pixels, int width, int height) =>
+        NativeMenuInterop.CreateHBitmapFromPbgra32(pixels, width, height);
+
+    /// <summary>Egy <see cref="CreateHBitmapFromPbgra32"/>-vel létrehozott HBITMAP felszabadítása.</summary>
+    public static void DeleteHBitmap(nint hBitmap)
+    {
+        if (hBitmap != nint.Zero)
+        {
+            NativeMenuInterop.DeleteObject(hBitmap);
+        }
+    }
+
+    /// <summary>
+    /// Egy éppen nyitott natív menü (<c>TrackPopupMenuEx</c>) biztonságos,
+    /// PROGRAMOZOTT bezárása — <c>WM_CANCELMODE</c> postázásával, valódi
+    /// billentyű-/egérszimuláció NÉLKÜL. Kizárólag az öntesztekhez: a
+    /// <see cref="ShellMenuSession.ShowNativeAsync"/> <c>onShown</c>
+    /// visszahívásából kapott fogantyúval hívható.
+    /// </summary>
+    public static void CancelActiveMenu(nint ownerWindowHandle) =>
+        NativeMenuInterop.PostMessage(ownerWindowHandle, NativeMenuInterop.WM_CANCELMODE, nint.Zero, nint.Zero);
+
+    /// <summary>
+    /// Kizárólag az öntesztekhez: egy nyíl-billentyű (le/jobbra/…) POSTÁZÁSA
+    /// KIZÁRÓLAG a natív menü ideiglenes tulajdonos-ablakának — ez NEM
+    /// globális billentyűszimuláció (nem <c>SendInput</c>/<c>keybd_event</c>),
+    /// tehát a felhasználó tényleges fókuszát/egerét NEM érinti, akármelyik
+    /// alkalmazás van is épp előtérben. A <c>TrackPopupMenuEx</c> belső
+    /// hurokja ugyanazt a szál-üzenetsort olvassa, amibe ez az üzenet kerül,
+    /// ezért a menü navigációjaként dolgozza fel.
+    /// </summary>
+    public static void PostMenuNavigationKey(nint ownerWindowHandle, NativeMenuTestKey key)
+    {
+        var vk = key switch
+        {
+            NativeMenuTestKey.Down => 0x28,
+            NativeMenuTestKey.Right => 0x27,
+            NativeMenuTestKey.Enter => 0x0D,
+            _ => 0,
+        };
+
+        if (vk == 0)
+        {
+            return;
+        }
+
+        const uint WM_KEYDOWN = 0x0100;
+        const uint WM_KEYUP = 0x0101;
+        const nint extendedKeyLParam = 0x01000001;
+
+        NativeMenuInterop.PostMessage(ownerWindowHandle, WM_KEYDOWN, vk, extendedKeyLParam);
+        NativeMenuInterop.PostMessage(ownerWindowHandle, WM_KEYUP, vk, extendedKeyLParam);
+    }
+}
+
+/// <summary>Lásd <see cref="NativeMenuIconInterop.PostMenuNavigationKey"/>.</summary>
+public enum NativeMenuTestKey
+{
+    Down,
+    Right,
+    Enter,
+}
+
 internal static class NativeMenuInterop
 {
     internal const uint CoInitApartmentThreaded = 0x2;
@@ -36,11 +109,172 @@ internal static class NativeMenuInterop
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMenuItemInfoW")]
     internal static extern bool GetMenuItemInfo(nint hMenu, uint item, bool byPosition, ref MENUITEMINFO info);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "InsertMenuItemW")]
+    internal static extern bool InsertMenuItem(nint hMenu, uint item, bool byPosition, ref MENUITEMINFO info);
+
     [DllImport("gdi32.dll")]
     internal static extern int GetObject(nint handle, int size, ref BITMAP bitmap);
 
     [DllImport("gdi32.dll")]
     internal static extern int GetBitmapBits(nint hBitmap, int count, nint bits);
+
+    [DllImport("gdi32.dll")]
+    internal static extern bool DeleteObject(nint hObject);
+
+    // --- v1.0.3: natív ("Windows") menümegjelenítés — TrackPopupMenuEx a
+    // MEGLÉVŐ, nyersen épített HMENU-n. Lásd ShellMenuSession.ShowNativeAsync.
+
+    internal const uint TPM_LEFTBUTTON = 0x0000;
+    internal const uint TPM_RIGHTBUTTON = 0x0002;
+    internal const uint TPM_LEFTALIGN = 0x0000;
+    internal const uint TPM_TOPALIGN = 0x0000;
+    internal const uint TPM_VERTICAL = 0x0040;
+    internal const uint TPM_RETURNCMD = 0x0100;
+
+    [DllImport("user32.dll")]
+    internal static extern int TrackPopupMenuEx(nint hMenu, uint flags, int x, int y, nint hwnd, nint lptpm);
+
+    [DllImport("user32.dll")]
+    internal static extern bool SetForegroundWindow(nint hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "PostMessageW")]
+    internal static extern bool PostMessage(nint hWnd, uint msg, nint wParam, nint lParam);
+
+    internal const uint WM_NULL = 0x0000;
+    internal const uint WM_CANCELMODE = 0x001F;
+    internal const int WM_DRAWITEM = 0x002B;
+    internal const int WM_MEASUREITEM = 0x002C;
+    internal const int WM_MENUCHAR = 0x0120;
+
+    // --- Egy minimális, saját natív ablak a WM_INITMENUPOPUP/WM_DRAWITEM/
+    // WM_MEASUREITEM/WM_MENUCHAR üzenetek IContextMeno3::HandleMenuMsg2-höz
+    // továbbításához — lásd NativeMenuOwnerWindow. A TrackPopupMenuEx-nek
+    // UGYANAZON a szálon kell futnia, ahol az IContextMenu létrejött, ezért
+    // ez az ablak SOSEM a WPF főablak, hanem egy erre a hívásra, a megosztott
+    // STA szálon létrehozott, láthatatlan segédablak.
+
+    internal delegate nint WndProcDelegate(nint hWnd, uint msg, nint wParam, nint lParam);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    internal struct WNDCLASSEX
+    {
+        public uint cbSize;
+        public uint style;
+        public WndProcDelegate lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public nint hInstance;
+        public nint hIcon;
+        public nint hCursor;
+        public nint hbrBackground;
+        [MarshalAs(UnmanagedType.LPWStr)] public string? lpszMenuName;
+        [MarshalAs(UnmanagedType.LPWStr)] public string lpszClassName;
+        public nint hIconSm;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "RegisterClassExW", SetLastError = true)]
+    internal static extern ushort RegisterClassEx(ref WNDCLASSEX lpwcx);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "CreateWindowExW", SetLastError = true)]
+    internal static extern nint CreateWindowEx(
+        uint dwExStyle, string lpClassName, string lpWindowName, uint dwStyle,
+        int x, int y, int nWidth, int nHeight,
+        nint hWndParent, nint hMenu, nint hInstance, nint lpParam);
+
+    [DllImport("user32.dll")]
+    internal static extern bool DestroyWindow(nint hWnd);
+
+    internal const int GWLP_WNDPROC = -4;
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    internal static extern nint SetWindowLongPtr(nint hWnd, int nIndex, nint newProc);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "DefWindowProcW")]
+    internal static extern nint DefWindowProc(nint hWnd, uint msg, nint wParam, nint lParam);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    internal static extern nint GetModuleHandle(string? lpModuleName);
+
+    internal static readonly nint HWND_MESSAGE = new(-3);
+
+    // --- v1.0.3: saját ikon (glyph) átalakítása HBITMAP-pá a natív menü
+    // beszúrt elemeihez — a fordítottja a TryConvertBitmap-nak.
+
+    // GetDC/ReleaseDC klasszikus Win32-csapda: historikusan MINDKETTŐ a
+    // user32.dll-ből exportálódik, NEM a gdi32.dll-ből — a device context
+    // maga GDI-fogalom, de a kérés/elengedés API-ja user32. Hibás DLL esetén
+    // EntryPointNotFoundException-t dob, MINDEN natív menünyitáskor (az
+    // ikon-renderelés minden hívásnál lefut) — ez élesben app-szintű
+    // összeomlást okozott, amíg egy kézi próba ki nem derítette.
+    [DllImport("user32.dll")]
+    internal static extern nint GetDC(nint hWnd);
+
+    [DllImport("user32.dll")]
+    internal static extern int ReleaseDC(nint hWnd, nint hDC);
+
+    [DllImport("gdi32.dll")]
+    internal static extern nint CreateDIBSection(nint hdc, ref BITMAPINFO_HEADER_ONLY bmi, uint usage, out nint ppvBits, nint hSection, uint offset);
+
+    internal const uint DIB_RGB_COLORS = 0;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct BITMAPINFO_HEADER_ONLY
+    {
+        public uint biSize;
+        public int biWidth;
+        public int biHeight;
+        public ushort biPlanes;
+        public ushort biBitCount;
+        public uint biCompression;
+        public uint biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public uint biClrUsed;
+        public uint biClrImportant;
+    }
+
+    /// <summary>
+    /// Egy 32 bites, ELŐSZOROZOTT alfájú, felülről-lefelé sorolt pixeltömb
+    /// (WPF <c>Pbgra32</c>-formátum) átalakítása natív <c>HBITMAP</c>-pá, egy
+    /// menüelem <c>hbmpItem</c>-jéhez. A hívó felelős a <see cref="DeleteObject"/>
+    /// meghívásáért — a menü-API-k NEM szabadítják fel automatikusan.
+    /// </summary>
+    internal static nint CreateHBitmapFromPbgra32(byte[] pixels, int width, int height)
+    {
+        var bmi = new BITMAPINFO_HEADER_ONLY
+        {
+            biSize = (uint)Marshal.SizeOf<BITMAPINFO_HEADER_ONLY>(),
+            biWidth = width,
+            // Negatív magasság = felülről-lefelé sorolt forrás — pontosan
+            // úgy, ahogy a WPF RenderTargetBitmap.CopyPixels adja.
+            biHeight = -height,
+            biPlanes = 1,
+            biBitCount = 32,
+            biCompression = 0, // BI_RGB
+        };
+
+        var hdc = GetDC(nint.Zero);
+
+        try
+        {
+            var hBitmap = CreateDIBSection(hdc, ref bmi, DIB_RGB_COLORS, out var bits, nint.Zero, 0);
+
+            if (hBitmap == nint.Zero || bits == nint.Zero)
+            {
+                return nint.Zero;
+            }
+
+            Marshal.Copy(pixels, 0, bits, pixels.Length);
+            return hBitmap;
+        }
+        finally
+        {
+            if (hdc != nint.Zero)
+            {
+                ReleaseDC(nint.Zero, hdc);
+            }
+        }
+    }
 
     // --- A fájlmenü NYERS beszerzési útja ---
     //

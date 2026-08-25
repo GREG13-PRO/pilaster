@@ -4,6 +4,76 @@ A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
 
 ## Kiadatlan
 
+### Új — jobbklikk menü
+
+- **Választható natív Windows menü (alapértelmezett).** Beállítások →
+  Jobbklikk menü alatt új választó: **Windows** (alapértelmezett,
+  meglévő felhasználóknál is erre áll át a frissítéskor) vagy
+  **Pilaster** (a saját, Fluent-stílusú menü). A Windows mód a VALÓDI
+  rendszermenüt jeleníti meg (`TrackPopupMenuEx`, ugyanazon a nyers,
+  nem-Vanara `HMENU`-n, amit a `ShellMenuSession` már eddig is épített) —
+  pontosan úgy viselkedik, mint az Intézőben, a telepített bővítmények
+  (7-Zip, Küldés ▸ stb.) VALÓDI, dinamikusan feltöltődő almenüivel
+  együtt. A nyolc, natív megfelelő NÉLKÜLI saját parancs (Megnyitás új
+  fülön, Megnyitás a másik panelen, Szerkesztés Pilaster Editorral,
+  Útvonal/Név másolása, Terminál megnyitása itt, Rögzítés a
+  gyorseléréshez, Címkék) a shell elemei ELÉ kerül be, saját
+  ikonokkal — ezeket a program NEM ismétli meg a natív listában.
+  A már meglévő Megnyitás/Kivágás/Másolás/Beillesztés/Törlés/Átnevezés/
+  Tulajdonságok stb. a VALÓDI shell-menüből jön, nincs duplikálva. Az A2
+  előretöltés (v1.0.2) mindkét módban működik — a lekérdezés ugyanaz,
+  csak a megjelenítés más. VALÓS, emberi próbával megerősítve: a 7-Zip
+  almenüje a kijelölt fájl nevével (pl. „Hozzáadás: »fájlnév.7z«")
+  dinamikusan, hiba nélkül populálódik.
+
+### Javítások/technikai megjegyzések — jobbklikk menü
+
+- **Holt, veszélyes kód eltávolítva.** A `NativeContextMenuService`
+  korábban a FÁJL-elemek natív menüjét is a Vanara
+  `ShellContextMenu.CreateFromItems`-en keresztül jelenítette meg — ez a
+  hívás volt a dokumentált, öt körös 0xC0000374 heap-korrupció bizonyított
+  okozója (lásd docs/CONTEXT-MENU.md), és a kódban élő, de nem hívott
+  (`ShowAsync`/`ShowItemsCore`) állapotban maradt utána — csendes
+  csapdaként egy jövőbeli módosításnak. Eltávolítva; a `Pilaster.Shell.csproj`
+  Vanara-megjegyzése is javítva, ami korábban tévesen „tesztelt,
+  biztonságosnak" nevezte ugyanezt a hívást.
+- **Új natív megjelenítési réteg** (`ShellMenuSession.ShowNativeAsync`,
+  `NativeMenuOwnerWindow`, `NativeMenuInterop` bővítései): a
+  `TrackPopupMenuEx`-et a MEGOSZTOTT STA száron, ugyanazon a szálon hívja,
+  ahol az `IContextMenu` létrejött (kötelező — másképp a dinamikus
+  almenük üresek maradnának). A `WM_INITMENUPOPUP`/`WM_DRAWITEM`/
+  `WM_MEASUREITEM`/`WM_MENUCHAR` üzeneteket egy minden megjelenítéshez
+  frissen létrehozott, láthatatlan segédablak (`NativeMenuOwnerWindow`)
+  továbbítja `IContextMenu3::HandleMenuMsg2`-nek. A menü NEM fagyasztja
+  le a WPF ablakot, amíg nyitva van — MÉRVE (headless önteszt): a UI
+  Dispatcher ~30 ms-onként pingelve is folyamatosan válaszolt egy ~500
+  ms-ig nyitva tartott menü alatt.
+- **Éles hiba, csak kézi próbával kiderítve.** A `GetDC` P/Invoke
+  deklarációja tévesen a `gdi32.dll`-re mutatott — valójában a `user32.dll`
+  exportálja (klasszikus Win32-csapda). Ez minden natív menünyitáskor
+  `EntryPointNotFoundException`-t dobott az ikon-renderelésben, ami a
+  teljes jobbklikk-menüt (és vele az appot) elvitte. A headless önteszt
+  ezt NEM kapta el, mert egy `nint.Zero` (ikon nélküli) próba-parancsot
+  használt — a hibát csak egy VALÓDI jobbklikk fedte fel. Javítva, és az
+  önteszt mostantól VALÓDI renderelt ikonnal fut, hogy ugyanez a
+  hibaosztály többé ne juthasson át észrevétlenül. Az ikon-renderelés
+  köré emellett egy szándékosan tág `catch (Exception)` került: egy
+  P/Invoke-határon (GDI-hívások) történő hiba mostantól legfeljebb egy
+  hiányzó ikont okoz, sosem app-összeomlást.
+
+### Ismert korlátok
+
+- **Almenü-navigáció automatizált tesztelése nem megbízható.** Egy
+  headless önteszt-kísérlet, ami `PostMessage`-dzsel (nem globális
+  bevitel) navigált be egy VALÓDI, lassú bővítmény (7-Zip) almenüjébe,
+  egy alkalommal 90 másodpercnél tovább „lefagyasztotta" a tesztfolyamatot
+  — feltehetően a `WM_CANCELMODE` egy lassú, szinkron
+  `HandleMenuMsg2`-hívás KÖZBEN érkezett. Végül magától lezárult, semmi
+  nem maradt függőben, de emiatt az almenü-feltöltés VÉGSŐ megerősítése
+  kézi próbával történt, nem automatizálva.
+- A meglévő korlátok (folyamat-izoláció, lassú shell-bővítmények,
+  kódaláírás hiánya stb., lásd v1.0.2) változatlanok.
+
 ## v1.0.2
 
 ### Új — jobbklikk menü

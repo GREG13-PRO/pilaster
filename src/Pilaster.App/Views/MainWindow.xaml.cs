@@ -47,9 +47,12 @@ public partial class MainWindow : FluentWindow
     private FilePreviewWindow? _previewWindow;
 
     /// <summary>
-    /// Igaz, amíg a natív jobbklikk-menü (<see cref="NativeContextMenuService"/>)
-    /// nyitva van a külön STA szálon — ne induljon el egy második egymásra,
-    /// ha a felhasználó a menü bezáródása előtt újra jobb gombot nyom.
+    /// Igaz, amíg BÁRMELYIK natív jobbklikk-menü nyitva van — a mappa-háttéré
+    /// (<see cref="NativeContextMenuService"/>, saját STA szálon) VAGY a
+    /// fájl-elemeké (<see cref="Pilaster.Shell.Menus.NativeMenuPresenter"/>,
+    /// a megosztott STA száron, spec v1.0.3) —, hogy ne induljon el egy
+    /// második egymásra, ha a felhasználó a menü bezáródása előtt újra jobb
+    /// gombot nyom.
     /// </summary>
     private bool _isNativeContextMenuOpen;
 
@@ -689,20 +692,33 @@ public partial class MainWindow : FluentWindow
             _ => [item.FullPath],
         };
 
-        // A SAJÁT menü (spec F4): a mi designunk, de a telepített
-        // shell-bővítmények elemeivel együtt. A saját elemek azonnal
-        // megjelennek, a shell-elemek aszinkron, időkorláttal csúsznak be.
         var extendedVerbs = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift);
 
         // A2 (v1.0.2): ha PONTOSAN erre a kijelölésre van kész (vagy még
         // folyamatban lévő) előretöltés, azt használjuk friss lekérdezés
         // helyett — ha már kész, a menü rögtön a teljes tartalommal nyílik.
         // Ha a kijelölés nem egyezik (pl. a jobbklikk egy nem kijelölt elemre
-        // esett), nincs találat, és a szokásos friss lekérdezés indul.
+        // esett), nincs találat, és a szokásos friss lekérdezés indul. EZ
+        // MINDKÉT megjelenítési módra érvényes (spec v1.0.3) — az
+        // előretöltés a lekérdezést gyorsítja, nem a megjelenítést dönti el.
         var preloaded = _services.GetService(typeof(ShellMenuPreloadCoordinator)) is ShellMenuPreloadCoordinator preload
             ? preload.TakeIfMatches(selectedPaths)
             : null;
 
+        // v1.0.3: Beállítások → Jobbklikk menü — melyik VALÓDI menü jelenjen
+        // meg. Alapértelmezett a Windows natívja (lásd ContextMenuMode
+        // dokumentációja); a Pilaster saját designja opcionális marad, amíg
+        // a bővítmény-megjelenítése nincs tökéletesre csiszolva.
+        if (_settings.Current.ContextMenuMode == ContextMenuMode.Windows)
+        {
+            var screenPoint = PointToScreen(e.GetPosition(this));
+            await ShowNativeFileMenuAsync(item, selectedPaths, extendedVerbs, screenPoint, preloaded);
+            return;
+        }
+
+        // A SAJÁT menü (spec F4): a mi designunk, de a telepített
+        // shell-bővítmények elemeivel együtt. A saját elemek azonnal
+        // megjelennek, a shell-elemek aszinkron, időkorláttal csúsznak be.
         PilasterContextMenu.Show(
             _services,
             container,
@@ -712,6 +728,142 @@ public partial class MainWindow : FluentWindow
             item.FullPath);
 
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A VALÓDI Windows natív jobbklikk-menü megjelenítése fájl-elemeken
+    /// (spec v1.0.3) — a shell elemei elé a Pilaster nyolc saját, natív
+    /// megfelelő NÉLKÜLI parancsa (Megnyitás új fülön, Megnyitás a másik
+    /// panelen, Szerkesztés Pilaster Editorral, Útvonal/Név másolása,
+    /// Terminál megnyitása itt, Rögzítés a gyorseléréshez, Címkék) kerül be
+    /// — a többi (Megnyitás, Kivágás, Másolás, Beillesztés, Törlés,
+    /// Átnevezés stb.) MÁR benne van a valódi shell menüben, azokat nem
+    /// duplikáljuk.
+    /// </summary>
+    /// <remarks>
+    /// A <c>ShellMenuSession.ShowNativeAsync</c> a megosztott STA száron fut
+    /// — ugyanazon a szálon, ahol az <c>IContextMenu</c> létrejött —, és a
+    /// natív <c>TrackPopupMenuEx</c> hívás ideje alatt BLOKKOLJA azt a szálat
+    /// (ez szándékos, lásd a metódus dokumentációját), de a WPF UI szálat
+    /// nem: ez a hívó itt <c>await</c>-tal, nem blokkolva várja meg.
+    /// </remarks>
+    private async Task ShowNativeFileMenuAsync(
+        FileSystemItem item,
+        IReadOnlyList<string> selectedPaths,
+        bool extendedVerbs,
+        Point screenPoint,
+        Task<ShellMenuSession?>? preloaded)
+    {
+        if (_isNativeContextMenuOpen)
+        {
+            return;
+        }
+
+        _isNativeContextMenuOpen = true;
+
+        try
+        {
+            var session = preloaded is not null
+                ? await preloaded
+                : await ShellMenuSession.QueryItemsAsync(
+                    selectedPaths,
+                    extendedVerbs,
+                    TimeSpan.FromMilliseconds(_settings.Current.ShellMenuTimeoutMs),
+                    _settings.Current.ShellHandlerBlacklist);
+
+            var ownerHandle = new WindowInteropHelper(this).Handle;
+
+            if (session is null)
+            {
+                // A shell-lekérdezés teljesen sikertelen — a bevált, saját
+                // menüre esünk vissza, NEM egy ritkán használt, kevésbé
+                // karbantartott statikus erőforrásra, hogy a felhasználó
+                // legalább a Pilaster-designú menüt lássa üres kéz helyett.
+                PilasterContextMenu.Show(
+                    _services,
+                    this,
+                    BuildFileMenuEntries(item, selectedPaths, extendedVerbs),
+                    (timeout, blacklist) => ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
+                    _settings.Current,
+                    item.FullPath);
+                return;
+            }
+
+            var ownCommands = BuildNativeOwnCommands(item, selectedPaths);
+
+            var result = await session.ShowNativeAsync(
+                ownCommands.Select(c => c.Command).ToList(),
+                (int)screenPoint.X,
+                (int)screenPoint.Y,
+                ownerHandle);
+
+            if (result.Outcome == NativeMenuOutcome.OwnCommand)
+            {
+                var match = ownCommands.FirstOrDefault(c => c.Command.CommandId == result.CommandId);
+                match.Action?.Invoke();
+            }
+
+            session.Dispose();
+        }
+        finally
+        {
+            _isNativeContextMenuOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// A nyolc, natív megfelelő nélküli saját parancs a natív menühöz — lásd
+    /// <see cref="ShowNativeFileMenuAsync"/>. Ugyanaz a nyolc parancs és
+    /// ugyanaz a láthatósági logika, mint a <see cref="BuildFileMenuEntries"/>
+    /// megfelelő sorai — SZÁNDÉKOSAN nem ugyanabból a listából származtatva,
+    /// mert azok WPF <see cref="PilasterMenuEntry"/>-k (a Pilaster-menühöz),
+    /// itt viszont natív <c>HMENU</c>-be beszúrható parancsazonosítót és
+    /// HBITMAP-ikont kell rendelni hozzájuk.
+    /// </summary>
+    private List<(NativeOwnCommand Command, Action Action)> BuildNativeOwnCommands(
+        FileSystemItem item, IReadOnlyList<string> selectedPaths)
+    {
+        var dual = _viewModel.DualPaneEnabled;
+        var nextId = ShellMenuSession.NativeOwnCommandIdBase;
+
+        var candidates = new (string LabelKey, SymbolRegular Icon, Action Action, bool Visible)[]
+        {
+            ("Cmd_OpenNewTab", SymbolRegular.TabAdd24,
+                () => _viewModel.ActivePane.AddTab(item.FullPath), item.IsNavigable),
+            ("QuickAccess_OpenOther", SymbolRegular.DualScreen24,
+                () => _ = _viewModel.InactivePane.NavigateAsync(item.FullPath), item.IsNavigable && dual),
+            ("Cmd_EditWithPilaster", SymbolRegular.Code24,
+                () => OpenInEditor(item.FullPath), true),
+            ("Cmd_CopyPath", SymbolRegular.Copy24,
+                () => CopyTextToClipboard(item.FullPath), true),
+            ("Cmd_CopyName", SymbolRegular.Copy24,
+                () => CopyTextToClipboard(item.Name), true),
+            ("Cmd_OpenTerminal", SymbolRegular.WindowConsole20,
+                () => OpenTerminalAt(item), true),
+            ("Cmd_PinToQuickAccess", SymbolRegular.Pin24,
+                () => _viewModel.PinToQuickAccessCommand.Execute(item.FullPath), item.IsNavigable),
+            ("Cmd_Tags", SymbolRegular.Tag24,
+                () => ShowTagPickerFor(item, null), true),
+        };
+
+        var result = new List<(NativeOwnCommand, Action)>();
+
+        foreach (var (labelKey, icon, action, visible) in candidates)
+        {
+            if (!visible)
+            {
+                continue;
+            }
+
+            var command = new NativeOwnCommand(
+                nextId++,
+                TranslationSource.Instance[labelKey],
+                NativeMenuIconRenderer.GetOrRender(icon));
+
+            result.Add((command, action));
+        }
+
+        return result;
     }
 
     /// <summary>

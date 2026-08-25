@@ -9,27 +9,42 @@ using static Vanara.PInvoke.Shell32;
 namespace Pilaster.Shell.Menus;
 
 /// <summary>
-/// A valódi Windows shell jobbklikk-menü megjelenítése fájlokon/mappákon.
+/// A valódi Windows shell jobbklikk-menü megjelenítése mappák HÁTTERÉN
+/// (üres területére kattintva).
 /// </summary>
 /// <remarks>
-/// Nem egy Fluent-stílusú másolat, hanem szó szerint ugyanaz a menü, amit az
-/// Intéző mutatna — a telepített programok (7-Zip, Git, IDE-k stb.) saját
-/// bejegyzéseivel együtt —, mert ténylegesen a rendszer
-/// <c>IContextMenu</c>/<c>IShellFolder</c> gépezetét hívja meg
-/// (<see cref="ShellContextMenu"/>, a projekt Vanara.Windows.Shell.Common
-/// csomagján keresztül). A kiválasztott parancsot is a shell hajtja végre,
-/// tehát a „Megnyitás ezzel", „Tulajdonságok" és minden third-party
-/// bejegyzés natívan, változtatás nélkül működik.
-///
+/// <para>
+/// SZÁNDÉKOSAN NEM használható fájl-/mappaELEMEKRE — lásd lent. Mappa
+/// hátterére szó szerint ugyanaz a menü jelenik meg, amit az Intéző mutatna
+/// (Nézet, Rendezés, Új ▸ stb.), mert ténylegesen a rendszer
+/// <c>IShellFolder::CreateViewObject(IID_IContextMenu)</c> hívását adja
+/// vissza (a projekt Vanara.Windows.Shell.Common csomagján keresztül) — ez a
+/// hívási minta a heap-korrupciós bisectben (lásd
+/// docs/CONTEXT-MENU.md) SOHA nem volt vétkes.
+/// </para>
+/// <para>
 /// A <see cref="ShellContextMenu.ShowContextMenu"/> belül a natív, BLOKKOLÓ
 /// <c>TrackPopupMenuEx</c>-et hívja meg. Ha ezt közvetlenül a WPF UI szálról,
 /// egy <c>PreviewMouseRightButtonDown</c> (alagcsöves) eseménykezelőből
 /// hívnánk meg, az a WPF egér-capture/input-rendszerével ütközve
 /// lefagyasztja az alkalmazást. Ezért a teljes natív hívás-láncot (COM
-/// inicializálás, <see cref="ShellItem"/> megnyitás, menü létrehozása és
-/// megjelenítése) egy külön, kifejezetten erre indított STA szálon futtatjuk,
-/// és a WPF felől <see cref="Task"/>-ként, aszinkron várjuk meg — így a
-/// Dispatcher a menü nyitva léte alatt is pörög, nincs újrabelépés.
+/// inicializálás, menü létrehozása és megjelenítése) egy külön, kifejezetten
+/// erre indított STA szálon futtatjuk, és a WPF felől <see cref="Task"/>-ként,
+/// aszinkron várjuk meg — így a Dispatcher a menü nyitva léte alatt is
+/// pörög, nincs újrabelépés.
+/// </para>
+/// <para>
+/// TÖRTÉNETI MEGJEGYZÉS (v1.0.3): ez az osztály korábban a FÁJL-elemek
+/// menüjét is megjelenítette, a <c>ShellContextMenu.CreateFromItems</c>
+/// (Vanara) hívásán keresztül. Az a metódus (<c>ShowAsync</c>/
+/// <c>ShowItemsCore</c>) volt a dokumentált, öt körös 0xC0000374
+/// heap-korrupció bizonyított okozója — a fájl-elemek menüje azóta a
+/// <see cref="ShellMenuSession"/> NYERS P/Invoke útján épül. A módszert
+/// SZÁNDÉKOSAN eltávolítottuk innen, nehogy egy jövőbeli módosítás
+/// véletlenül visszahozza — a natív („Windows") jobbklikk-mód fájl-elemekre
+/// a <see cref="NativeMenuPresenter"/>-en keresztül, ugyanazt a
+/// <see cref="ShellMenuSession"/>-t használva jelenik meg.
+/// </para>
 /// </remarks>
 public static class NativeContextMenuService
 {
@@ -42,35 +57,10 @@ public static class NativeContextMenuService
     private static extern void CoUninitialize();
 
     /// <summary>
-    /// Megjeleníti a menüt egy külön STA szálon, és a kiválasztott parancsot
-    /// automatikusan végre is hajtja. A hívó szálat (jellemzően a WPF UI
-    /// szálat) nem blokkolja — a visszaadott <see cref="Task"/> a menü
-    /// bezárásakor fejeződik be.
-    /// </summary>
-    /// <param name="paths">A kijelölt elemek teljes útvonalai (legalább egy).</param>
-    /// <param name="screenX">A megjelenítés X koordinátája képernyő-térben.</param>
-    /// <param name="screenY">A megjelenítés Y koordinátája képernyő-térben.</param>
-    /// <param name="ownerWindowHandle">A tulajdonos ablak fogantyúja — a shell párbeszédeinek (pl. törlés megerősítése) szülője.</param>
-    /// <returns>
-    /// Hamis, ha a natív menü valamiért nem volt előállítható (pl. egy
-    /// hibás harmadik féltől származó shell-bővítmény) — ilyenkor a hívó
-    /// eshet vissza saját, egyszerűbb menüre.
-    /// </returns>
-    public static Task<bool> ShowAsync(IReadOnlyList<string> paths, int screenX, int screenY, nint ownerWindowHandle)
-    {
-        if (paths.Count == 0)
-        {
-            return Task.FromResult(false);
-        }
-
-        return RunIsolatedAsync(() => ShowItemsCore(paths, screenX, screenY, ownerWindowHandle));
-    }
-
-    /// <summary>
     /// Megjeleníti egy mappa VALÓDI Windows háttér-menüjét (Nézet, Rendezés,
     /// Frissítés, Beillesztés, Új &gt; stb.) — ugyanaz, mint amikor az
-    /// Intézőben egy mappa üres területén jobb gombbal kattintasz. Ugyanúgy
-    /// külön STA szálon fut, mint <see cref="ShowAsync"/>.
+    /// Intézőben egy mappa üres területén jobb gombbal kattintasz. Dedikált,
+    /// erre a hívásra indított STA szálon fut.
     /// </summary>
     /// <param name="folderPath">A mappa teljes elérési útja, aminek a háttér-menüjét meg kell jeleníteni.</param>
     /// <param name="screenX">A megjelenítés X koordinátája képernyő-térben.</param>
@@ -125,47 +115,6 @@ public static class NativeContextMenuService
         staThread.Start();
 
         return tcs.Task;
-    }
-
-    private static bool ShowItemsCore(IReadOnlyList<string> paths, int screenX, int screenY, nint ownerWindowHandle)
-    {
-        ShellItem[]? items = null;
-
-        try
-        {
-            items = new ShellItem[paths.Count];
-
-            for (var i = 0; i < paths.Count; i++)
-            {
-                items[i] = ShellItem.Open(paths[i]);
-            }
-
-            using var menu = ShellContextMenu.CreateFromItems(items, out var keepAlive);
-
-            using (keepAlive)
-            {
-                // Ez a hívás blokkol, amíg a menü nyitva van (natív
-                // TrackPopupMenuEx) — de ezen a külön szálon ez a szándék:
-                // a WPF UI szálat nem érinti.
-                menu.ShowContextMenu(new POINT(screenX, screenY), hWnd: (HWND)ownerWindowHandle);
-            }
-
-            return true;
-        }
-        catch (Exception ex) when (ex is COMException or ArgumentException or InvalidOperationException or Win32Exception)
-        {
-            return false;
-        }
-        finally
-        {
-            if (items is not null)
-            {
-                foreach (var item in items)
-                {
-                    item?.Dispose();
-                }
-            }
-        }
     }
 
     private static bool ShowBackgroundCore(string folderPath, int screenX, int screenY, nint ownerWindowHandle)

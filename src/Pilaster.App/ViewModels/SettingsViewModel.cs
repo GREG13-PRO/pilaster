@@ -83,6 +83,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _showExtensions = current.ShowExtensions;
         _foldersFirst = current.FoldersFirst;
         _binarySizeUnits = current.BinarySizeUnits;
+        _contextMenuMode = current.ContextMenuMode;
         _shellExtensionsEnabled = current.ShellExtensionsEnabled;
         _shellMenuTimeoutMs = current.ShellMenuTimeoutMs;
         _shellItemsInOwnSection = current.ShellItemsInOwnSection;
@@ -267,6 +268,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 break;
 
             case SettingsCatalog.ContextMenu:
+                ContextMenuMode = defaults.ContextMenuMode;
                 ShellExtensionsEnabled = defaults.ShellExtensionsEnabled;
                 ShellMenuTimeoutMs = defaults.ShellMenuTimeoutMs;
                 ShellItemsInOwnSection = defaults.ShellItemsInOwnSection;
@@ -452,6 +454,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _binarySizeUnits;
 
     partial void OnBinarySizeUnitsChanged(bool value) => Persist(s => s.BinarySizeUnits = value);
+
+    /// <summary>A jobbklikk-menü megjelenítési módja (spec v1.0.3) — Windows natívja vagy a Pilaster saját designja.</summary>
+    [ObservableProperty]
+    private ContextMenuMode _contextMenuMode;
+
+    partial void OnContextMenuModeChanged(ContextMenuMode value) => Persist(s => s.ContextMenuMode = value);
 
     [ObservableProperty]
     private bool _shellExtensionsEnabled;

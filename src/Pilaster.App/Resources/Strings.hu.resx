@@ -1156,6 +1156,21 @@
   <data name="Settings_ShellOwnSection" xml:space="preserve">
     <value>Külön „Egyéb alkalmazások" szekcióban</value>
   </data>
+  <data name="Settings_ContextMenuMode" xml:space="preserve">
+    <value>Jobbklikk menü megjelenítése</value>
+  </data>
+  <data name="Settings_ContextMenuMode_Windows" xml:space="preserve">
+    <value>Windows (alapértelmezett)</value>
+  </data>
+  <data name="Settings_ContextMenuMode_WindowsHint" xml:space="preserve">
+    <value>A natív rendszermenü — pontosan úgy viselkedik, mint az Intézőben.</value>
+  </data>
+  <data name="Settings_ContextMenuMode_Pilaster" xml:space="preserve">
+    <value>Pilaster</value>
+  </data>
+  <data name="Settings_ContextMenuMode_PilasterHint" xml:space="preserve">
+    <value>A program saját designja — a bővítmények megjelenítése (ikonok, almenük, „Egyéb alkalmazások" szekció) még csiszolás alatt van.</value>
+  </data>
   <data name="Settings_ContextMenuPreload" xml:space="preserve">
     <value>Előretöltés kijelöléskor</value>
   </data>

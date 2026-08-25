@@ -24,6 +24,14 @@ public sealed class ShellMenuSession : IDisposable
 
     private const uint LastCommandId = 0x7FFF;
 
+    /// <summary>
+    /// A Pilaster saját, natív menübe beszúrt parancsainak azonosító-
+    /// tartománya (spec v1.0.3) — szigorúan a shell-tartomány (1–0x7FFF)
+    /// FÖLÖTT, hogy a <c>TrackPopupMenuEx</c> visszatérési értéke
+    /// egyértelműen eldöntse, kinek a parancsáról van szó.
+    /// </summary>
+    public const uint NativeOwnCommandIdBase = 0x8000;
+
     /// <summary>A közös STA szálat védő zár — lásd <see cref="RentShared"/>.</summary>
     private static readonly object SharedGate = new();
 
@@ -686,30 +694,187 @@ public sealed class ShellMenuSession : IDisposable
             return Task.FromResult(false);
         }
 
-        return _worker.RunAsync(() =>
+        return _worker.RunAsync(() => InvokeCommandCore(commandId, ownerWindowHandle));
+    }
+
+    /// <summary>
+    /// A tényleges parancsvégrehajtás — KIZÁRÓLAG az STA szálról hívható
+    /// (vagy a megosztott munkasoron át, mint az <see cref="InvokeAsync"/>,
+    /// vagy közvetlenül egy MÁR az STA szálon futó hívásból, mint
+    /// <see cref="ShowNativeCore"/> — utóbbi esetben egy újabb
+    /// <c>_worker.RunAsync</c> hívás holtpontba futna, mert a szál épp ezt a
+    /// hívást futtatja).
+    /// </summary>
+    private bool InvokeCommandCore(uint commandId, nint ownerWindowHandle)
+    {
+        if (_contextMenu is null)
         {
+            return false;
+        }
+
+        try
+        {
+            // A verb a NULLÁTÓL indexelt parancssorszám — a menü
+            // azonosítójából le kell vonni a kiinduló eltolást. A Vanara
+            // ResourceId-je végzi el a MAKEINTRESOURCE-átalakítást, és
+            // tölti ki az unicode (lpVerbW) párját is.
+            var offset = (int)(commandId - FirstCommandId);
+
+            var invoke = new CMINVOKECOMMANDINFOEX(
+                offset,
+                ShowWindowCommand.SW_SHOWNORMAL,
+                (HWND)ownerWindowHandle);
+
+            _contextMenu.InvokeCommand(invoke);
+            return true;
+        }
+        catch (Exception ex) when (ex is COMException or Win32Exception or ArgumentException or InvalidOperationException)
+        {
+            // Egy hibás bővítmény parancsa nem dobhatja el az appot.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A menü megjelenítése a VALÓDI Windows natív menüjeként
+    /// (<c>TrackPopupMenuEx</c>) — spec v1.0.3.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A <paramref name="ownCommands"/> a shell elemei ELÉ kerül be a
+    /// meglévő <c>HMENU</c>-be, egy elválasztóval — ez a menü ugyanaz a
+    /// nyers, <see cref="CreateForItems"/>/<see cref="CreateForBackground"/>
+    /// által épített <c>HMENU</c>, amit a Pilaster-saját (WPF) menü is
+    /// használ, tehát ugyanaz a munkamenet A2 előretöltésből is jöhet — a
+    /// <see cref="Items"/> fába olvasás (<see cref="Populate"/>) nem
+    /// akadályozza a natív megjelenítést, csak felesleges extra munka.
+    /// </para>
+    /// <para>
+    /// A <c>TrackPopupMenuEx</c> UGYANAZON a szálon fut, ahol a menü
+    /// létrejött (a megosztott STA szál) — ez KÖTELEZŐ, különben a shell
+    /// dinamikus almenü-feltöltése (7-Zip, Küldés ▸) apartment-marshalling
+    /// miatt üresen maradna. Ez a hívás ezért BLOKKOLJA az STA szálat, amíg a
+    /// menü nyitva van — a WPF UI szálat viszont NEM, mert a hívó ezt
+    /// <c>await</c>-tal, a megosztott munkasoron át várja meg.
+    /// </para>
+    /// </remarks>
+    /// <param name="ownCommands">A shell elemei elé beszúrandó saját parancsok, megjelenítési sorrendben.</param>
+    /// <param name="screenX">A megjelenítés X koordinátája képernyő-térben.</param>
+    /// <param name="screenY">A megjelenítés Y koordinátája képernyő-térben.</param>
+    /// <param name="ownerWindowHandle">A Pilaster főablakának fogantyúja — a shell párbeszédeinek (pl. törlés megerősítése) szülője.</param>
+    /// <param name="onShown">
+    /// Diagnosztikai/teszt-célú visszahívás, közvetlenül a <c>TrackPopupMenuEx</c>
+    /// ELŐTT, a menü ideiglenes tulajdonos-ablakának fogantyújával. Éles
+    /// hívóknak nincs rá szükségük (<c>null</c> marad) — az öntesztek ezen
+    /// keresztül tudják a menüt a SAJÁT folyamatukon belül, <c>WM_CANCELMODE</c>
+    /// postázásával biztonságosan bezárni, VALÓDI billentyű-/egérszimuláció
+    /// (és ezzel a felhasználó élő munkamenetébe való belekattintás kockázata)
+    /// nélkül.
+    /// </param>
+    public Task<NativeMenuResult> ShowNativeAsync(
+        IReadOnlyList<NativeOwnCommand> ownCommands, int screenX, int screenY, nint ownerWindowHandle,
+        Action<nint>? onShown = null) =>
+        _worker.RunAsync(() => ShowNativeCore(ownCommands, screenX, screenY, ownerWindowHandle, onShown));
+
+    private NativeMenuResult ShowNativeCore(
+        IReadOnlyList<NativeOwnCommand> ownCommands, int screenX, int screenY, nint ownerWindowHandle,
+        Action<nint>? onShown)
+    {
+        if (_disposed || _contextMenu is null || _hMenu == nint.Zero)
+        {
+            return new NativeMenuResult(NativeMenuOutcome.Cancelled, 0);
+        }
+
+        InsertOwnCommands(ownCommands);
+
+        using var owner = new NativeMenuOwnerWindow(_contextMenu);
+        onShown?.Invoke(owner.Handle);
+
+        // Klasszikus Win32-minta: a TrackPopupMenuEx előtt a tulajdonost
+        // előtérbe kell hozni, utána egy "üres" üzenetet kell postázni —
+        // enélkül a menü néha nem záródik be, ha a felhasználó máshova
+        // kattint (ismert Win32-sajátosság, nem shell-specifikus).
+        NativeMenuInterop.SetForegroundWindow(owner.Handle);
+
+        var flags = NativeMenuInterop.TPM_RETURNCMD
+            | NativeMenuInterop.TPM_LEFTALIGN
+            | NativeMenuInterop.TPM_TOPALIGN
+            | NativeMenuInterop.TPM_VERTICAL
+            | NativeMenuInterop.TPM_RIGHTBUTTON;
+
+        var id = (uint)NativeMenuInterop.TrackPopupMenuEx(_hMenu, flags, screenX, screenY, owner.Handle, nint.Zero);
+
+        NativeMenuInterop.PostMessage(owner.Handle, NativeMenuInterop.WM_NULL, nint.Zero, nint.Zero);
+
+        // A számlálók a "using" (Dispose) ELŐTT kellenek — utána az ablak már megsemmisült.
+        var forwardedCount = owner.ForwardedInitMenuPopupCount;
+        var totalMessages = owner.TotalMessagesReceived;
+
+        if (id == 0)
+        {
+            return new NativeMenuResult(NativeMenuOutcome.Cancelled, 0, forwardedCount, totalMessages);
+        }
+
+        if (id >= NativeOwnCommandIdBase)
+        {
+            return new NativeMenuResult(NativeMenuOutcome.OwnCommand, id, forwardedCount, totalMessages);
+        }
+
+        // Ugyanazon a szálon vagyunk, ahol a menü/IContextMenu létrejött —
+        // az InvokeAsync (ami ÚJRA a megosztott munkasorra tenné a hívást)
+        // itt holtpontba futna, ezért a szinkron magot hívjuk közvetlenül.
+        InvokeCommandCore(id, ownerWindowHandle);
+        return new NativeMenuResult(NativeMenuOutcome.ShellCommand, id, forwardedCount, totalMessages);
+    }
+
+    /// <summary>
+    /// A saját parancsok beszúrása a MEGLÉVŐ <c>HMENU</c> elejére, egy
+    /// elválasztóval a shell elemeitől.
+    /// </summary>
+    private void InsertOwnCommands(IReadOnlyList<NativeOwnCommand> ownCommands)
+    {
+        if (ownCommands.Count == 0)
+        {
+            return;
+        }
+
+        uint position = 0;
+
+        foreach (var command in ownCommands)
+        {
+            var info = new NativeMenuInterop.MENUITEMINFO
+            {
+                cbSize = (uint)Marshal.SizeOf<NativeMenuInterop.MENUITEMINFO>(),
+                fMask = NativeMenuInterop.MIIM_ID | NativeMenuInterop.MIIM_STRING
+                    | NativeMenuInterop.MIIM_STATE | NativeMenuInterop.MIIM_FTYPE
+                    | (command.IconBitmap != nint.Zero ? NativeMenuInterop.MIIM_BITMAP : 0),
+                fType = 0, // MFT_STRING
+                fState = command.Enabled ? 0u : NativeMenuInterop.MFS_GRAYED,
+                wID = command.CommandId,
+                dwTypeData = Marshal.StringToHGlobalUni(command.Text),
+                hbmpItem = command.IconBitmap,
+            };
+
             try
             {
-                // A verb a NULLÁTÓL indexelt parancssorszám — a menü
-                // azonosítójából le kell vonni a kiinduló eltolást. A Vanara
-                // ResourceId-je végzi el a MAKEINTRESOURCE-átalakítást, és
-                // tölti ki az unicode (lpVerbW) párját is.
-                var offset = (int)(commandId - FirstCommandId);
-
-                var invoke = new CMINVOKECOMMANDINFOEX(
-                    offset,
-                    ShowWindowCommand.SW_SHOWNORMAL,
-                    (HWND)ownerWindowHandle);
-
-                _contextMenu.InvokeCommand(invoke);
-                return true;
+                NativeMenuInterop.InsertMenuItem(_hMenu, position, byPosition: true, ref info);
             }
-            catch (Exception ex) when (ex is COMException or Win32Exception or ArgumentException or InvalidOperationException)
+            finally
             {
-                // Egy hibás bővítmény parancsa nem dobhatja el az appot.
-                return false;
+                Marshal.FreeHGlobal(info.dwTypeData);
             }
-        });
+
+            position++;
+        }
+
+        var separator = new NativeMenuInterop.MENUITEMINFO
+        {
+            cbSize = (uint)Marshal.SizeOf<NativeMenuInterop.MENUITEMINFO>(),
+            fMask = NativeMenuInterop.MIIM_FTYPE,
+            fType = NativeMenuInterop.MFT_SEPARATOR,
+        };
+
+        NativeMenuInterop.InsertMenuItem(_hMenu, position, byPosition: true, ref separator);
     }
 
     public void Dispose()

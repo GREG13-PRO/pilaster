@@ -30,11 +30,18 @@
     <PackageReference Include="Vanara.PInvoke.User32" Version="$(VanaraVersion)" />
 
     <!--
-    A natív Windows 11 jobbklikk-menü (telepített programok bejegyzéseivel
-    együtt) csak a valódi IContextMenu/IShellFolder COM-géppel érhető el —
-    a Vanara.Windows.Shell.ShellContextMenu ezt csomagolja be tesztelt,
-    biztonságos módon (PIDL-kezelés, TrackPopupMenuEx, üzenet-továbbítás),
-    amit kézzel újraírni jelentős, feleslegesen vállalt kockázat volna.
+    HELYESBÍTÉS (v1.0.3): az alábbi megjegyzés korábban azt állította, hogy a
+    Vanara.Windows.Shell.ShellContextMenu (PIDL-kezelés, TrackPopupMenuEx,
+    üzenet-továbbítás) "tesztelt, biztonságos" — ez ELAVULT és TÉVES. A
+    ShellContextMenu.CreateFromItems a dokumentált, öt körös 0xC0000374
+    heap-korrupció bizonyított okozója volt (lásd docs/CONTEXT-MENU.md,
+    "Miért NYERS a fájlmenü beszerzése"), ezért a FÁJL-elemek menüje azóta
+    NYERS P/Invoke-kal épül (ShellMenuSession.CreateForItems). A csomag itt
+    csak azért marad, mert a MAPPA-HÁTTÉR menüjéhez (IShellFolder.
+    CreateViewObject, NEM CreateFromItems) és a lemezikon-kinyeréshez ma is
+    kell — ez a hívási minta a bisectben SOHA nem volt vétkes. Ne használd a
+    ShellContextMenu.CreateFromItems-t vagy a ShellContextMenu.ShowContextMenu-t
+    fájl-elemekre — csak a NYERS utat.
   -->
     <PackageReference Include="Vanara.Windows.Shell.Common" Version="$(VanaraVersion)" />
   </ItemGroup>
