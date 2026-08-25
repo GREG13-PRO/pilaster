@@ -4,6 +4,8 @@ A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
 
 ## Kiadatlan
 
+## v1.0.3 — 2026-08-25
+
 ### Új — jobbklikk menü
 
 - **Választható natív Windows menü (alapértelmezett).** Beállítások →
