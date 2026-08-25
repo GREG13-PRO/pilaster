@@ -5,7 +5,8 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>Pilaster.App</RootNamespace>
     <AssemblyName>Pilaster</AssemblyName>
-    <ApplicationIcon>..\..\assets\brand\app.ico</ApplicationIcon>
+    <!-- [B-GH1] A brand assets a GitHub Pages docs/ oldal miatt költözött docs/assets/ alá (a Pages a docs/-ot publikálja gyökérként, a repo gyökerén kívüli assets/ ezért törött képekkel jelent volna meg élesben) — ez az EGYETLEN forrás, nincs duplikálva. -->
+    <ApplicationIcon>..\..\docs\assets\brand\app.ico</ApplicationIcon>
 
     <!-- A magyar az alapértelmezett felület, de minden nyelv szállítva van. -->
     <NeutralLanguage>en</NeutralLanguage>
@@ -76,7 +77,7 @@
       megfelelő méretű képet kiválasztva; enélkül a rendszer a 256-os
       réteget skálázná le a 16 pixeles címsor-ikonra.
     -->
-    <Resource Include="..\..\assets\brand\app.ico" Link="Assets\app.ico" />
+    <Resource Include="..\..\docs\assets\brand\app.ico" Link="Assets\app.ico" />
   </ItemGroup>
 
   <!--

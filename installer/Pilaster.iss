@@ -86,7 +86,8 @@ PrivilegesRequiredOverridesAllowed=commandline
 
 OutputDir=..\dist
 OutputBaseFilename=Pilaster-{#AppVersion}-{#Arch}-setup
-SetupIconFile=..\assets\brand\app.ico
+; [B-GH1] docs/assets/ alá koltozott (GitHub Pages docs/-ot publikal gyokerkent) — egyetlen forras, nincs duplikalva.
+SetupIconFile=..\docs\assets\brand\app.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 

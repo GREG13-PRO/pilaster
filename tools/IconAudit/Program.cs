@@ -21,7 +21,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         var repoRoot = FindRepoRoot();
-        var icoPath = args.Length > 0 ? args[0] : Path.Combine(repoRoot, "assets", "brand", "app.ico");
+        var icoPath = args.Length > 0 ? args[0] : Path.Combine(repoRoot, "docs", "assets", "brand", "app.ico");
 
         var exeCandidates = new[]
         {
