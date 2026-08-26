@@ -1,74 +1,73 @@
-# Hibabejelentés — a bot beállítása
+# Bug reports — setting up the bot
 
-A Beállítások → Hibabejelentés panelen keresztül a felhasználók egy gombnyomással
-küldhetnek hibajegyet, opcionálisan képernyőképpel és naplórészlettel. A küldés a
-**[`discord-bot/`](../discord-bot/) mappában lévő Discord bot** HTTP API-jára POST-ol.
+The Settings → Bug Report panel lets users send in a report with one click, optionally with a
+screenshot and a log snippet attached. Sending POSTs to the HTTP API of the
+**[Discord bot](../discord-bot/) in the `discord-bot/` folder**.
 
-## Miért bot, nem sima webhook
+## Why a bot, not a plain webhook
 
-A v0.5-ig egy egyszerű bejövő webhook is elég volt. A v0.6-tól a jelentés alá egy
-**„Kész" gomb** kerül, amivel a jelentést fel lehet dolgozottnak jelölni — ez viszont már egy
-Discord *interakció* (gombkattintás), amit csak egy ténylegesen futó, a Discord Gateway-hez
-kapcsolódó bot tud fogadni. Egy puszta bejövő webhook erre nem képes, ezért a küldés is a botra
-került át. A bot telepítéséhez és futtatásához lásd [`discord-bot/README.md`](../discord-bot/README.md).
+A simple inbound webhook was enough through v0.5. As of v0.6, each report gets a
+**"Done" button** that marks it as handled — but that's a Discord *interaction* (a button click),
+which only an actually-running bot connected to the Discord Gateway can receive. A plain inbound
+webhook can't do that, so sending moved to the bot too. See
+[`discord-bot/README.md`](../discord-bot/README.md) for installing and running the bot.
 
-## Miért nincs beégetve a bot URL-je és kulcsa
+## Why the bot URL and key aren't hardcoded
 
-Aki hozzáfér a forráskódhoz, az egy beégetett kulccsal küldhetne bárkinek bármit a te
-Discord-csatornádba. Ezért a Pilaster ezeket **soha nem tárolja a repóban** — futásidőben olvassa
-be, ebben a sorrendben:
+Anyone with access to the source could use a hardcoded key to send anything to your Discord
+channel on your behalf. So Pilaster **never stores these in the repo** — it reads them at
+runtime, in this order:
 
-1. **`PILASTER_BUG_REPORT_API_URL`** és **`PILASTER_BUG_REPORT_API_KEY`** környezeti változók —
-   fejlesztéshez, teszteléshez kényelmes.
-2. **`%APPDATA%\Pilaster\bugreport-api.txt`** — a végleges, telepített változathoz. Két sor: az
-   első az URL, a második a kulcs. Ez a fájl a felhasználói profilban él, sosem kerül git alá.
+1. **`PILASTER_BUG_REPORT_API_URL`** and **`PILASTER_BUG_REPORT_API_KEY`** environment variables —
+   convenient for development and testing.
+2. **`%APPDATA%\Pilaster\bugreport-api.txt`** — for the final, installed build. Two lines: the
+   first is the URL, the second is the key. This file lives in the user profile and never goes
+   into git.
 
-Ha egyik sincs beállítva, a Küldés gomb inaktív marad, és a panel megmutatja, hova kellene tenni
-a fájlt.
+If neither is set, the Send button stays disabled, and the panel shows where the file should go.
 
-## Saját bot beállítása
+## Setting up your own bot
 
-Lásd részletesen [`discord-bot/README.md`](../discord-bot/README.md) — dióhéjban:
+See [`discord-bot/README.md`](../discord-bot/README.md) for the full details — in short:
 
-1. Hozz létre egy Discord alkalmazást + botot a Developer Portalon, hívd meg a szerveredre.
-2. Futtasd a botot valahol — jelenleg **a fejlesztő saját gépén, helyben** fut (lásd
-   `discord-bot/README.md` „Helyi futtatás" szakaszát, automatikus indítással bejelentkezéskor),
-   de a `Dockerfile` miatt felhős hosztra (Railway stb.) is költöztethető, ha lesznek külső
-   felhasználók.
-3. Állítsd be a bot `.env`-jét (token, két csatorna ID, egy általad kitalált API-kulcs).
-4. A Pilaster oldalán hozd létre a config fájlt:
+1. Create a Discord application + bot in the Developer Portal, and invite it to your server.
+2. Run the bot somewhere — right now it runs **locally, on the developer's own machine** (see the
+   "Running locally" section of `discord-bot/README.md`, with automatic startup on login), but the
+   `Dockerfile` makes it easy to move to a cloud host (Railway, etc.) once there are external users.
+3. Set up the bot's `.env` (token, two channel IDs, an API key you make up yourself).
+4. Create the config file on the Pilaster side:
 
    ```
    %APPDATA%\Pilaster\bugreport-api.txt
    ```
 
-   Első sor a bot URL-je (helyi futtatásnál `http://localhost:3000`, felhős hosztnál pl.
-   `https://pilaster-bot.up.railway.app`), második sor az API-kulcs.
+   First line is the bot's URL (`http://localhost:3000` for a local run, or something like
+   `https://pilaster-bot.up.railway.app` for a cloud host), second line is the API key.
 
-   Vagy fejlesztéskor egyszerűbb környezeti változókkal:
+   Or, for development, environment variables are simpler:
 
    ```powershell
    $env:PILASTER_BUG_REPORT_API_URL = "http://localhost:3000"
    $env:PILASTER_BUG_REPORT_API_KEY = "..."
    ```
 
-## Mi kerül a Discordba
+## What ends up in Discord
 
-Egy beágyazás (embed) a leírással, valamint verzió/platform/.NET mezőkkel, alatta egy „Kész"
-gombbal. Ha a felhasználó bepipálta:
+An embed with the description, plus version/platform/.NET fields, with a "Done" button below it.
+If the user checked the boxes for it:
 
-- **Képernyőkép** — a főablak WPF-renderelése PNG-ként (nem képernyőfotó, tehát akkor is a valós
-  felületi állapotot mutatja, ha épp más ablak takarja ki a képernyőn).
-- **Napló** — a legutóbb módosított naplófájl utolsó ~200 KB-ja
-  (`%LOCALAPPDATA%\Pilaster\logs\`), mert a teljes napló túl nagy és a legutóbbi események
-  számítanak.
+- **Screenshot** — a PNG render of the main window from WPF itself (not a screen capture, so it
+  shows the real UI state even if another window is covering the screen at the time).
+- **Log** — the last ~200 KB of the most recently modified log file
+  (`%LOCALAPPDATA%\Pilaster\logs\`), since the full log is too large and only the most recent
+  events matter.
 
-A „Kész" gombra kattintva a bot átmásolja a jelentést az archívum-csatornára, az eredetit
-lezártként jelöli meg (gomb nélkül, „✅ Lezárva" jelzéssel). Az archívum-csatornából a bot naponta
-törli a 30 napnál régebbi üzeneteket.
+Clicking "Done" makes the bot copy the report to the archive channel and mark the original as
+closed (no button, with a "✅ Closed" label instead). The bot deletes messages older than 30 days
+from the archive channel once a day.
 
-## Korlátok
+## Limits
 
-- Discord beágyazás-leírás: 4096 karakter — 3800 fölött a program levágja, és „…"-tal jelzi.
-- Fájlmelléklet: a Discordnál jellemzően 25 MB a felső korlát; a naplórészlet 200 KB-ra van
-  korlátozva, így ez sosem probléma.
+- Discord embed description: 4096 characters — past 3800 the app truncates it and adds "…".
+- File attachments: Discord's limit is typically 25 MB; the log snippet is capped at 200 KB, so
+  this is never an issue.

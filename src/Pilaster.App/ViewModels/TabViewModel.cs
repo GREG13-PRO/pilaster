@@ -14,6 +14,7 @@ using Pilaster.Core.Collections;
 using Pilaster.Core.FileSystem;
 using Pilaster.Core.Formatting;
 using Pilaster.Core.Navigation;
+using Pilaster.Shell.Recycle;
 
 namespace Pilaster.App.ViewModels;
 
@@ -42,6 +43,19 @@ public sealed partial class TabViewModel : ObservableObject
     /// <see cref="IsHome"/> és a nézet oldalán a Kezdőlap-panel.
     /// </summary>
     public const string HomeMarker = "pilaster:home";
+
+    /// <summary>
+    /// A <see cref="CurrentPath"/> ezen az álnéven jelzi a Lomtár-nézetet —
+    /// ugyanaz a minta, mint <see cref="HomeMarker"/>: a <see cref="LoadAsync"/>
+    /// itt sem az <see cref="IFileSystemProvider"/>-t hívja, hanem
+    /// <see cref="LoadRecycleBinAsync"/>-et. A Lomtár viszont — a Kezdőlappal
+    /// ellentétben — a NORMÁL listanézetet (Részletek/Rács/Oszlopok) használja,
+    /// nem külön dashboard-panelt: úgy jelenik meg, mint bármelyik valódi
+    /// mappa (Dokumentumok, Letöltések stb.), csak az elemei a Lomtárból
+    /// jönnek, és a Visszaállítás/Végleges törlés parancsok érhetők el rajtuk
+    /// a Kivágás/Másolás/Törlés helyett. Lásd <see cref="IsRecycleBin"/>.
+    /// </summary>
+    public const string RecycleBinMarker = "pilaster:recyclebin";
 
     private readonly IFileSystemProvider _provider;
     private readonly FolderSizeService _folderSizes;
@@ -368,9 +382,13 @@ public sealed partial class TabViewModel : ObservableObject
     /// </summary>
     public bool IsHome => CurrentPath == HomeMarker;
 
+    /// <summary>Igaz, amíg a fül a Lomtár tartalmát mutatja — lásd <see cref="RecycleBinMarker"/>.</summary>
+    public bool IsRecycleBin => CurrentPath == RecycleBinMarker;
+
     partial void OnCurrentPathChanged(string? value)
     {
         OnPropertyChanged(nameof(IsHome));
+        OnPropertyChanged(nameof(IsRecycleBin));
 
         // Csak akkor kell újraépíteni az oszlopokat, ha ez a fül maga az
         // oszlopos nézetet mutató "gyökér" — egy oszlop saját CurrentPath-
@@ -421,6 +439,142 @@ public sealed partial class TabViewModel : ObservableObject
             Breadcrumbs.Add(new BreadcrumbSegment(TranslationSource.Instance["Nav_Home"], HomeMarker));
             RaiseNavigationState();
         }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A Lomtár tartalmának betöltése — a Kezdőlappal ellentétben ez a
+    /// NORMÁL <see cref="Items"/> listát tölti fel (lásd <see cref="RecycleBinMarker"/>
+    /// dokumentációja), hogy a felület a szokásos Részletek/Rács/Oszlopok
+    /// nézettel jelenítse meg, pontosan úgy, mint bármelyik valódi mappát.
+    /// A <c>FolderSizeService</c>/metaadat-dúsítás direkt kimarad (mint a
+    /// Kezdőlapnál is) — ezek valódi fájlrendszer-útvonalat várnának, a
+    /// Lomtár-elemek szintetikus <see cref="FileSystemItem.FullPath"/>-a
+    /// pedig nem az.
+    /// </summary>
+    private async Task LoadRecycleBinAsync()
+    {
+        var previous = _loadCancellation;
+        _loadCancellation = null;
+
+        if (previous is not null)
+        {
+            await previous.CancelAsync().ConfigureAwait(false);
+            previous.Dispose();
+        }
+
+        UnwatchFolderSizes();
+
+        var recycled = await Task.Run(RecycleBinService.GetItems).ConfigureAwait(false);
+
+        var items = recycled
+            .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(r => new FileSystemItem
+            {
+                // A "recyclebin:" előtag garantálja, hogy egy szintetikus
+                // útvonal SOSE ütközzön egy valódi fájlrendszer-elemmel — a
+                // kijelölés/rendezés/keresés ugyanígy, útvonal szerint
+                // azonosít mindent.
+                FullPath = $"pilaster:recyclebin:{r.OriginalPath}",
+                Name = r.Name,
+                Kind = r.IsDirectory ? FileSystemItemKind.Directory : FileSystemItemKind.File,
+                Extension = r.IsDirectory ? string.Empty : Path.GetExtension(r.Name).TrimStart('.').ToLowerInvariant(),
+                OriginalFolder = r.OriginalFolder,
+                SourceTag = r,
+            })
+            .ToList();
+
+        foreach (var item in items)
+        {
+            item.RefreshDisplayName(ShowExtensions);
+        }
+
+        await OnUiAsync(() =>
+        {
+            CurrentPath = RecycleBinMarker;
+            Title = TranslationSource.Instance["Nav_RecycleBin"];
+            IsLoading = false;
+            EmptyMessage = items.Count == 0 ? TranslationSource.Instance["RecycleBin_EmptyState"] : null;
+            Items.Reset(items);
+            Breadcrumbs.Clear();
+            Breadcrumbs.Add(new BreadcrumbSegment(TranslationSource.Instance["Nav_RecycleBin"], RecycleBinMarker));
+            UpdateStatus(0, 0);
+            RaiseNavigationState();
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>Egy Lomtár-elem visszaállítása az eredeti helyére — csak Lomtár-nézetben elérhető.</summary>
+    [RelayCommand]
+    private void RestoreRecycledItem(FileSystemItem? item)
+    {
+        if (item?.SourceTag is not RecycledItem recycled)
+        {
+            return;
+        }
+
+        try
+        {
+            RecycleBinService.Restore(recycled);
+            Items.Remove(item);
+            EmptyMessage = Items.Count == 0 ? TranslationSource.Instance["RecycleBin_EmptyState"] : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or ThreadStateException)
+        {
+            StatusText = string.Format(TranslationSource.Instance["RecycleBin_RestoreFailed"], item.Name);
+        }
+    }
+
+    /// <summary>
+    /// Egy Lomtár-elem VÉGLEGES törlése — a megerősítést a nézet
+    /// (code-behind) kéri be előtte, ugyanúgy, mint korábban a
+    /// RecycleBinWindow-nál.
+    /// </summary>
+    [RelayCommand]
+    private void DeleteRecycledItemPermanently(FileSystemItem? item)
+    {
+        if (item?.SourceTag is not RecycledItem recycled)
+        {
+            return;
+        }
+
+        try
+        {
+            RecycleBinService.Delete(recycled);
+            Items.Remove(item);
+            EmptyMessage = Items.Count == 0 ? TranslationSource.Instance["RecycleBin_EmptyState"] : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or ThreadStateException)
+        {
+            StatusText = string.Format(TranslationSource.Instance["RecycleBin_DeleteFailed"], item.Name);
+        }
+    }
+
+    /// <summary>A teljes Lomtár ürítése — a megerősítést a nézet kéri be előtte.</summary>
+    /// <remarks>
+    /// A <c>SHEmptyRecycleBin</c> már ÜRES Lomtárnál is <c>E_UNEXPECTED</c>
+    /// COM-hibát adhat vissza (megfigyelt, dokumentálatlan Shell-viselkedés)
+    /// — ez itt NEM valódi hiba, a lista úgyis már üres, ezért ugyanúgy
+    /// elnyeljük, mint a Restore/Delete parancsoknál.
+    /// </remarks>
+    [RelayCommand]
+    private void EmptyRecycleBin()
+    {
+        try
+        {
+            RecycleBinService.Empty();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or ThreadStateException)
+        {
+            if (Items.Count == 0)
+            {
+                return;
+            }
+
+            StatusText = TranslationSource.Instance["RecycleBin_EmptyFailed"];
+            return;
+        }
+
+        Items.Clear();
+        EmptyMessage = TranslationSource.Instance["RecycleBin_EmptyState"];
     }
 
     /// <summary>
@@ -636,7 +790,7 @@ public sealed partial class TabViewModel : ObservableObject
     {
         vanished = false;
 
-        if (path == HomeMarker || Directory.Exists(path) || File.Exists(path))
+        if (path == HomeMarker || path == RecycleBinMarker || Directory.Exists(path) || File.Exists(path))
         {
             return path;
         }
@@ -762,6 +916,12 @@ public sealed partial class TabViewModel : ObservableObject
         if (path == HomeMarker)
         {
             await LoadHomeAsync().ConfigureAwait(false);
+            return;
+        }
+
+        if (path == RecycleBinMarker)
+        {
+            await LoadRecycleBinAsync().ConfigureAwait(false);
             return;
         }
 

@@ -1,34 +1,34 @@
-# Pilaster — márkajelek
+# Pilaster — brand assets
 
-| Fájl | Méret | Mire való |
+| File | Size | Used for |
 |---|---|---|
-| `icon-1024.png` | 1024×1024 | Mesterpéldány. Minden más ebből készül. |
-| `app.ico` | 16–256 | Az alkalmazás ikonja. 10 méret ágyazva: 16, 20, 24, 32, 40, 48, 64, 96, 128, 256. |
-| `png/icon-*.png` | 16–256 | Az egyes méretek külön, README-hez és dokumentációhoz. |
-| `wordmark.png` | 932×245 | Csak a szókép, átlátszó háttérrel. |
-| `lockup.png` | 680×256 | Ikon + szókép egymás mellett. |
-| `lockup-512.png` | 1364×512 | Ugyanaz nagyobb felbontásban. |
+| `icon-1024.png` | 1024×1024 | Master source. Everything else is derived from this. |
+| `app.ico` | 16–256 | The app icon. 10 sizes embedded: 16, 20, 24, 32, 40, 48, 64, 96, 128, 256. |
+| `png/icon-*.png` | 16–256 | Individual sizes, for READMEs and documentation. |
+| `wordmark.png` | 932×245 | Wordmark only, transparent background. |
+| `lockup.png` | 680×256 | Icon + wordmark side by side. |
+| `lockup-512.png` | 1364×512 | Same, at higher resolution. |
 
-## Használati szabályok
+## Usage rules
 
-**Az ikonba soha ne kerüljön szöveg.** A „Pilaster" felirat 16 és 32 képpontos méretben — tehát a tálcán, a fájllistában és a címsorban — olvashatatlan elkenődéssé válik, és koszfoltnak látszik a mappán. Ezért van a szókép külön fájlban.
+**Never put text inside the icon.** At 16 and 32 pixels — i.e. in the taskbar, file list, and title bar — the "Pilaster" lettering turns into unreadable mush and just looks like a smudge on the folder. That's why the wordmark lives in a separate file.
 
-**A szóképet ott használd, ahol vízszintes hely van:** telepítő fejléce, Névjegy párbeszéd, README, splash képernyő, weboldal. Ilyenkor a `lockup.png` a helyes választás, mert a két elem arányát és térközét már beállítottuk.
+**Use the wordmark wherever there's horizontal space:** installer header, About dialog, README, splash screen, website. The `lockup.png` is the right choice there, since the proportions and spacing between the two elements are already tuned.
 
-**Biztonsági zóna:** az ikon rajza a vászon középső 86%-át tölti ki, körben ~72 képpont levegővel. Ezt ne vágd le — enélkül a Windows tálcán és a Start menüben a rajz széle levágódik.
+**Safe zone:** the icon artwork fills the middle 86% of the canvas, with ~72px of breathing room around it. Don't crop that away — without it, the artwork gets clipped at the edges in the Windows taskbar and Start menu.
 
-**Háttér:** minden fájl valódi alfa-csatornás PNG. Az amber szín világos és sötét háttéren egyaránt megáll; ne tegyél mögé kitöltést.
+**Background:** every file is a real alpha-channel PNG. The amber color holds up on both light and dark backgrounds; don't put a fill behind it.
 
-## Színek
+## Colors
 
-| Szerep | Hex |
+| Role | Hex |
 |---|---|
-| Mappa (alap) | `#E9B843` |
-| Mappa (mély árnyék) | `#E2A61F` |
-| Dokumentum | `#DCE0EC` |
-| Szövegsáv a dokumentumon | `#6B7280` |
-| Szókép | `#C9844E` |
+| Folder (base) | `#E9B843` |
+| Folder (deep shadow) | `#E2A61F` |
+| Document | `#DCE0EC` |
+| Text bar on document | `#6B7280` |
+| Wordmark | `#C9844E` |
 
-## Újragenerálás
+## Regenerating
 
-Ha a mesterpéldány (`icon-1024.png`) változik, az `app.ico` és a `png/` tartalma abból származtatott — újra kell képezni őket, hogy ne csússzanak szét a verziók.
+If the master source (`icon-1024.png`) changes, `app.ico` and the contents of `png/` are derived from it — regenerate them so the versions don't drift apart.

@@ -87,10 +87,17 @@ public sealed partial class FileSystemItem : ObservableObject
     public bool IsHidden =>
         Attributes.HasFlag(FileAttributes.Hidden) || Attributes.HasFlag(FileAttributes.System);
 
-    /// <summary>Igaz, ha az elembe be lehet navigálni.</summary>
-    public bool IsNavigable => Kind is FileSystemItemKind.Directory
+    /// <summary>
+    /// Igaz, ha az elembe be lehet navigálni. Lomtár-elemeknél MINDIG hamis,
+    /// akkor is, ha eredetileg mappa volt — a Lomtárban lévő mappa tartalma
+    /// nem böngészhető, csak visszaállítható vagy véglegesen törölhető.
+    /// </summary>
+    public bool IsNavigable => !IsRecycled && Kind is FileSystemItemKind.Directory
         or FileSystemItemKind.Drive
         or FileSystemItemKind.Virtual;
+
+    /// <summary>Igaz, ha ez az elem a Lomtárból jön — lásd <see cref="SourceTag"/>.</summary>
+    public bool IsRecycled => SourceTag is not null;
 
     /// <summary>
     /// A shell ikon, illetve bélyegkép. Késleltetve töltjük, ezért megfigyelhető —
@@ -137,6 +144,23 @@ public sealed partial class FileSystemItem : ObservableObject
     public bool HasRenameError => RenameError is not null;
 
     partial void OnRenameErrorChanged(string? value) => OnPropertyChanged(nameof(HasRenameError));
+
+    /// <summary>
+    /// Lomtár-elemeknél az eredeti szülőmappa (ahova visszaállításkor kerül)
+    /// — máskülönben <c>null</c>. Lásd <see cref="SourceTag"/>.
+    /// </summary>
+    public string? OriginalFolder { get; init; }
+
+    /// <summary>
+    /// A mögöttes, réteg-specifikus modell type-erased hordozója — pl. egy
+    /// Lomtár-sornál a <c>Pilaster.Shell.Recycle.RecycledItem</c>. A Core
+    /// réteg szándékosan nem ismeri ezt a típust (a Shell ERRE a rétegre
+    /// épül, nem fordítva), ezért csak <see cref="object"/>-ként utazik —
+    /// az App réteg (ami mindkettőt látja) castolja vissza, amikor egy
+    /// Lomtár-sor Visszaállítás/Végleges törlés parancsát végrehajtja.
+    /// Lásd <c>TabViewModel.LoadRecycleBinAsync</c>.
+    /// </summary>
+    public object? SourceTag { get; init; }
 
     public override string ToString() => FullPath;
 }

@@ -40,9 +40,6 @@ public partial class MainWindow : FluentWindow
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
 
-    /// <summary>A Lomtár-ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
-    private RecycleBinWindow? _recycleBinWindow;
-
     /// <summary>Az F3 (Megtekintés) előnézeti ablaka, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private FilePreviewWindow? _previewWindow;
 
@@ -685,6 +682,22 @@ public partial class MainWindow : FluentWindow
             selector.SelectedItem = item;
         }
 
+        // Lomtár-sor: a valódi shell-menü (Megnyitás, Kivágás, Tulajdonságok
+        // stb.) itt értelmetlen lenne — a FullPath szintetikus, nem egy
+        // valódi shell-elemre mutat. Saját, szűk menü: Visszaállítás /
+        // Végleges törlés.
+        if (item.IsRecycled)
+        {
+            var selectedRecycled = selector switch
+            {
+                ListView view => view.SelectedItems.Cast<FileSystemItem>().ToList(),
+                ListBox box => box.SelectedItems.Cast<FileSystemItem>().ToList(),
+                _ => [item],
+            };
+            ShowRecycleBinItemMenu(container, selectedRecycled);
+            return;
+        }
+
         var selectedPaths = selector switch
         {
             ListView view => view.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath).ToList(),
@@ -728,6 +741,94 @@ public partial class MainWindow : FluentWindow
             item.FullPath);
 
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Egy Lomtár-sor saját, szűk jobbklikk-menüje: Visszaállítás és Végleges
+    /// törlés — csak a jobbklikkelt elemre vonatkozik, nem a teljes
+    /// kijelölésre (ugyanaz a korlátozás, mint a korábbi RecycleBinWindow
+    /// soronkénti gombjainál volt).
+    /// </summary>
+    private void ShowRecycleBinItemMenu(FrameworkElement placementTarget, IReadOnlyList<FileSystemItem> items)
+    {
+        if (_viewModel.SelectedTab is not { } tab || items.Count == 0)
+        {
+            return;
+        }
+
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        var restore = new System.Windows.Controls.MenuItem { Header = strings["Cmd_Restore"] };
+        restore.Click += (_, _) =>
+        {
+            foreach (var item in items)
+            {
+                tab.RestoreRecycledItemCommand.Execute(item);
+            }
+
+            _viewModel.RefreshQuickAccess();
+        };
+        menu.Items.Add(restore);
+
+        var delete = new System.Windows.Controls.MenuItem { Header = strings["Cmd_DeletePermanently"] };
+        delete.Click += async (_, _) => await DeleteRecycledItemsWithConfirmationAsync(tab, items);
+        menu.Items.Add(delete);
+
+        menu.PlacementTarget = placementTarget;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Egy Igen/Mégse megerősítő párbeszéd a WPF-UI Fluent design-ú
+    /// <see cref="Wpf.Ui.Controls.MessageBox"/>-szal — NEM a natív
+    /// <see cref="System.Windows.MessageBox"/>, ami a többi felület mellett
+    /// stílustörésnek hat (felhasználói visszajelzés).
+    /// </summary>
+    private async Task<bool> ShowConfirmDialogAsync(string title, string message, string primaryButtonText)
+    {
+        var dialog = new Wpf.Ui.Controls.MessageBox
+        {
+            Title = title,
+            Content = message,
+            PrimaryButtonText = primaryButtonText,
+            CloseButtonText = TranslationSource.Instance["Cmd_Cancel"],
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+
+        var result = await dialog.ShowDialogAsync();
+        return result == Wpf.Ui.Controls.MessageBoxResult.Primary;
+    }
+
+    /// <summary>
+    /// Lomtár-elemek végleges törlése megerősítés után — a jobbklikk-menüből
+    /// (<see cref="ShowRecycleBinItemMenu"/>) ÉS a Delete billentyűből
+    /// (<see cref="OnFileListHostPreviewKeyDown"/>) egyaránt ide fut ki.
+    /// </summary>
+    private async Task DeleteRecycledItemsWithConfirmationAsync(TabViewModel tab, IReadOnlyList<FileSystemItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var strings = TranslationSource.Instance;
+        var message = items.Count == 1
+            ? string.Format(strings["RecycleBin_ConfirmDelete"], items[0].Name)
+            : string.Format(strings["RecycleBin_ConfirmDeleteMultiple"], items.Count);
+
+        if (!await ShowConfirmDialogAsync(strings["RecycleBin_Title"], message, strings["Cmd_DeletePermanently"]))
+        {
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            tab.DeleteRecycledItemPermanentlyCommand.Execute(item);
+        }
+
+        _viewModel.RefreshQuickAccess();
     }
 
     /// <summary>
@@ -1132,8 +1233,17 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        if (_viewModel.SelectedTab?.CurrentPath is not { } currentPath)
+        if (_viewModel.SelectedTab is not { CurrentPath: { } currentPath } tab)
         {
+            return;
+        }
+
+        // Lomtár háttér: nincs valódi mappa a currentPath mögött, a szokásos
+        // Új mappa/Beillesztés/shell-háttérmenü itt értelmetlen lenne — csak
+        // Frissítés és Lomtár ürítése.
+        if (tab.IsRecycleBin)
+        {
+            ShowRecycleBinBackgroundMenu(itemsControl, tab);
             return;
         }
 
@@ -1157,6 +1267,57 @@ public partial class MainWindow : FluentWindow
         {
             fallbackMenu.PlacementTarget = itemsControl;
             fallbackMenu.IsOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// A Lomtár háttér-menüje: Frissítés + Lomtár ürítése — ugyanaz a
+    /// megerősítés, mint korábban a RecycleBinWindow „Ürítés" gombjánál.
+    /// </summary>
+    private void ShowRecycleBinBackgroundMenu(FrameworkElement placementTarget, TabViewModel tab)
+    {
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        var refresh = new System.Windows.Controls.MenuItem { Header = strings["Cmd_Refresh"] };
+        refresh.Click += (_, _) => tab.RefreshCommand.Execute(null);
+        menu.Items.Add(refresh);
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
+
+        var empty = new System.Windows.Controls.MenuItem { Header = strings["Cmd_EmptyRecycleBin"] };
+        empty.Click += async (_, _) => await EmptyRecycleBinWithConfirmationAsync(tab);
+        menu.Items.Add(empty);
+
+        menu.PlacementTarget = placementTarget;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// A Lomtár ürítése megerősítés után — a háttér-menüből
+    /// (<see cref="ShowRecycleBinBackgroundMenu"/>) ÉS az eszköztár „Lomtár
+    /// ürítése" gombjából (<see cref="OnEmptyRecycleBinToolbarClick"/>)
+    /// egyaránt ide fut ki.
+    /// </summary>
+    private async Task EmptyRecycleBinWithConfirmationAsync(TabViewModel tab)
+    {
+        var strings = TranslationSource.Instance;
+
+        if (!await ShowConfirmDialogAsync(strings["RecycleBin_Title"], strings["RecycleBin_ConfirmEmpty"], strings["Cmd_EmptyRecycleBin"]))
+        {
+            return;
+        }
+
+        tab.EmptyRecycleBinCommand.Execute(null);
+        _viewModel.RefreshQuickAccess();
+    }
+
+    /// <summary>Az eszköztár „Lomtár ürítése" gombja — csak Lomtár-nézetben látszik, lásd MainWindow.xaml.</summary>
+    private async void OnEmptyRecycleBinToolbarClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedTab is { IsRecycleBin: true } tab)
+        {
+            await EmptyRecycleBinWithConfirmationAsync(tab);
         }
     }
 
@@ -1193,6 +1354,27 @@ public partial class MainWindow : FluentWindow
         return [];
     }
 
+    /// <summary>Ugyanaz, mint <see cref="GetSelectedFilePaths"/>, de a teljes elemekkel — a Lomtár-parancsoknak ez kell.</summary>
+    private List<FileSystemItem> GetSelectedFileSystemItems()
+    {
+        if (DetailsView.Visibility == Visibility.Visible)
+        {
+            return [.. DetailsView.SelectedItems.Cast<FileSystemItem>()];
+        }
+
+        if (GridViewList.Visibility == Visibility.Visible)
+        {
+            return [.. GridViewList.SelectedItems.Cast<FileSystemItem>()];
+        }
+
+        if (_viewModel.SelectedTab?.ColumnsSelectedFile is { } columnsFile)
+        {
+            return [columnsFile];
+        }
+
+        return [];
+    }
+
     private void OnCopyItemClick(object sender, RoutedEventArgs e) =>
         _viewModel.CopySelectionCommand.Execute(GetSelectedFilePaths());
 
@@ -1211,8 +1393,23 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private void OnFileListHostPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (_viewModel.SelectedTab is not { IsHome: false })
+        if (_viewModel.SelectedTab is not { IsHome: false } tab)
         {
+            return;
+        }
+
+        // Lomtár-nézetben Copy/Cut/Paste nem értelmezhető (szintetikus
+        // útvonalak) — a Delete viszont, ugyanúgy, mint az Intézőben,
+        // VÉGLEGES törlést jelent (a Lomtárban lévő elem újbóli törlése nem
+        // kerül egy „második" lomtárba).
+        if (tab.IsRecycleBin)
+        {
+            if (e.Key == System.Windows.Input.Key.Delete)
+            {
+                e.Handled = true;
+                _ = DeleteRecycledItemsWithConfirmationAsync(tab, GetSelectedFileSystemItems());
+            }
+
             return;
         }
 
@@ -1787,6 +1984,15 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private async Task OpenItemAsync(FileSystemItem item)
     {
+        // Lomtár-elem: nincs mögötte valódi, megnyitható útvonal — a
+        // Windows Intéző is csak visszaállítás után engedi megnyitni.
+        // Duplaklikk itt szándékosan nem csinál semmit (lásd a jobbklikk
+        // menü Visszaállítás/Végleges törlés parancsait).
+        if (item.IsRecycled)
+        {
+            return;
+        }
+
         if (item.IsNavigable)
         {
             if (_viewModel.SelectedTab is { } tab)
@@ -1873,43 +2079,13 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        if (item.IsRecycleBin)
-        {
-            OpenRecycleBinWindow();
-            return;
-        }
-
+        // A Lomtár (item.Path == TabViewModel.RecycleBinMarker) ugyanezen az
+        // úton navigál, mint bármelyik valódi mappa — lásd
+        // TabViewModel.LoadRecycleBinAsync. Nincs külön ág rá.
         if (_viewModel.SelectedTab is { } tab)
         {
             await tab.NavigateAsync(item.Path);
         }
-    }
-
-    /// <summary>
-    /// A Lomtár-ablak megnyitása — nem modális, és nem nyílik meg kettő
-    /// egyszerre (ugyanaz a minta, mint a Beállításoknál).
-    /// </summary>
-    private void OpenRecycleBinWindow()
-    {
-        if (_recycleBinWindow is { IsLoaded: true })
-        {
-            _recycleBinWindow.Activate();
-            return;
-        }
-
-        _recycleBinWindow = _services.GetRequiredService<RecycleBinWindow>();
-        _recycleBinWindow.Owner = this;
-
-        _recycleBinWindow.Closed += (_, _) =>
-        {
-            _recycleBinWindow = null;
-
-            // Ürítés/visszaállítás/végleges törlés után a Gyors elérés
-            // „üres" jelzése elavulttá válhatott.
-            _viewModel.RefreshQuickAccess();
-        };
-
-        _recycleBinWindow.Show();
     }
 
     private void OnFileRowPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
@@ -1957,12 +2133,13 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// Jobbklikk a „Gyorselérés" fejlécen → a szerkesztő megnyitása (spec F5).
-    /// Más szekciók fejlécén nincs menü.
+    /// Jobbklikk a „Gyorselérés" fejlécen → a szerkesztő megnyitása (spec F5),
+    /// vagy a „Felhő meghajtók" fejlécen → új felhő meghajtó hozzáadása
+    /// (spec: NextCloud-támogatás). Más szekciók fejlécén nincs menü.
     /// </summary>
     private void OnSidebarHeaderRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: "Nav_QuickAccess" } header)
+        if (sender is not FrameworkElement { Tag: "Nav_QuickAccess" or "Nav_CloudDrives" } header)
         {
             return;
         }
@@ -1971,10 +2148,20 @@ public partial class MainWindow : FluentWindow
 
         var strings = TranslationSource.Instance;
         var menu = new System.Windows.Controls.ContextMenu { PlacementTarget = header };
-        var edit = new System.Windows.Controls.MenuItem { Header = strings["QuickAccess_Edit"] };
 
-        edit.Click += (_, _) => OpenQuickAccessEditor();
-        menu.Items.Add(edit);
+        if ((string)header.Tag == "Nav_QuickAccess")
+        {
+            var edit = new System.Windows.Controls.MenuItem { Header = strings["QuickAccess_Edit"] };
+            edit.Click += (_, _) => OpenQuickAccessEditor();
+            menu.Items.Add(edit);
+        }
+        else
+        {
+            var add = new System.Windows.Controls.MenuItem { Header = strings["CloudDrive_Add"] };
+            add.Click += (_, _) => OpenAddCloudDriveWindow();
+            menu.Items.Add(add);
+        }
+
         menu.IsOpen = true;
     }
 
@@ -2025,6 +2212,12 @@ public partial class MainWindow : FluentWindow
             Add(strings["QuickAccess_MoveDown"], () => _viewModel.NudgeQuickAccessEntry(entryId, +1));
             menu.Items.Add(new System.Windows.Controls.Separator());
             Add(strings["Cmd_UnpinQuickAccess"], () => _viewModel.UnpinQuickAccessCommand.Execute(item));
+        }
+
+        if (item.IsCloudDrive)
+        {
+            menu.Items.Add(new System.Windows.Controls.Separator());
+            Add(strings["CloudDrive_Remove"], () => _viewModel.RemoveCloudDriveCommand.Execute(item));
         }
 
         if (menu.Items.Count > 0)
@@ -2126,6 +2319,14 @@ public partial class MainWindow : FluentWindow
         var editor = _services.GetRequiredService<QuickAccessEditorWindow>();
         editor.Owner = this;
         editor.ShowDialog();
+    }
+
+    /// <summary>Az „Felhő meghajtó hozzáadása" ablak megnyitása (spec: NextCloud-támogatás).</summary>
+    private void OpenAddCloudDriveWindow()
+    {
+        var dialog = _services.GetRequiredService<AddCloudDriveWindow>();
+        dialog.Owner = this;
+        dialog.ShowDialog();
     }
 
     /// <summary>

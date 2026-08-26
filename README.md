@@ -1,10 +1,8 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="assets/brand/lockup.png" alt="Pilaster" width="340">
 
-**Modern fájlkezelő Windows 11-re — oszlopos nézettel, valódi aktivitás-központtal, és sok mindennel, ami az Explorerből hiányzik.**
-
-*A modern file manager for Windows 11 — with Finder-style column view, a real activity center, and a lot of things Explorer never had.*
+**A modern file manager for Windows 11 — with Finder-style column view, a real activity center, and a lot of things Explorer never had.**
 
 [![build](https://github.com/GREG13-PRO/pilaster/actions/workflows/build.yml/badge.svg)](https://github.com/GREG13-PRO/pilaster/actions/workflows/build.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,82 +12,85 @@
 
 ---
 
-## Miért?
+## Why?
 
-A Windows 11 Explorer lassú, és hiányzik belőle a macOS Finder legjobb ötlete: az **oszlopos nézet**, amiben a mappaszerkezet vízszintesen bomlik ki, és egy pillantással látod, hol vagy a fában. A Pilaster ezt hozza el a Windowsra — és mellé még sok mindent.
+Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **column view**, where the folder structure unfolds horizontally so you can see exactly where you are in the tree at a glance. Pilaster brings that to Windows — plus a lot more.
 
-## Állapot
+## Status
 
-**v0.9.0 — korai fejlesztés.** Ami már működik:
+**v1.1.0 — actively developed, daily-driver ready.** What already works:
 
-- **Színtémák**: kész paletta (kék, lila, zöld, piros, narancs, rózsaszín, türkiz, grafit) vagy egyedi hex akcentus szín, vagy kövesd automatikusan a Windows saját színét — érvényes a kijelöléseken, az oldalsáv aktív elemén, a gombokon és a fókuszgyűrűkön, világos és sötét témában egyaránt, kontrasztigazítással
-- **Animációfokozatok**: Teljes / Csökkentett / Kikapcsolva a Beállításokban, alapból a Windows „csökkentett mozgás" rendszerbeállítását követve
-- **Rendszerintegráció** (opcionális, alapból MINDEN kikapcsolva): mappák/meghajtók megnyitása Pilaster-ben, Win+E átirányítás, „Megnyitás Pilaster-ben" jobbklikk-menü bejegyzés — mindegyik egyenként kapcsolható, és a kikapcsolás pontosan (nem csak törléssel) visszaállítja az eredeti Intéző-viselkedést
-- **Saját másolási/áthelyezési/törlési motor**: nem az Intéző zöld sávja — szüneteltethető, folytatható, megszakítható műveletek, átviteli sebesség és hátralévő idő, egyszerre több művelet az Aktivitás-központ panelen, ütközéskezelés (felülírás/kihagyás/mindkettő megtartása/mindre alkalmaz), hiba esetén a többi fájl másolása folytatódik
-- **Kétablakos nézet** (kétpaneles elrendezés, modern kivitelben): két teljesen független panel — saját előzménnyel, kijelöléssel, nézetmóddal; „Szinkronizálás" gomb, húzható elválasztó, vízszintes/függőleges elrendezés
-- **Pilaster Classic billentyűkiosztás** (opcionálisan bekapcsolható, alapból az Intéző-szerű gyorsbillentyűk maradnak): F3 Megtekintés, F4 Szerkesztés, F5 Másolás, F6 Áthelyezés, F7 Új mappa, F8/Delete Törlés, Tab paneváltás, Insert/Space/Ctrl+A/Ctrl+D/Num*/Num- kijelölés-kezelés, Alt+F7 gyorsszűrés
-- **Rendezési sorrend javítva**: mappák mindig a fájlok előtt bármely rendezési szempontnál, természetes sorrend (`fájl2` a `fájl10` előtt), ékezet- és nagybetű-független, méret/dátum a valódi érték (nem a megjelenített szöveg) szerint rendez
-- **Kezdőlap fül**: „Ez a gép"-stílusú áttekintés — gyorsmappák (Asztal, Dokumentumok, Letöltések, Képek, Zene, Videók) és a meghajtók csempézve, kihasználtság-sávval, a felület saját liquid glass dizájnjában
-- **Szerkeszthető gyorselérés**: saját mappák rögzítése jobbklikkel vagy húzással a panelre, alapértelmezett elemek eltávolítása, sorrend húzással átrendezve — minden mentve, újraindítás után is megmarad
-- **Kuka a gyorselérésben**: tartalom megtekintése, elemek visszaállítása vagy végleges törlése, „Kuka ürítése", üres állapot jelzése
-- **Azonnali átnevezés** új mappa/fájl létrehozásakor — pontosan az Intézőhöz hasonlóan: az alapnév kijelölve, szerkeszthető állapotban, Enter menti, Esc visszaáll, ütköző névnél automatikus sorszámozás
-- **Kiadás ikon** a cserélhető és optikai meghajtók sorának végén az oldalsávban — egy kattintásra azonnali biztonságos leválasztás, rendszermeghajtónál sosem jelenik meg
-- **Új alkalmazás ikon és arculat** — friss, éles arculat minden méretben (ablak, tálca, telepítő, exe-erőforrás)
-- **Natív Windows 11 jobbklikk-menü** fájlokon ÉS mappák üres területén egyaránt — a menü hívása külön szálon fut, hogy soha ne fagyassza le a felületet
-- **Liquid glass felület**: áttetsző oldalsáv, felső sáv, helyi menük (natív DWM Acrylic háttérrel) és Beállítások panel a Mica háttér felett — kapcsolható a Beállításokban, gyengébb gépekre
-- **Címkék** (macOS Tags mintára): 7 előre definiált szín, saját nevekkel, Beállításokban létrehozva/átnevezve/törölve; a fájlsoron megjelenő címke-ikonnal rendelhetők egy elemhez, az oldalsáv Címkék szekciója pedig szűr rájuk
-- **Kedvencek**: szív ikon hoverre a fájlsoron, oldalsáv Kedvencek szekció, törölt célnál halvány jelzéssel és egykattintásos eltávolítással
-- **Oszlopos (Miller) nézet** macOS Finder módra: mappára kattintva jobbra nyílik az újabb oszlop, fájlnál jobb oldalon részletek panel (típus, méret, módosítás dátuma) — a nézetmód (Lista/Rács/Oszlopok) fülenként megjegyzett
-- **Breadcrumb**: útvonal másolása egy kattintással, vagy kattintásra szerkeszthető szövegmezővé vált (mint az Intézőben) — Enter navigál, Esc/fókuszvesztés visszavált
-- **Mappák mérete** háttérszálon kiszámolva és gyorsítótárazva, amíg számol „…" jelzéssel
-- **Kiadás** (biztonságos leválasztás) cserélhető és optikai meghajtóknál, „használatban van"-jelzéssel hiba esetén
-- **Optikai meghajtó saját ikonja és neve** a behelyezett lemez kötetcímkéje/autorun.inf ikonja alapján, lemezcserére automatikusan frissülve
-- Fluent felület Mica háttérrel, lekerekített sarkokkal, **keretek/háttér nélküli eszköztár-gombokkal** (csak hoverre finom kiemelés, a téma szövegszínét követve)
-- **Automatikus frissítés** a GitHub Release-ekből: induláskor csendben ellenőriz, nem tolakodó sávban jelzi, egy kattintásra letölti, ellenőrzőösszeggel hitelesíti és — újraindítás megerősítése után — telepíti
-- **Téma**: világos / sötét / rendszerkövető, egykattintásos kapcsolóval, átúsztatva, **mentve**
-- Oldalsáv gyorseléréssel, meghajtókkal (kihasználtság-sáv, szabad hely), Kedvencekkel és Címkékkel — a mappalánc **minden szintje** kiemelve, nem csak a pontos találat
-- Fülek, vissza/előre/fel/frissítés, csúszó átmenet mappaváltáskor
-- Részletes lista és ikonrács — mindkettő **teljesen virtualizálva**, kijelöléssel, jobbklikk-menüvel (elemen ÉS üres területen egyaránt: új mappa/fájl, beillesztés, frissítés, rendezés) és **húzásos (marquee) kijelöléssel**
-- Fájlok **beillesztése a vágólapról** — az Intézővel kompatibilis formátumban, másolással és kivágással is
-- **Oszlopfejléces rendezés** iránynyíllal, az Explorer természetes sorrendjével
-- Natív Windows ikonok és bélyegképek, lemezre gyorsítótárazva
-- **Két testreszabható gyorsgomb** — mappa vagy fájl, saját névsablonnal (`{date}`, `{time}`, `{n}`) és célmappával
-- **Beállítások panel**: téma, áttetsző hatás, animációk, nyelv, gyorsgombok, címkék, frissítések — minden azonnal mentődik
-- **Hibabejelentő**: a felhasználók egy publikus e-mail-címet látnak (`pilaster-explorer@proton.me`); a fejlesztői panel (közvetlen küldés egy Discord botnak, „Kész" gombbal és automatikus archiválással, képernyőkép-/naplócsatolással) rejtve marad, amíg a szekciófejlécre 10-szer nem kattintanak
-- Magyar és angol felület, **futásidejű nyelvváltással**, a rendszernyelv automatikus felismerésével
+- **Cloud drives (NextCloud, ownCloud, WebDAV)**: connect any WebDAV server from the sidebar's "Cloud drives" section — through Windows' own built-in WebDAV redirector, so once connected it behaves like any other network path (copy, tags, favorites, everything just works). Credentials are never stored in a Pilaster file; Windows' own Credential Manager handles them.
+- **Real Windows 11 icons in Quick Access**: Documents, Downloads, Pictures, Music, and Videos show their actual badged shell icon straight from `desktop.ini`, exactly as in Explorer — not a generic glyph.
+- **Recycle Bin navigates in place**, like any real folder — same Details/Grid/Columns view, breadcrumb, and tab title as Documents or Downloads, with Restore/Delete permanently on right-click and an Empty Recycle Bin toolbar button.
+- **Collapsible sidebar sections**: click a section header (Quick Access, Recent, Drives, …) to collapse or expand it, with an animated arrow — following Windows 11 Explorer's own grouped-sidebar convention.
+- **Color themes**: a ready palette (blue, purple, green, red, orange, pink, teal, graphite) or a custom hex accent color, or automatically follow your own Windows accent color — applies to selections, the active sidebar item, buttons, and focus rings, in both light and dark themes, with contrast correction
+- **Animation levels**: Full / Reduced / Off in Settings, following Windows' own "reduce motion" system setting by default
+- **System integration** (optional, all OFF by default): open folders/drives in Pilaster, redirect Win+E, an "Open in Pilaster" right-click entry — each toggled individually, and turning it off restores Explorer's original behavior exactly (not just by deleting a registry key)
+- **Its own copy/move/delete engine**: not Explorer's green bar — pausable, resumable, cancelable operations, transfer speed and time remaining, multiple operations at once in the Activity Center panel, conflict handling (overwrite/skip/keep both/apply to all), and if one file fails, the rest keep copying
+- **Dual-pane view** (two-panel layout, modern styling): two fully independent panels — each with its own history, selection, and view mode; a "Sync" button, a draggable splitter, horizontal/vertical layout
+- **Pilaster Classic keymap** (opt-in; Explorer-like shortcuts stay the default): F3 View, F4 Edit, F5 Copy, F6 Move, F7 New Folder, F8/Delete, Tab to switch panes, Insert/Space/Ctrl+A/Ctrl+D/Num*/Num- for selection, Alt+F7 quick filter
+- **Fixed sort order**: folders always sort before files regardless of sort key, natural ordering (`file2` before `file10`), accent- and case-insensitive, size/date sorts by the real value (not the displayed text)
+- **Home tab**: a "This PC"-style overview — Quick Access folders (Desktop, Documents, Downloads, Pictures, Music, Videos) and drives as tiles with a usage bar, in the app's own liquid-glass design
+- **Editable Quick Access**: pin your own folders by right-click or drag onto the panel, remove default entries, reorder by dragging — everything saved, and still there after a restart
+- **Recycle Bin in Quick Access**: view contents, restore or permanently delete items, "Empty Recycle Bin," an empty-state indicator
+- **Instant rename** when creating a new folder/file — just like Explorer: the base name comes pre-selected and editable, Enter saves, Esc reverts, and name conflicts get an automatic number suffix
+- **Eject icon** at the end of the row for removable and optical drives in the sidebar — one click for instant safe removal, never shown for the system drive
+- **New app icon and branding** — a fresh, crisp look at every size (window, taskbar, installer, exe resource)
+- **Native Windows 11 right-click menu**, on files AND on empty folder space alike — the menu is invoked on its own thread, so it never freezes the UI
+- **Liquid-glass surface**: a translucent sidebar, top bar, context menus (with a native DWM Acrylic background), and Settings panel over the Mica backdrop — toggleable in Settings for weaker machines
+- **Tags** (macOS Tags-style): 7 predefined colors with your own names, created/renamed/deleted in Settings; assigned to an item via the tag icon on its row, and the sidebar's Tags section filters by them
+- **Favorites**: a heart icon on hover on a file row, a Favorites section in the sidebar, with a faint marker and one-click removal for deleted targets
+- **Column (Miller) view** in the macOS Finder style: click a folder to open the next column to the right, click a file to see a details panel on the right (type, size, modified date) — the view mode (List/Grid/Columns) is remembered per tab
+- **Breadcrumb**: copy the path with one click, or click to turn it into an editable text field (just like Explorer) — Enter navigates, Esc/losing focus reverts
+- **Folder sizes** computed on a background thread and cached, with a "…" indicator while calculating
+- **Eject** (safe removal) for removable and optical drives, with an "in use" error indicator on failure
+- **Optical drive's own icon and name**, taken from the inserted disc's volume label/autorun.inf icon, refreshed automatically on disc swap
+- Fluent UI with a Mica backdrop, rounded corners, **frameless/backgroundless toolbar buttons** (a subtle highlight only on hover, following the theme's text color)
+- **Automatic updates** from GitHub Releases: checks quietly on startup, shows a non-intrusive banner, downloads with one click, verifies with a checksum, and installs after a restart confirmation
+- **Theme**: light / dark / follow system, one-click toggle, animated, **saved**
+- Sidebar with Quick Access, drives (usage bar, free space), Favorites, and Tags — **every level** of the folder chain highlighted, not just the exact match
+- Tabs, back/forward/up/refresh, a sliding transition on folder change
+- Details list and icon grid — both **fully virtualized**, with selection, a right-click menu (on an item AND on empty space alike: new folder/file, paste, refresh, sort) and **marquee (drag) selection**
+- **Paste from clipboard** — in an Explorer-compatible format, for both copy and cut
+- **Column-header sorting** with a direction arrow, matching Explorer's natural sort order
+- Native Windows icons and thumbnails, cached to disk
+- **Two customizable quick-action buttons** — folder or file, with your own name template (`{date}`, `{time}`, `{n}`) and target folder
+- **Settings panel**: theme, transparency effect, animations, language, shortcuts, tags, updates — everything saves instantly
+- **Bug reporter**: users see a public email address (`pilaster-explorer@proton.me`); the developer panel (sends straight to a Discord bot, with a "Done" button and automatic archiving, screenshot/log attachment) stays hidden until the section header is clicked 10 times
+- Hungarian and English UI, with **runtime language switching** and automatic system-language detection
 
-Amit a következő mérföldkövek hoznak, azt lásd az [ütemezésben](#ütemezés).
+See the [roadmap](#roadmap) for what's coming in the next milestones.
 
-## Teljesítmény
+## Performance
 
-A fájlkezelőnél a sebesség nem extra, hanem alapkövetelmény. Ezért:
+For a file manager, speed isn't a nice-to-have, it's table stakes. So:
 
-| Terület | Megoldás |
+| Area | Approach |
 |---|---|
-| Mappalistázás | `FileSystemEnumerable` a `DirectoryInfo` helyett — elemenként egy allokációval kevesebb |
-| Megjelenítés | A bejárás háttérszálon egy `Channel`-be termel; az első 200 elem azonnal kirajzolódik, az adagméret onnan négyszereződik |
-| Lista-értesítések | Saját `RangeObservableCollection`: egy adag = egy értesítés, nem elemenként egy |
-| Rácsnézet | Saját virtualizáló sortördelő panel — a WPF-ben nincs ilyen beépítve |
-| Ikonok | Csak a képernyőn lévő sorokra indul COM-hívás; a típusikonok kiterjesztés szerint gyorsítótárazódnak |
-| Rendezés | A natív `StrCmpLogicalW`, hogy a sorrend pontosan egyezzen az Explorerével (`kép9` a `kép10` előtt) |
+| Folder listing | `FileSystemEnumerable` instead of `DirectoryInfo` — one fewer allocation per item |
+| Rendering | Background-thread traversal feeds a `Channel`; the first 200 items render immediately, and the batch size quadruples from there |
+| List notifications | A custom `RangeObservableCollection`: one batch = one notification, not one per item |
+| Grid view | A custom virtualizing wrap panel — WPF doesn't ship one |
+| Icons | COM calls only fire for rows actually on screen; type icons are cached by extension |
+| Sorting | Native `StrCmpLogicalW`, so ordering matches Explorer exactly (`image9` before `image10`) |
 
-## Telepítés
+## Installation
 
-Töltsd le a [legutóbbi kiadásból](https://github.com/GREG13-PRO/pilaster/releases/latest):
+Download from the [latest release](https://github.com/GREG13-PRO/pilaster/releases/latest):
 
-- **`Pilaster-<verzió>-x64-setup.exe`** — telepítő. Nem kér rendszergazdai jogot, a felhasználói profilba telepít.
-- **`...-portable.zip`** — hordozható változat: kicsomagolod és futtatod, semmit nem ír a rendszerbe.
+- **`Pilaster-<version>-x64-setup.exe`** — the installer. No admin rights needed, installs into your user profile.
+- **`...-portable.zip`** — the portable build: unzip and run, writes nothing to the system.
 
-ARM64-es gépre (Snapdragon X, Surface Pro) az `arm64` változat való.
+On ARM64 hardware (Snapdragon X, Surface Pro), use the `arm64` build.
 
-> **A víruskeresőd bejelez?** Aláíró tanúsítvány nélkül ez sajnos előfordul.
-> A [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) leírja, miért, és hogyan tudod
-> ellenőrzőösszeggel vagy saját fordítással meggyőződni róla, hogy a fájl az,
-> aminek mondja magát.
+> **Antivirus flagging it?** Without a signing certificate, that happens sometimes.
+> [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) explains why, and how to verify with a
+> checksum or your own build that the file is exactly what it claims to be.
 
-## Fordítás
+## Building
 
-Kell hozzá a [.NET 10 SDK](https://dotnet.microsoft.com/download). Semmi más.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Nothing else.
 
 ```powershell
 git clone https://github.com/GREG13-PRO/pilaster.git
@@ -98,53 +99,56 @@ dotnet build Pilaster.slnx
 dotnet run --project src/Pilaster.App
 ```
 
-Önálló, egyfájlos kiadás készítése:
+Building a standalone, single-file release:
 
 ```powershell
 dotnet publish src/Pilaster.App -c Release -r win-x64 `
   -p:PublishSingleFile=true -p:SelfContained=true
 ```
 
-## Felépítés
+## Structure
 
 ```
 src/
-├─ Pilaster.Core/       Domain: elemek, provider-interfész, rendezés, formázás
-├─ Pilaster.Providers/  Helyi fájlrendszer (később: archívum, FTP/SFTP, S3, WebDAV)
-├─ Pilaster.Shell/      Win32/COM interop: ikonok, bélyegképek, meghajtó-kiadás, natív jobbklikk-menü
-└─ Pilaster.App/        WPF felület, nézetmodellek, lokalizáció
+├─ Pilaster.Core/       Domain: items, provider interface, sorting, formatting
+├─ Pilaster.Providers/  Local file system (later: archives, FTP/SFTP, S3, WebDAV)
+├─ Pilaster.Shell/      Win32/COM interop: icons, thumbnails, drive ejection, native right-click menu
+└─ Pilaster.App/        WPF UI, view models, localization
 
-discord-bot/            Node.js — hibabejelentő Discord bot (lásd docs/BUG_REPORTS.md)
+discord-bot/            Node.js — bug-report Discord bot (see docs/BUG_REPORTS.md)
 ```
 
-A `IFileSystemProvider` absztrakció az első naptól megvan: a helyi lemez csak *egy* implementáció. Ezért fog később az archívum, az FTP és az S3 ugyanúgy „mappaként" viselkedni, a felület módosítása nélkül.
+The `IFileSystemProvider` abstraction has been there from day one: the local disk is just *one* implementation. That's why archives, FTP, and S3 will eventually behave just like "folders" too, without any changes to the UI.
 
-## Ütemezés
+## Roadmap
 
-| Verzió | Tartalom |
+| Version | Contents |
 |---|---|
-| **v0.1** ✅ | Váz, oldalsáv, fülek, részletes + rács nézet, lokalizáció |
-| **v0.1.1** ✅ | Oszlopfejléces rendezés, telepítő, mappás kiadás |
-| **v0.2** ✅ | Témaváltás perzisztenciával, animációk, Beállítások, két testreszabható gyorsgomb |
-| **v0.3** ✅ | Hibabejelentő (Discord webhook), aktív mappa kiemelése, tisztább eszköztár |
-| **v0.4** ✅ | Fájlkijelölés/jobbklikk javítás, ős-lánc kiemelés, egységes gombstílus, csúszó átmenet, ötlet/hiba megkülönböztetés |
-| **v0.5** ✅ | Automatikus frissítés, keretek nélküli gombok, jobbklikk üres területen, húzásos kijelölés, vágólap-beillesztés |
-| **v0.6** ✅ | Oszlopos (Miller) nézet, natív jobbklikk-menü, mappaméret-számítás, meghajtó-kiadás, optikai lemez ikonja, Discord bot |
-| **v0.6.1** ✅ | Publikus hibabejelentő e-mail + rejtett fejlesztői panel, bot-biztonsági frissítés (multer 2.x) |
-| **v0.7.0** ✅ | Liquid glass felület, natív jobbklikk-fagyás javítása, üres terület natív menüje, címkék, kedvencek, breadcrumb-szerkesztés |
-| **v0.8.0** ✅ | Új alkalmazás ikon, azonnali átnevezés létrehozáskor, Kuka a gyorselérésben, Kezdőlap „Ez a gép" nézet, szerkeszthető gyorselérés, meghajtó-kiadás ikon az oldalsávban |
-| **v0.9.0** ✅ | Színtémák (akcentus szín), animációfokozatok, saját másolási/áthelyezési motor + Aktivitás-központ, kétablakos nézet, Pilaster Classic billentyűkiosztás + F3 előnézet, rendezési sorrend javítása, opcionális rendszerintegráció (Explorer-kiváltás), letöltő weboldal |
-| v1.0 | Azonnali keresés (NTFS MFT-index), parancspaletta, gyorsugrás |
-| v1.1 | Munkaterek, Polc, tömeges átnevezés, duplikátumkereső |
-| v1.2 | Terminál, Git-integráció, archívum mappaként, szabálymotor |
-| v1.3 | Alapértelmezett fájlkezelővé állítás (teljes körű), lemeztérkép, mappa-szinkronizálás |
-| v1.4 | Távoli providerek (FTP/SFTP/S3/WebDAV), plugin SDK |
-| v1.5 | Csiszolás, dokumentáció, 30+ nyelv |
+| **v0.1** ✅ | Skeleton, sidebar, tabs, details + grid view, localization |
+| **v0.1.1** ✅ | Column-header sorting, installer, folder-based release |
+| **v0.2** ✅ | Persistent theme switching, animations, Settings, two customizable quick-action buttons |
+| **v0.3** ✅ | Bug reporter (Discord webhook), active-folder highlighting, cleaner toolbar |
+| **v0.4** ✅ | File selection/right-click fixes, ancestor-chain highlighting, unified button style, sliding transition, idea/bug distinction |
+| **v0.5** ✅ | Automatic updates, frameless buttons, right-click on empty space, marquee selection, clipboard paste |
+| **v0.6** ✅ | Column (Miller) view, native right-click menu, folder size calculation, drive ejection, optical disc icon, Discord bot |
+| **v0.6.1** ✅ | Public bug-report email + hidden developer panel, bot security update (multer 2.x) |
+| **v0.7.0** ✅ | Liquid-glass UI, native right-click freeze fix, native menu on empty space, tags, favorites, breadcrumb editing |
+| **v0.8.0** ✅ | New app icon, instant rename on creation, Recycle Bin in Quick Access, Home tab "This PC" view, editable Quick Access, drive-eject icon in the sidebar |
+| **v0.9.0** ✅ | Color themes (accent color), animation levels, its own copy/move engine + Activity Center, dual-pane view, Pilaster Classic keymap + F3 preview, sort-order fix, optional system integration (Explorer replacement), download website |
+| **v1.0.0** ✅ | Pilaster Editor (built-in text editor), native right-click menu with real shell integration, editable/persistent Quick Access, reorganized Settings, modern installer |
+| **v1.0.1–v1.0.3** ✅ | Dual-pane column headers and status bar, selectable native/Pilaster right-click menu, context-menu preload and crash fixes, dozens of UI/reliability fixes from real-world use |
+| **v1.1.0** ✅ | Cloud drives (NextCloud/ownCloud/WebDAV) via Windows' built-in WebDAV client, in-place Recycle Bin navigation, real Windows 11 Quick Access icons, collapsible sidebar sections, airier redesign, bilingual (EN/HU) website with light/dark theme |
+| v1.2 | Instant search (NTFS MFT index), command palette, quick jump |
+| v1.3 | Workspaces, Shelf, bulk rename, duplicate finder |
+| v1.4 | Terminal, Git integration, archives as folders, rule engine |
+| v1.5 | Set as default file manager (full), disk map, folder sync |
+| v1.6 | Remote providers (FTP/SFTP/S3/WebDAV client-side), plugin SDK |
+| v1.7 | Polish, documentation, 30+ languages |
 
-## Fordítás más nyelvre
+## Translating to another language
 
-A feliratok a [`src/Pilaster.App/Resources/`](src/Pilaster.App/Resources/) mappában vannak. Új nyelvhez elég egy `Strings.<kód>.resx` fájl — kódmódosítás nem kell. Részletek: [`docs/TRANSLATING.md`](docs/TRANSLATING.md).
+Strings live in [`src/Pilaster.App/Resources/`](src/Pilaster.App/Resources/). Adding a new language just needs a `Strings.<code>.resx` file — no code changes required. Details: [`docs/TRANSLATING.md`](docs/TRANSLATING.md).
 
-## Licenc
+## License
 
 [MIT](LICENSE)

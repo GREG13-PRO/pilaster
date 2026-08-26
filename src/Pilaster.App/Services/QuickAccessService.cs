@@ -52,6 +52,28 @@ public sealed class QuickAccessService : IDisposable
     /// <summary>Útvonalanként gyorsítótárazott elérhetőség — enélkül minden újraépítés újra megvárná a hálózatot.</summary>
     private readonly ConcurrentDictionary<string, bool> _reachability = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Az alapértelmezett hat mappa színe, fordítási kulcs szerint — a
+    /// <see cref="BuildDefaults"/> ÉS a <see cref="Migrate"/> is ebből olvas,
+    /// hogy a régebbi (szín nélküli) gyorselérés-fájlokban is megjelenjen a
+    /// színes ikon utólag, nem csak „Visszaállítás alapértelmezettre" után.
+    /// </summary>
+    private static readonly Dictionary<string, string> DefaultColors = new(StringComparer.Ordinal)
+    {
+        ["Nav_Desktop"] = "#0891B2",
+        ["Nav_Documents"] = "#2563EB",
+        ["Nav_Pictures"] = "#C026D3",
+        ["Nav_Music"] = "#EA580C",
+        ["Nav_Videos"] = "#7C3AED",
+        ["Nav_Downloads"] = "#16A34A",
+    };
+
+    /// <summary>A Lomtár oldalsáv-ikonjának színe — lásd <c>MainWindowViewModel.BuildQuickAccess</c>.</summary>
+    public const string RecycleBinIconColor = "#2563EB";
+
+    /// <summary>A Felhő meghajtók szekció ikonjainak színe — lásd <c>MainWindowViewModel.BuildCloudDrives</c>.</summary>
+    public const string CloudDriveIconColor = "#0284C7";
+
     private QuickAccessDocument _document;
 
     /// <param name="storageDirectory">
@@ -426,6 +448,7 @@ public sealed class QuickAccessService : IDisposable
                     Path = path,
                     LabelKey = key,
                     Icon = icon,
+                    Color = DefaultColors[key],
                 });
             }
         }
@@ -441,6 +464,7 @@ public sealed class QuickAccessService : IDisposable
                 Path = downloads,
                 LabelKey = "Nav_Downloads",
                 Icon = "ArrowDownload24",
+                Color = DefaultColors["Nav_Downloads"],
             });
         }
 
@@ -512,6 +536,18 @@ public sealed class QuickAccessService : IDisposable
         foreach (var entry in document.Entries.Where(e => string.IsNullOrWhiteSpace(e.Id)))
         {
             entry.Id = Guid.NewGuid().ToString("N");
+        }
+
+        // Utólagos színezés (spec: oldalsáv-redesign): a régebbi, szín nélkül
+        // mentett fájlokban is megjelenjen a színes ikon a hat alapértelmezett
+        // mappánál, nem csak új telepítésnél vagy „Visszaállítás" után. Csak
+        // akkor nyúl hozzá, ha a felhasználó még nem állított be sajátot.
+        foreach (var entry in document.Entries)
+        {
+            if (entry.LabelKey is { } key && string.IsNullOrEmpty(entry.Color) && DefaultColors.TryGetValue(key, out var color))
+            {
+                entry.Color = color;
+            }
         }
 
         document.Version = QuickAccessDocument.CurrentVersion;

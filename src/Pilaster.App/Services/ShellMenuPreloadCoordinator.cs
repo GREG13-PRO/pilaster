@@ -12,8 +12,7 @@ namespace Pilaster.App.Services;
 /// <remarks>
 /// <para>
 /// Ez a kódrész a <c>ShellMenuSession</c>/<c>StaWorker</c> öt körös
-/// heap-korrupciós előzménye (lásd docs/CONTEXT-MENU.md) miatt SZÁNDÉKOSAN
-/// szigorú korlátok között mozog:
+/// heap-korrupciós előzménye miatt SZÁNDÉKOSAN szigorú korlátok között mozog:
 /// </para>
 /// <list type="bullet">
 /// <item>Nem indít külön szálat — a <see cref="ShellMenuSession.QueryItemsAsync"/>

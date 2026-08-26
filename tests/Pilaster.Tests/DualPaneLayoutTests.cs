@@ -12,7 +12,7 @@ namespace Pilaster.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Ez a két eset korábban a <c>docs/DUAL-PANE-CHECKLIST.md</c> kézi pontjai
+/// Ez a két eset korábban egy kézi ellenőrzőlista pontjai
 /// között szerepelt, pedig egyikhez sem kell vizuális fa: az elrendezés
 /// mentése tiszta szerializáció, az „eltűnt mappa" pedig tiszta
 /// állapotkezelés. Ami VALÓBAN kézi marad (splitter húzása egérrel, kijelölés

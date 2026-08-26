@@ -93,6 +93,57 @@
   <data name="Nav_Favorites" xml:space="preserve">
     <value>Kedvencek</value>
   </data>
+  <data name="Nav_CloudDrives" xml:space="preserve">
+    <value>Felhő meghajtók</value>
+  </data>
+  <data name="CloudDrive_Add" xml:space="preserve">
+    <value>Felhő meghajtó hozzáadása…</value>
+  </data>
+  <data name="CloudDrive_Remove" xml:space="preserve">
+    <value>Felhő meghajtó eltávolítása</value>
+  </data>
+  <data name="CloudDrive_AddTitle" xml:space="preserve">
+    <value>Felhő meghajtó hozzáadása</value>
+  </data>
+  <data name="CloudDrive_Intro" xml:space="preserve">
+    <value>WebDAV-on keresztül csatlakozik — NextCloud, ownCloud és a legtöbb más WebDAV-szerver is működik.</value>
+  </data>
+  <data name="CloudDrive_Name" xml:space="preserve">
+    <value>Név</value>
+  </data>
+  <data name="CloudDrive_NamePlaceholder" xml:space="preserve">
+    <value>pl. Munkahelyi NextCloud</value>
+  </data>
+  <data name="CloudDrive_ServerUrl" xml:space="preserve">
+    <value>Szerver URL</value>
+  </data>
+  <data name="CloudDrive_ServerUrlPlaceholder" xml:space="preserve">
+    <value>https://cloud.example.com/remote.php/dav/files/felhasznalo/</value>
+  </data>
+  <data name="CloudDrive_Username" xml:space="preserve">
+    <value>Felhasználónév</value>
+  </data>
+  <data name="CloudDrive_Password" xml:space="preserve">
+    <value>Jelszó (vagy alkalmazásjelszó)</value>
+  </data>
+  <data name="CloudDrive_RememberCredentials" xml:space="preserve">
+    <value>Hitelesítő adatok megjegyzése (Windows hitelesítőadat-tároló)</value>
+  </data>
+  <data name="CloudDrive_Connect" xml:space="preserve">
+    <value>Kapcsolódás</value>
+  </data>
+  <data name="CloudDrive_Connecting" xml:space="preserve">
+    <value>Kapcsolódás…</value>
+  </data>
+  <data name="CloudDrive_ConnectFailed" xml:space="preserve">
+    <value>Nem sikerült kapcsolódni — ellenőrizd a szervercímet és a hitelesítő adatokat.</value>
+  </data>
+  <data name="CloudDrive_InvalidUrl" xml:space="preserve">
+    <value>Adj meg egy érvényes http:// vagy https:// szervercímet.</value>
+  </data>
+  <data name="CloudDrive_NameRequired" xml:space="preserve">
+    <value>Adj nevet ennek a felhő meghajtónak.</value>
+  </data>
   <data name="Nav_RecycleBin" xml:space="preserve">
     <value>Lomtár</value>
   </data>
@@ -117,6 +168,9 @@
   </data>
   <data name="Cmd_CloseTab" xml:space="preserve">
     <value>Fül bezárása</value>
+  </data>
+  <data name="Cmd_Close" xml:space="preserve">
+    <value>Bezárás</value>
   </data>
   <data name="Cmd_Settings" xml:space="preserve">
     <value>Beállítások</value>
@@ -630,6 +684,9 @@
   <data name="RecycleBin_ConfirmDelete" xml:space="preserve">
     <value>Véglegesen törlöd ezt: „{0}"? Ez a lépés nem vonható vissza.</value>
   </data>
+  <data name="RecycleBin_ConfirmDeleteMultiple" xml:space="preserve">
+    <value>Véglegesen törlöd ezt a(z) {0} elemet? Ez a lépés nem vonható vissza.</value>
+  </data>
   <data name="RecycleBin_ConfirmEmpty" xml:space="preserve">
     <value>Biztosan véglegesen törlöd a Lomtár összes tartalmát? Ez a lépés nem vonható vissza.</value>
   </data>
@@ -638,6 +695,9 @@
   </data>
   <data name="RecycleBin_DeleteFailed" xml:space="preserve">
     <value>Nem sikerült véglegesen törölni: „{0}"</value>
+  </data>
+  <data name="RecycleBin_EmptyFailed" xml:space="preserve">
+    <value>Nem sikerült üríteni a Lomtárat</value>
   </data>
 
   <data name="Cmd_Cancel" xml:space="preserve">

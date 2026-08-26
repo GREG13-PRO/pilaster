@@ -83,6 +83,7 @@ public partial class App : Application
         services.AddSingleton<GlassEffectService>();
         services.AddSingleton<QuickActionService>();
         services.AddSingleton<QuickAccessService>();
+        services.AddSingleton<CloudDriveService>();
         services.AddSingleton<ShellCrashGuard>();
         services.AddSingleton<ShellMenuPreloadCoordinator>();
         services.AddSingleton<FolderSizeService>();
@@ -99,10 +100,6 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<SettingsWindow>();
 
-        // A Lomtár tartalma is friss betöltést kap minden megnyitáskor.
-        services.AddTransient<RecycleBinViewModel>();
-        services.AddTransient<RecycleBinWindow>();
-
         // Pilaster Classic billentyűkiosztás: F5/F6 megerősítő párbeszéd és
         // F3 előnézet-ablak — mindkettő minden megnyitáskor friss példány.
         services.AddTransient<TransferConfirmWindow>();
@@ -116,6 +113,9 @@ public partial class App : Application
         // A gyorselérés-szerkesztő minden megnyitáskor friss másolatokon dolgozik.
         services.AddTransient<QuickAccessEditorViewModel>();
         services.AddTransient<QuickAccessEditorWindow>();
+
+        services.AddTransient<AddCloudDriveViewModel>();
+        services.AddTransient<AddCloudDriveWindow>();
 
         _services = services.BuildServiceProvider();
 
@@ -350,7 +350,7 @@ public partial class App : Application
             var folder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
             // A ShellMenuSession.CreateForItems (GetUIObjectOf) AZONOS
-            // szülőmappát vár (lásd docs/CONTEXT-MENU.md) — a többszörös
+            // szülőmappát vár — a többszörös
             // kijelölés próbájának ezért UGYANABBÓL a mappából kell két valós
             // fájlt választania, különben a lekérdezés jogosan null-t ad, és
             // az nem A2, hanem a próba hibája volna.
@@ -418,7 +418,7 @@ public partial class App : Application
                 coordinator.NotifySelectionChanged([file], false);
 
                 // Bőven a debounce (200 ms) + a mért állandósult lekérdezési
-                // idő (777 ms medián, lásd docs/CONTEXT-MENU.md) fölé — hogy a
+                // idő (777 ms medián) fölé — hogy a
                 // mérés pillanatában a lekérdezés MÁR TÉNYLEG kész legyen,
                 // ne csak elinduljon.
                 await Task.Delay(1400);
@@ -473,8 +473,7 @@ public partial class App : Application
             // nélkül) — ha ez UGYANOLYAN arányban ad null-t, mint a FAJL kör,
             // az bizonyítja, hogy egy esetleges kihagyás a mögöttes
             // shell-lekérdezés/időkorlát ISMERT, A2-től FÜGGETLEN ingadozása
-            // (lásd docs/CONTEXT-MENU.md, NvAppShExt 632-783 ms/lekérdezés),
-            // nem az előretöltő kód hibája.
+            // (NvAppShExt 632-783 ms/lekérdezés), nem az előretöltő kód hibája.
             var baselinePass = 0;
 
             for (var i = 0; i < 10; i++)
@@ -1061,6 +1060,7 @@ public partial class App : Application
         // A késleltetett mentés még sorban állhat, ezért kilépés előtt kiírjuk.
         _services?.GetService<ISettingsService>()?.Flush();
         _services?.GetService<QuickAccessService>()?.Flush();
+        _services?.GetService<CloudDriveService>()?.Flush();
         _services?.Dispose();
 
         Log.CloseAndFlush();

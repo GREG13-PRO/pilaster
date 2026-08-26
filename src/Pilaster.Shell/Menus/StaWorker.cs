@@ -18,8 +18,7 @@ namespace Pilaster.Shell.Menus;
 /// Ez egyben az izoláció eszköze is: minden itt futó hívás
 /// <see cref="Exception"/>-re le van védve, tehát egy hibás bővítmény kivétele
 /// nem terjed át a UI szálra. Hard crash (hozzáférési hiba a natív kódban)
-/// ellen csak külön FOLYAMAT védene — ezt a korlátot a
-/// <c>docs/CONTEXT-MENU.md</c> nyíltan rögzíti.
+/// ellen csak külön FOLYAMAT védene — ez egy ismert, tudatosan vállalt korlát.
 /// </para>
 /// </remarks>
 internal sealed class StaWorker : IDisposable

@@ -10,6 +10,7 @@ using Pilaster.Core.Formatting;
 using Pilaster.Core.Settings;
 using Pilaster.Providers.Local;
 using Pilaster.Shell.Devices;
+using Pilaster.Shell.Imaging;
 using Pilaster.Shell.Recycle;
 using Wpf.Ui.Controls;
 
@@ -26,6 +27,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly FileMetadataService _metadata;
     private readonly FileOperationEngine _fileOperations;
     private readonly QuickAccessService _quickAccess;
+    private readonly CloudDriveService _cloudDrives;
+    private readonly IShellImageService _shellImages;
 
     /// <summary>Az Aktivitás-központ paneljéhez közvetlenül köthető, futó/befejezett műveletek.</summary>
     public ObservableCollection<FileOperationJob> FileOperationJobs => _fileOperations.Jobs;
@@ -39,7 +42,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         FolderSizeService folderSizes,
         FileMetadataService metadata,
         FileOperationEngine fileOperations,
-        QuickAccessService quickAccess)
+        QuickAccessService quickAccess,
+        CloudDriveService cloudDrives,
+        IShellImageService shellImages)
     {
         _provider = provider;
         _settings = settings;
@@ -50,6 +55,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _metadata = metadata;
         _fileOperations = fileOperations;
         _quickAccess = quickAccess;
+        _cloudDrives = cloudDrives;
+        _cloudDrives.Changed += (_, _) => RefreshCloudDrives();
+        _shellImages = shellImages;
 
         // A v0.9-es, settings.json-ben tárolt gyorselérés átvétele az új,
         // önálló fájlba — egyszer fut le, az első v1.0-s indításkor.
@@ -697,7 +705,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private async Task CreateNewItemAsync(QuickActionKind kind, TabViewModel? tab)
     {
-        if (tab is null)
+        if (tab is null || tab.IsHome || tab.IsRecycleBin)
         {
             return;
         }
@@ -760,7 +768,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void Paste()
     {
-        if (SelectedTab is not { } tab || tab.IsHome || tab.CurrentPath is not { } targetDirectory)
+        if (SelectedTab is not { } tab || tab.IsHome || tab.IsRecycleBin || tab.CurrentPath is not { } targetDirectory)
         {
             return;
         }
@@ -1050,6 +1058,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Sections.Add(new SidebarSection
         {
+            HeaderKey = "Nav_CloudDrives",
+            Header = TranslationSource.Instance["Nav_CloudDrives"],
+            Items = BuildCloudDrives(),
+
+            // Üresen is látszania kell: a fejléc jobbklikkje az egyetlen
+            // belépési pont az első felhő meghajtó hozzáadásához.
+            AlwaysVisible = true,
+        });
+
+        Sections.Add(new SidebarSection
+        {
             HeaderKey = "Nav_Favorites",
             Header = TranslationSource.Instance["Nav_Favorites"],
             Items = BuildFavorites(),
@@ -1058,6 +1077,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>A „Legutóbbi" szekció újraépítése.</summary>
     private void RefreshRecent() => ReplaceSection("QuickAccess_Recent", BuildRecent);
+
+    /// <summary>A „Felhő meghajtók" szekció újraépítése — hozzáadás/eltávolítás után.</summary>
+    private void RefreshCloudDrives() => ReplaceSection("Nav_CloudDrives", BuildCloudDrives);
+
+    /// <summary>
+    /// A Windows saját WebDAV-átirányítóján keresztül csatlakoztatott felhő
+    /// meghajtók (NextCloud, ownCloud stb.) — lásd
+    /// <see cref="Pilaster.Shell.Network.WebDavConnector"/>. Az elérhetőség-
+    /// ellenőrzés ugyanazt a gyorsítótárazott próbát használja, mint a
+    /// Gyorselérés bejegyzései, hiszen ez is csak egy sima útvonal-string.
+    /// </summary>
+    private List<SidebarItemViewModel> BuildCloudDrives() =>
+    [
+        .. _cloudDrives.Entries.Select(entry => new SidebarItemViewModel
+        {
+            EntryId = entry.Id,
+            Label = entry.Label,
+            Path = entry.UncPath,
+            Icon = SymbolRegular.CloudSync24,
+            IconColorHex = QuickAccessService.CloudDriveIconColor,
+            IsMissing = !_quickAccess.IsReachable(entry.UncPath),
+            IsCloudDrive = true,
+        }),
+    ];
 
     /// <summary>Egy oldalsáv-szekció cseréje friss tartalommal, a kiemelés újraszámolásával.</summary>
     private void ReplaceSection(string headerKey, Func<List<SidebarItemViewModel>> build)
@@ -1072,6 +1115,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             HeaderKey = headerKey,
             Header = TranslationSource.Instance[headerKey],
             Items = build(),
+
+            // A csukott/nyitott állapot a tartalomtól független — egy
+            // frissítés (pl. új elem a Legutóbbiban) ne nyissa vissza
+            // magától azt a szekciót, amit a felhasználó szándékosan becsukott.
+            IsExpanded = section.IsExpanded,
+            AlwaysVisible = section.AlwaysVisible,
         };
 
         UpdateActiveSidebarItem();
@@ -1189,6 +1238,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Egy felhő meghajtó eltávolítása. A WebDAV-kapcsolatot is bontja
+    /// (<c>WNetCancelConnection2</c>) — legjobb-erőfeszítéses, egy már
+    /// leszakadt/elérhetetlen szervernél a bontás sikertelensége sem
+    /// akadályozza a bejegyzés eltávolítását az oldalsávból.
+    /// </summary>
+    [RelayCommand]
+    private void RemoveCloudDrive(SidebarItemViewModel? item)
+    {
+        if (item?.EntryId is not { } id)
+        {
+            return;
+        }
+
+        Pilaster.Shell.Network.WebDavConnector.Disconnect(item.Path);
+        _cloudDrives.Remove(id);
+    }
+
     /// <summary>Egy gyorselérés-sor mozgatása egy másik sor helyére — húzásos átrendezés az oldalsávban.</summary>
     public void ReorderQuickAccess(string sourceEntryId, string targetEntryId)
     {
@@ -1288,17 +1355,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // TabViewModel.HomeMarker/IsHome), nem egy valódi mappára — ezért
         // ez itt, a rögzített mappáktól külön, elsőként kerül be, és nem
         // távolítható el.
-        var items = new List<SidebarItemViewModel>
+        // A Kezdőlap SZÁNDÉKOSAN a Fluent házikó-glyphöt kapja, nem a
+        // Sajátgép valódi Windows-ikonját — az utóbbi (monitor-forma)
+        // felhasználói visszajelzés szerint nem egyértelmű, hogy a
+        // Kezdőlapra mutat.
+        var homeItem = new SidebarItemViewModel
         {
-            new()
-            {
-                LabelKey = "Nav_Home",
-                Label = TranslationSource.Instance["Nav_Home"],
-                Path = TabViewModel.HomeMarker,
-                Icon = SymbolRegular.Home24,
-                IsHomeEntry = true,
-            },
+            LabelKey = "Nav_Home",
+            Label = TranslationSource.Instance["Nav_Home"],
+            Path = TabViewModel.HomeMarker,
+            Icon = SymbolRegular.Home24,
+            IsHomeEntry = true,
         };
+        var items = new List<SidebarItemViewModel> { homeItem };
 
         foreach (var entry in _quickAccess.Pinned.Where(e => e.Visible))
         {
@@ -1314,7 +1383,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     ? TranslationSource.Instance[key]
                     : Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.Path));
 
-            items.Add(new SidebarItemViewModel
+            var item = new SidebarItemViewModel
             {
                 EntryId = entry.Id,
                 LabelKey = string.IsNullOrWhiteSpace(entry.Label) ? entry.LabelKey : null,
@@ -1329,23 +1398,85 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 // gyorsítótárból felel, és a háttérben ellenőriz.
                 IsMissing = !_quickAccess.IsReachable(entry.Path),
                 IsUnpinnable = true,
-            });
+            };
+            items.Add(item);
+
+            // A valódi Windows-ikon (pl. a Dokumentumok/Letöltések mappák
+            // saját, desktop.ini-ből jövő jelvényes ikonja) felülírja a fenti
+            // Fluent-glyphöt, amint megjön — lásd LoadQuickAccessIconAsync és
+            // a XAML-ben a HasCustomIcon-alapú váltást (ugyanaz a minta, mint
+            // az optikai lemezek saját ikonjánál).
+            if (!item.IsMissing)
+            {
+                _ = LoadQuickAccessIconAsync(item);
+            }
         }
 
-        // A Lomtárnak nincs valódi mappa-útvonala — kattintáskor a
-        // SidebarItemViewModel.IsRecycleBin jelzi, hogy navigálás helyett a
-        // Lomtár-ablakot kell megnyitni (lásd MainWindow.OnSidebarSelectionChanged).
-        items.Add(new SidebarItemViewModel
+        // A Lomtár a TabViewModel.RecycleBinMarker virtuális útvonalra
+        // navigál — ugyanúgy, mint bármelyik valódi mappa (Dokumentumok,
+        // Letöltések stb.), lásd TabViewModel.LoadRecycleBinAsync. Az
+        // IsRecycleBin flag csak a SAJÁT (oldalsáv-) jobbklikk-menüjét
+        // egyszerűsíti (lásd OnSidebarItemRightClick), a navigációt nem
+        // érinti.
+        var recycleBinItem = new SidebarItemViewModel
         {
             LabelKey = "Nav_RecycleBin",
             Label = TranslationSource.Instance["Nav_RecycleBin"],
-            Path = string.Empty,
+            Path = TabViewModel.RecycleBinMarker,
             Icon = SymbolRegular.Delete24,
+            IconColorHex = QuickAccessService.RecycleBinIconColor,
             IsRecycleBin = true,
-            Detail = RecycleBinService.IsEmpty ? TranslationSource.Instance["RecycleBin_EmptyState"] : null,
-        });
+        };
+        items.Add(recycleBinItem);
+
+        // A Lomtár nem parse-olható valódi fájlrendszer-útvonalként, de a
+        // Windows shell-je a jól ismert CLSID-jével (<c>::{CLSID}</c> alakban)
+        // mégis fel tudja oldani — ugyanazt az <c>SHCreateItemFromParsingName</c>
+        // hívást használva, mint egy sima mappánál. Innen jön a Lomtár
+        // valódi, üres/teli állapotot is tükröző Windows-ikonja.
+        _ = LoadQuickAccessIconAsync(recycleBinItem, RecycleBinParsingName);
 
         return items;
+    }
+
+    private const string RecycleBinParsingName = "::{645FF040-5081-101B-9F08-00AA002F954E}";
+
+    /// <summary>
+    /// A Gyorselérés egy sorának lecserélése a valódi Windows shell-ikonjára
+    /// (spec: „az ikonok legyenek olyanok, mint a Windows 11-ben"). Ugyanazt
+    /// a <see cref="IShellImageService"/>-t hívja, amit a fájllista sorai is
+    /// használnak — a jól ismert mappáknál (Dokumentumok, Letöltések stb.) ez
+    /// visszaadja a mappa saját, <c>desktop.ini</c>-ből jövő jelvényes
+    /// ikonját, pontosan úgy, ahogy az Intézőben is kinéz.
+    /// </summary>
+    private async Task LoadQuickAccessIconAsync(SidebarItemViewModel item, string? probePath = null)
+    {
+        try
+        {
+            var probe = new FileSystemItem
+            {
+                FullPath = probePath ?? item.Path,
+                Name = item.Label,
+                Kind = FileSystemItemKind.Directory,
+            };
+
+            // 32 px-et kérünk, nem a ténylegesen megjelenő 18-at: a Windows
+            // ikongyorsítótára a szabványos méreteknél (16/32/48…) a
+            // legélesebb, egy „furcsa" 20 px-es kérésnél gyakran csak egy
+            // kisebb (16 px-es) változatot nagyított fel, ami pixelesnek
+            // hatott. Innentől a WPF kicsinyíti le — az sokkal simább, mint
+            // a szoftveres nagyítás.
+            var image = await _shellImages.GetImageAsync(probe, 32).ConfigureAwait(true);
+
+            if (image is not null)
+            {
+                item.CustomIcon = image;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Kilépés vagy szekció-újraépítés közben megszakadt lekérés — nincs teendő.
+        }
     }
 
     /// <summary>
@@ -1360,7 +1491,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         .. _quickAccess.Recent.Select(entry => new SidebarItemViewModel
         {
             EntryId = entry.Id,
-            Label = Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.Path)),
+            // Meghajtógyökérnél (pl. "C:\") a GetFileName üres stringet ad —
+            // ilyenkor a teljes útvonal a címke, ugyanaz a minta, mint a
+            // Kedvenceknél (lásd BuildFavorites feljebb).
+            Label = Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.Path)) is { Length: > 0 } name
+                ? name
+                : entry.Path,
             Path = entry.Path,
             Icon = SymbolRegular.History24,
             IsMissing = !_quickAccess.IsReachable(entry.Path),

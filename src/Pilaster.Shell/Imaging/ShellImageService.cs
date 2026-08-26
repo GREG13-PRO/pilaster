@@ -59,6 +59,17 @@ public sealed class ShellImageService : IShellImageService
         int size,
         CancellationToken cancellationToken = default)
     {
+        // Lomtár-elemeknél a FullPath szintetikus (nincs mögötte valódi
+        // shell-elem) — a nem-bélyegkép fájlok kiterjesztés SZERINT
+        // gyorsítótáraznak (lásd BuildCacheKey), tehát egy itt sikertelen
+        // (null) találat SZENNYEZNÉ az adott kiterjesztés MEGOSZTOTT
+        // gyorsítótár-bejegyzését minden valódi fájlnál is. Ezért ki sem
+        // próbáljuk, sem nem gyorsítótárazzuk.
+        if (item.IsRecycled)
+        {
+            return null;
+        }
+
         var key = BuildCacheKey(item, size);
 
         if (_cache.TryGetValue(key, out var cached))
@@ -97,6 +108,35 @@ public sealed class ShellImageService : IShellImageService
         return $"x|{size}|{item.Extension}";
     }
 
+    /// <summary>
+    /// <c>E_PENDING</c> — az <c>IShellItemImageFactory::GetImage</c> ezt adja
+    /// vissza, amikor az ikon még nincs kész a shell gyorsítótárában (jellemzően
+    /// a <c>desktop.ini</c>-vel egyedi ikonra állított ismert mappáknál — pl.
+    /// Dokumentumok, Letöltések, Képek, Zene —, ahol a shell aszinkron
+    /// olvassa be az <c>IconResource</c>-ot). Az Asztal ezt SOHA nem dobja,
+    /// mert nincs ilyen egyedi ikon-felülbírálása — ezért tűnt úgy elsőre,
+    /// mintha csak néhány mappánál lenne hiba.
+    /// </summary>
+    private const int EPending = unchecked((int)0x8000000A);
+
+    private const int MaxPendingRetries = 8;
+    private static readonly TimeSpan PendingRetryDelay = TimeSpan.FromMilliseconds(30);
+
+    private static int GetImageWithPendingRetry(IShellItemImageFactory factory, NativeMethods.Size size, ShellImageFlags flags, out nint hBitmap)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var hr = factory.GetImage(size, flags, out hBitmap);
+
+            if (hr != EPending || attempt >= MaxPendingRetries)
+            {
+                return hr;
+            }
+
+            Thread.Sleep(PendingRetryDelay);
+        }
+    }
+
     private static ImageSource? Extract(string path, int size, bool preferThumbnail)
     {
         nint factoryPtr = 0;
@@ -122,7 +162,7 @@ public sealed class ShellImageService : IShellImageService
 
             var requested = new NativeMethods.Size { Width = size, Height = size };
 
-            if (factory.GetImage(requested, flags, out hBitmap) != 0 || hBitmap == 0)
+            if (GetImageWithPendingRetry(factory, requested, flags, out hBitmap) != 0 || hBitmap == 0)
             {
                 // Bélyegkép hiányában essünk vissza a típusikonra.
                 if (!preferThumbnail)
@@ -130,7 +170,7 @@ public sealed class ShellImageService : IShellImageService
                     return null;
                 }
 
-                if (factory.GetImage(requested, flags | ShellImageFlags.IconOnly, out hBitmap) != 0
+                if (GetImageWithPendingRetry(factory, requested, flags | ShellImageFlags.IconOnly, out hBitmap) != 0
                     || hBitmap == 0)
                 {
                     return null;

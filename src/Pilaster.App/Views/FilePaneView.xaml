@@ -186,13 +186,31 @@
 
         <DataTemplate x:Key="PaneNameDisplayTemplate" DataType="{x:Type fs:FileSystemItem}">
             <StackPanel Orientation="Horizontal">
-                <controls:ShellIconImage
+                <Grid
                     Width="18"
                     Height="18"
                     Margin="0,0,6,0"
-                    VerticalAlignment="Center"
-                    IconSize="16"
-                    Item="{Binding}" />
+                    VerticalAlignment="Center">
+                    <controls:ShellIconImage
+                        IconSize="16"
+                        Item="{Binding}"
+                        Visibility="{Binding IsRecycled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                    <!--  Lomtár-elem: lásd MainWindow.xaml azonos megjegyzése a Név oszlopnál.  -->
+                    <ui:SymbolIcon
+                        FontSize="16"
+                        Symbol="Document24"
+                        Visibility="{Binding IsRecycled, Converter={StaticResource BoolToVisibility}}">
+                        <ui:SymbolIcon.Style>
+                            <Style TargetType="ui:SymbolIcon">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Directory">
+                                        <Setter Property="Symbol" Value="Folder24" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:SymbolIcon.Style>
+                    </ui:SymbolIcon>
+                </Grid>
                 <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
 
                 <!--  Címke-színminták — ugyanaz a vezérlő, mint a fő fájllistán (lásd Controls/TagSwatch.cs).  -->
@@ -328,7 +346,7 @@
     <Border
         x:Name="RootBorder"
         Background="{DynamicResource TokenBgSurface}"
-        CornerRadius="8"
+        CornerRadius="10"
         PreviewMouseDown="OnRootPreviewMouseDown">
         <Border.Style>
             <Style TargetType="Border">
@@ -483,11 +501,11 @@
 
                 <Border
                     Grid.Column="1"
-                    Padding="8,4"
+                    Padding="9,5"
                     Background="{DynamicResource TokenBgInput}"
                     BorderBrush="{DynamicResource TokenBorder}"
                     BorderThickness="1"
-                    CornerRadius="6">
+                    CornerRadius="9">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding Breadcrumbs}">
                             <ItemsControl.ItemsPanel>

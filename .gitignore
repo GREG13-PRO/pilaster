@@ -72,3 +72,9 @@ discord-bot/npm-debug.log*
 *.db-shm
 *.db-wal
 thumbcache/
+
+## Helyi, egygépes fejlesztői szkriptek (fix elérési utakkal) — nem a repóba valók
+tools/menu-shot.ps1
+tools/shot.ps1
+tools/startup-time.ps1
+tools/toggle-theme.ps1

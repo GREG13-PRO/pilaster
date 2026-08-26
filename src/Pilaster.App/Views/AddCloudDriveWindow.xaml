@@ -1,0 +1,113 @@
+<ui:FluentWindow
+    x:Class="Pilaster.App.Views.AddCloudDriveWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:loc="clr-namespace:Pilaster.App.Localization"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:Pilaster.App.ViewModels"
+    Title="{loc:Loc CloudDrive_AddTitle}"
+    Width="440"
+    Height="480"
+    MinWidth="380"
+    MinHeight="440"
+    d:DataContext="{d:DesignInstance vm:AddCloudDriveViewModel}"
+    mc:Ignorable="d"
+    Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
+    ExtendsContentIntoTitleBar="True"
+    ResizeMode="NoResize"
+    WindowBackdropType="Mica"
+    WindowCornerPreference="Round"
+    WindowStartupLocation="CenterOwner">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar
+            Grid.Row="0"
+            Title="{loc:Loc CloudDrive_AddTitle}"
+            ShowMaximize="False"
+            ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="20,4,20,0">
+            <TextBlock
+                Margin="0,0,0,16"
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                Text="{loc:Loc CloudDrive_Intro}"
+                TextWrapping="Wrap" />
+
+            <TextBlock Margin="0,0,0,4" Text="{loc:Loc CloudDrive_Name}" />
+            <ui:TextBox
+                x:Name="NameInput"
+                Margin="0,0,0,12"
+                PlaceholderText="{loc:Loc CloudDrive_NamePlaceholder}"
+                Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Margin="0,0,0,4" Text="{loc:Loc CloudDrive_ServerUrl}" />
+            <ui:TextBox
+                x:Name="ServerUrlInput"
+                Margin="0,0,0,12"
+                PlaceholderText="{loc:Loc CloudDrive_ServerUrlPlaceholder}"
+                Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Margin="0,0,0,4" Text="{loc:Loc CloudDrive_Username}" />
+            <ui:TextBox
+                x:Name="UsernameInput"
+                Margin="0,0,0,12"
+                Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Margin="0,0,0,4" Text="{loc:Loc CloudDrive_Password}" />
+            <ui:PasswordBox
+                x:Name="PasswordInput"
+                Margin="0,0,0,12"
+                RevealButtonEnabled="True" />
+
+            <CheckBox
+                Margin="0,0,0,12"
+                Content="{loc:Loc CloudDrive_RememberCredentials}"
+                IsChecked="{Binding RememberCredentials}" />
+
+            <TextBlock
+                Margin="0,0,0,4"
+                Foreground="{DynamicResource TokenDanger}"
+                Text="{Binding ErrorMessage}"
+                TextWrapping="Wrap"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}" />
+        </StackPanel>
+
+        <Grid Grid.Row="2" Margin="20,10,20,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ui:ProgressRing
+                Grid.Column="0"
+                Width="20"
+                Height="20"
+                HorizontalAlignment="Left"
+                IsIndeterminate="True"
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+
+            <ui:Button
+                Grid.Column="1"
+                Margin="0,0,8,0"
+                Click="OnCancelClick"
+                Content="{loc:Loc Cmd_Cancel}"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}" />
+
+            <ui:Button
+                Grid.Column="2"
+                Appearance="Primary"
+                Click="OnConnectClick"
+                Content="{loc:Loc CloudDrive_Connect}"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

@@ -50,7 +50,6 @@ public static class BindingCheckRunner
 
         OpenSettings(services, mainWindow, results);
         OpenQuickAccessEditor(services, mainWindow, results);
-        OpenRecycleBin(services, mainWindow, results);
         OpenEditor(services, mainWindow, results);
         OpenFilePreview(services, mainWindow, results);
         OpenTransferConfirm(services, mainWindow, results);
@@ -116,16 +115,6 @@ public static class BindingCheckRunner
         window.Owner = mainWindow;
         ScheduleModalScanAndClose(window, results);
         window.ShowDialog();
-    }
-
-    private static void OpenRecycleBin(IServiceProvider services, MainWindow mainWindow, List<string> results)
-    {
-        var window = services.GetRequiredService<RecycleBinWindow>();
-        window.Owner = mainWindow;
-        window.Show();
-        Pump(window.Dispatcher);
-        results.AddRange(BindingErrorScanner.Scan(window));
-        window.Close();
     }
 
     private static void OpenEditor(IServiceProvider services, MainWindow mainWindow, List<string> results)

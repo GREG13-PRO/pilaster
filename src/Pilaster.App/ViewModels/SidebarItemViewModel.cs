@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Pilaster.App.Localization;
 using Pilaster.Core.Metadata;
 using Pilaster.Providers.Local;
@@ -117,6 +118,13 @@ public sealed partial class SidebarItemViewModel : ObservableObject
     /// <summary>Igaz a Kezdőlap sorára — a Kezdőlap-panel nem mutat magára mutató csempét.</summary>
     public bool IsHomeEntry { get; init; }
 
+    /// <summary>
+    /// Igaz a Felhő meghajtók szekció soraira — ekkor az <see cref="EntryId"/>
+    /// a <c>CloudDriveService</c> bejegyzés-azonosítója, és a jobbklikk-menü
+    /// eltávolítást (nem gyorselérés-szerkesztést) kínál.
+    /// </summary>
+    public bool IsCloudDrive { get; init; }
+
     /// <summary>Igaz, ha ez a sor csempeként megjeleníthető a Kezdőlap-panelen (nem a Lomtár és nem maga a Kezdőlap).</summary>
     public bool IsDashboardTile => !IsRecycleBin && !IsHomeEntry;
 
@@ -139,6 +147,24 @@ public sealed partial class SidebarSection : ObservableObject
     public partial string Header { get; set; } = string.Empty;
 
     public required IReadOnlyList<SidebarItemViewModel> Items { get; init; }
+
+    /// <summary>
+    /// Igaz, ha a szekció akkor is megjelenik, ha üres — pl. a Felhő
+    /// meghajtóknál, ahol a fejléc jobbklikkje az EGYETLEN belépési pont az
+    /// első bejegyzés hozzáadásához (nincs másik felület, ami elrejtve
+    /// tartaná ezt a lehetőséget elérhetetlenné, ha a lista üres).
+    /// </summary>
+    public bool AlwaysVisible { get; init; }
+
+    /// <summary>Igaz, ha a szekciónak van tartalma, VAGY mindig látszania kell — ez vezérli a fejléc és a lista láthatóságát.</summary>
+    public bool IsVisible => AlwaysVisible || Items.Count > 0;
+
+    /// <summary>Igaz, ha a szekció sorai láthatók — a fejlécre kattintva csukható/nyitható.</summary>
+    [ObservableProperty]
+    public partial bool IsExpanded { get; set; } = true;
+
+    [RelayCommand]
+    private void ToggleExpanded() => IsExpanded = !IsExpanded;
 
     public void RefreshLabels()
     {

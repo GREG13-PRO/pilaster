@@ -1,10 +1,21 @@
-﻿<!DOCTYPE html>
-<html lang="hu">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+  // A helyes témát még az első kirajzolás előtt beállítjuk, hogy ne villanjon
+  // fel a rossz (rendszertől eltérő) téma egy pillanatra.
+  (function () {
+    try {
+      var stored = localStorage.getItem("pilaster-theme");
+      var theme = stored || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) { /* localStorage nem elérhető (pl. privát ablak) — marad az alap sötét téma */ }
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pilaster — modern fájlkezelő Windows 11-re</title>
-<meta name="description" content="Modern fájlkezelő Windows 11-re — kétablakos nézet, oszlopos nézet, saját másolásjelző, címkék, kedvencek és testreszabható gyorselérés.">
+<title id="pageTitle">Pilaster — a modern file manager for Windows 11</title>
+<meta id="pageDescription" name="description" content="A modern file manager for Windows 11 — dual-pane view, column view, its own copy indicator, tags, favorites and customizable quick access.">
 <link rel="icon" type="image/png" href="assets/brand/png/icon-32.png">
 <style>
   :root {
@@ -12,6 +23,7 @@
     --bg-alt: #131110;
     --panel: rgba(255, 255, 255, 0.045);
     --panel-border: rgba(255, 255, 255, 0.09);
+    --panel-border-hover: rgba(255, 255, 255, 0.16);
     --panel-strong: rgba(255, 255, 255, 0.07);
     --text: #f3ede4;
     --text-dim: #c9bfb1;
@@ -19,10 +31,62 @@
     --accent: #e0a458;
     --accent-bright: #f2c078;
     --accent-dim: #a86f2f;
+    --nav-bg: rgba(11, 10, 9, 0.55);
+    --hairline: rgba(255, 255, 255, 0.06);
+    --chip-bg: rgba(11, 10, 9, 0.62);
+    --underline: rgba(255, 255, 255, 0.25);
+    --glow-a: rgba(224, 164, 88, 0.16);
+    --glow-b: rgba(224, 164, 88, 0.08);
     --radius-lg: 22px;
     --radius-md: 14px;
     --radius-sm: 9px;
     --max-width: 1120px;
+  }
+
+  /* Világos téma: rendszerkövető alapértelmezés, ha nincs kézi felülbírálás. */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --bg: #faf6ef;
+      --bg-alt: #f1e9dc;
+      --panel: rgba(32, 20, 8, 0.04);
+      --panel-border: rgba(32, 20, 8, 0.10);
+      --panel-border-hover: rgba(32, 20, 8, 0.20);
+      --panel-strong: rgba(32, 20, 8, 0.07);
+      --text: #241a0f;
+      --text-dim: #55483a;
+      --text-faint: #8a7a67;
+      --accent: #c07f34;
+      --accent-bright: #e0a458;
+      --accent-dim: #9c672c;
+      --nav-bg: rgba(250, 246, 239, 0.72);
+      --hairline: rgba(32, 20, 8, 0.08);
+      --chip-bg: rgba(255, 255, 255, 0.72);
+      --underline: rgba(32, 20, 8, 0.22);
+      --glow-a: rgba(224, 164, 88, 0.20);
+      --glow-b: rgba(224, 164, 88, 0.10);
+    }
+  }
+
+  /* Világos téma: kézi kapcsoló (felülírja a rendszerbeállítást is). */
+  :root[data-theme="light"] {
+    --bg: #faf6ef;
+    --bg-alt: #f1e9dc;
+    --panel: rgba(32, 20, 8, 0.04);
+    --panel-border: rgba(32, 20, 8, 0.10);
+    --panel-border-hover: rgba(32, 20, 8, 0.20);
+    --panel-strong: rgba(32, 20, 8, 0.07);
+    --text: #241a0f;
+    --text-dim: #55483a;
+    --text-faint: #8a7a67;
+    --accent: #c07f34;
+    --accent-bright: #e0a458;
+    --accent-dim: #9c672c;
+    --nav-bg: rgba(250, 246, 239, 0.72);
+    --hairline: rgba(32, 20, 8, 0.08);
+    --chip-bg: rgba(255, 255, 255, 0.72);
+    --underline: rgba(32, 20, 8, 0.22);
+    --glow-a: rgba(224, 164, 88, 0.20);
+    --glow-b: rgba(224, 164, 88, 0.10);
   }
 
   * { box-sizing: border-box; }
@@ -36,6 +100,7 @@
     font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.5;
     overflow-x: hidden;
+    transition: background 0.25s ease, color 0.25s ease;
   }
 
   /* Háttér: meleg, halvány sugárzó fény a Mica-hátterű app hangulatához */
@@ -45,9 +110,10 @@
     inset: 0;
     z-index: -1;
     background:
-      radial-gradient(60vw 60vw at 15% -10%, rgba(224, 164, 88, 0.16), transparent 60%),
-      radial-gradient(50vw 50vw at 100% 10%, rgba(224, 164, 88, 0.08), transparent 55%),
+      radial-gradient(60vw 60vw at 15% -10%, var(--glow-a), transparent 60%),
+      radial-gradient(50vw 50vw at 100% 10%, var(--glow-b), transparent 55%),
       linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%);
+    transition: background 0.25s ease;
   }
 
   a { color: inherit; }
@@ -67,8 +133,9 @@
     z-index: 20;
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    background: rgba(11, 10, 9, 0.55);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--hairline);
+    transition: background 0.25s ease, border-color 0.25s ease;
   }
 
   .nav-inner {
@@ -92,6 +159,53 @@
   }
   .nav-links a:hover { color: var(--text); }
 
+  .nav-utils { display: flex; align-items: center; gap: 10px; }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  }
+  .icon-btn:hover { background: var(--panel-strong); color: var(--text); }
+  .icon-btn svg { width: 17px; height: 17px; }
+  .icon-btn .icon-moon { display: none; }
+  :root[data-theme="light"] .icon-btn .icon-sun { display: none; }
+  :root[data-theme="light"] .icon-btn .icon-moon { display: block; }
+
+  .lang-switch {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+  }
+  .lang-opt {
+    border: none;
+    background: transparent;
+    color: var(--text-faint);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 5px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+  .lang-opt.is-active { background: var(--accent); color: #201304; }
+  .lang-opt:not(.is-active):hover { color: var(--text-dim); }
+
   .btn-ghost {
     display: inline-flex;
     align-items: center;
@@ -105,7 +219,7 @@
     text-decoration: none;
     transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
   }
-  .btn-ghost:hover { background: var(--panel-strong); border-color: rgba(255,255,255,0.16); }
+  .btn-ghost:hover { background: var(--panel-strong); border-color: var(--panel-border-hover); }
 
   /* ===== Hero ===== */
   .hero {
@@ -131,18 +245,10 @@
 
   .hero p.tagline {
     max-width: 620px;
-    margin: 0 auto 6px;
+    margin: 0 auto 40px;
     font-size: 19px;
     color: var(--text);
     font-weight: 400;
-  }
-
-  .hero p.tagline-en {
-    max-width: 600px;
-    margin: 0 auto 40px;
-    font-size: 14.5px;
-    color: var(--text-faint);
-    font-style: italic;
   }
 
   .download-btn {
@@ -174,7 +280,7 @@
     color: var(--text-faint);
     text-decoration: underline;
     text-underline-offset: 3px;
-    text-decoration-color: rgba(255,255,255,0.25);
+    text-decoration-color: var(--underline);
   }
   .all-versions:hover { color: var(--text-dim); }
 
@@ -263,37 +369,52 @@
     background:
       linear-gradient(160deg, rgba(224,164,88,0.10), transparent 60%),
       var(--panel);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
     position: relative;
     overflow: hidden;
   }
 
-  .shot-card .badge {
+  .shot-card .mockup { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .shot-card span.label {
     position: absolute;
+    left: 14px;
     top: 14px;
-    right: 14px;
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 4px 11px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.08);
-    color: var(--text-faint);
+    background: var(--chip-bg);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border: 1px solid var(--panel-border);
   }
 
-  .shot-card svg { width: 34px; height: 34px; stroke: var(--text-faint); opacity: 0.6; }
-  .shot-card span.label { font-size: 13.5px; color: var(--text-dim); font-weight: 500; }
+  /* Kozos rajzelemek a kepernyokep-mockupokhoz (nem valodi screenshotok,
+     hanem stilizalt UI-illusztraciok, a feature-ikonokkal azonos vonalstilusban). */
+  .m-panel { fill: var(--panel-strong); stroke: var(--panel-border); stroke-width: 1; }
+  .m-panel-faint { fill: rgba(255,255,255,0.025); stroke: var(--panel-border); stroke-width: 1; }
+  .m-tab { fill: rgba(224,164,88,0.22); }
+  .m-icon { fill: rgba(255,255,255,0.20); }
+  .m-bar { fill: rgba(255,255,255,0.14); }
+  .m-bar-strong { fill: rgba(255,255,255,0.24); }
+  .m-label-bar { fill: rgba(255,255,255,0.34); }
+  .m-divider { stroke: var(--panel-border); stroke-width: 1.5; }
+  .m-row-hl { fill: rgba(224,164,88,0.14); }
+  .m-chevron { stroke: var(--text-faint); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .m-track { fill: rgba(255,255,255,0.10); }
+  .m-fill { fill: var(--accent); }
+  .m-heart { stroke: var(--accent-bright); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .m-shadow { fill: rgba(0,0,0,0.32); }
+  .m-btn { fill: var(--panel); stroke: var(--panel-border); stroke-width: 1; }
+  .m-glyph { stroke: var(--text-faint); stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ===== Footer ===== */
   footer {
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid var(--hairline);
     padding: 40px 0 48px;
     margin-top: 40px;
+    transition: border-color 0.25s ease;
   }
 
   .footer-inner {
@@ -326,6 +447,9 @@
     .hero { padding: 64px 0 48px; }
     .section-title { font-size: 24px; }
   }
+
+  /* Nyelvváltáskor a szöveg lágyan elhalványul, majd az új nyelvvel visszaúszik. */
+  [data-i18n] { transition: opacity 0.16s ease; }
 </style>
 </head>
 <body>
@@ -337,82 +461,91 @@
       <span><img src="assets/brand/wordmark.png" alt="Pilaster"></span>
     </a>
     <nav class="nav-links">
-      <a href="#features">Funkciók</a>
-      <a href="#screenshots">Képernyőképek</a>
-      <a href="https://github.com/GREG13-PRO/pilaster/releases">Verziók</a>
+      <a href="#features" data-i18n="navFeatures">Features</a>
+      <a href="#screenshots" data-i18n="navScreenshots">Screenshots</a>
+      <a href="https://github.com/GREG13-PRO/pilaster/releases" data-i18n="navReleases">Releases</a>
       <a href="https://github.com/GREG13-PRO/pilaster">GitHub</a>
     </nav>
-    <a class="btn-ghost" href="https://github.com/GREG13-PRO/pilaster">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-      GitHub
-    </a>
+    <div class="nav-utils">
+      <button id="themeToggle" class="icon-btn" type="button" aria-label="Toggle color theme" title="Toggle color theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.6A8.5 8.5 0 1 1 9.4 4a7 7 0 0 0 10.6 10.6Z"/></svg>
+      </button>
+      <div class="lang-switch" id="langSwitch" role="group" aria-label="Language">
+        <button type="button" class="lang-opt is-active" data-lang="en">EN</button>
+        <button type="button" class="lang-opt" data-lang="hu">HU</button>
+      </div>
+      <a class="btn-ghost" href="https://github.com/GREG13-PRO/pilaster">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
   </div>
 </header>
 
 <main id="top">
 
   <section class="hero wrap">
-    <img class="hero-icon" src="assets/brand/png/icon-256.png" alt="Pilaster ikon">
+    <img class="hero-icon" src="assets/brand/png/icon-256.png" alt="Pilaster icon">
     <img class="hero-wordmark" src="assets/brand/wordmark.png" alt="Pilaster">
 
-    <p class="tagline">Modern fájlkezelő Windows 11-re — kétablakos nézet, oszlopos nézet, saját másolásjelző, és sok minden, ami az Intézőből hiányzik.</p>
-    <p class="tagline-en">A modern file manager for Windows 11 — dual-pane view, a real activity center, and a lot of things Explorer never had.</p>
+    <p class="tagline" data-i18n="tagline">A modern file manager for Windows 11 — dual-pane view, column view, its own copy-progress indicator, and a lot of things Explorer never had.</p>
 
     <a id="downloadBtn" class="download-btn" href="https://github.com/GREG13-PRO/pilaster/releases/latest">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
-      <span id="downloadLabel">Letöltés Windowsra</span>
+      <span id="downloadLabel" data-i18n="downloadLabel">Download for Windows</span>
     </a>
 
     <div class="download-meta">
       <span id="downloadVersion">v0.8.0</span> · <strong id="downloadSize">~49 MB</strong> · x64
     </div>
     <div>
-      <a class="all-versions" href="https://github.com/GREG13-PRO/pilaster/releases">Összes verzió a GitHubon →</a>
+      <a class="all-versions" href="https://github.com/GREG13-PRO/pilaster/releases" data-i18n="allVersions">All versions on GitHub →</a>
     </div>
-    <p class="arm-note">ARM64-es gépen (Snapdragon X, Surface Pro)? Az <a href="https://github.com/GREG13-PRO/pilaster/releases/latest">arm64 csomagot</a> töltsd le helyette.</p>
+    <p class="arm-note"><span data-i18n="armNotePrefix">On an ARM64 device (Snapdragon X, Surface Pro)? Download the </span><a href="https://github.com/GREG13-PRO/pilaster/releases/latest" data-i18n="armNoteLink">arm64 package</a><span data-i18n="armNoteSuffix"> instead.</span></p>
   </section>
 
   <section id="features">
     <div class="wrap">
-      <h2 class="section-title reveal">Amit hoz</h2>
-      <p class="section-sub reveal">Nem toldalék-funkciók — ezek a Pilaster saját, az Intézőből hiányzó képességei.</p>
+      <h2 class="section-title reveal" data-i18n="featuresTitle">What it brings</h2>
+      <p class="section-sub reveal" data-i18n="featuresSub">Not add-on features — these are Pilaster's own capabilities that Explorer is missing.</p>
 
       <div class="feature-grid">
 
         <div class="feature-card reveal">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="16" rx="2"/></svg></div>
-          <h3>Kétablakos nézet</h3>
-          <p>kétpaneles, független panelek — saját előzménnyel, szinkronizálható navigációval és húzd-és-ejtsd másolással/áthelyezéssel a kettő között.</p>
+          <h3 data-i18n="feature1Title">Dual-pane view</h3>
+          <p data-i18n="feature1Desc">Two independent panels — each with its own history, syncable navigation, and drag-and-drop copy/move between them.</p>
         </div>
 
         <div class="feature-card reveal">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83Z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg></div>
-          <h3>Színes címkék</h3>
-          <p>macOS-stílusú, tetszőleges színű és nevű címkék bármely fájlon vagy mappán — az oldalsávból egy kattintással rájuk szűrhetsz.</p>
+          <h3 data-i18n="feature2Title">Colorful tags</h3>
+          <p data-i18n="feature2Desc">macOS-style tags in any color and name on any file or folder — filter by them with one click from the sidebar.</p>
         </div>
 
         <div class="feature-card reveal">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 17.27 5.18 3.13-1.37-5.9L20.5 10.3l-6.04-.52L12 4.2l-2.46 5.58-6.04.52 4.69 4.2-1.37 5.9Z"/></svg></div>
-          <h3>Kedvencek</h3>
-          <p>Egy kattintás a szív ikonra, és bármi elérhető az oldalsávból — hiányzó célnál halvány jelzéssel, egykattintásos eltávolítással.</p>
+          <h3 data-i18n="feature3Title">Favorites</h3>
+          <p data-i18n="feature3Desc">One click on the heart icon and anything is reachable from the sidebar — with a faint marker for missing targets and one-click removal.</p>
         </div>
 
         <div class="feature-card reveal">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-          <h3>Testreszabható gyorselérés</h3>
-          <p>Rögzítsd a saját mappáidat jobbklikkel vagy húzással, rendezd át tetszés szerint — minden mentve marad, újraindítás után is.</p>
+          <h3 data-i18n="feature4Title">Customizable quick access</h3>
+          <p data-i18n="feature4Desc">Pin your own folders by right-click or drag, and reorder them however you like — everything is saved, even after a restart.</p>
         </div>
 
         <div class="feature-card reveal">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
-          <h3>Saját másolásjelző</h3>
-          <p>Nem az Intéző zöld sávja: valódi irányítás — szünet, folytatás, megszakítás, sebesség és hátralévő idő, több művelet egyszerre.</p>
+          <h3 data-i18n="feature5Title">Its own copy indicator</h3>
+          <p data-i18n="feature5Desc">Not Explorer's green bar: real control — pause, resume, cancel, speed and time remaining, multiple operations at once.</p>
         </div>
 
         <div class="feature-card reveal">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" stroke="none" opacity="0.35"/></svg></div>
-          <h3>Színtémák</h3>
-          <p>Világos, sötét vagy rendszerkövető, választható akcentus színnel — vagy kövesd automatikusan a Windows saját színedet.</p>
+          <h3 data-i18n="feature6Title">Color themes</h3>
+          <p data-i18n="feature6Desc">Light, dark, or system-following, with a selectable accent color — or automatically follow your own Windows accent color.</p>
         </div>
 
       </div>
@@ -421,30 +554,110 @@
 
   <section id="screenshots">
     <div class="wrap">
-      <h2 class="section-title reveal">Képernyőképek</h2>
-      <p class="section-sub reveal">Hamarosan valódi felvételekkel — egyelőre egy előzetes a felület felépítéséről.</p>
+      <h2 class="section-title reveal" data-i18n="screenshotsTitle">Screenshots</h2>
+      <p class="section-sub reveal" data-i18n="screenshotsSub">Here's the interface — dual-pane, column view, activity center, and tags at a glance.</p>
 
       <div class="shot-grid">
+
         <div class="shot-card reveal">
-          <span class="badge">Hamarosan</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="16" rx="2"/></svg>
-          <span class="label">Kétablakos nézet</span>
+          <svg class="mockup" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect class="m-panel" x="16" y="18" width="176" height="214" rx="10"/>
+            <rect class="m-tab" x="26" y="28" width="72" height="16" rx="6"/>
+            <g>
+              <rect class="m-icon" x="26" y="60" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="62" width="110" height="6" rx="3"/>
+              <rect class="m-icon" x="26" y="86" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="88" width="90" height="6" rx="3"/>
+              <rect class="m-icon" x="26" y="112" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="114" width="120" height="6" rx="3"/>
+              <rect class="m-icon" x="26" y="138" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="140" width="80" height="6" rx="3"/>
+              <rect class="m-icon" x="26" y="164" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="166" width="100" height="6" rx="3"/>
+            </g>
+            <rect class="m-panel" x="208" y="18" width="176" height="214" rx="10"/>
+            <rect class="m-tab" x="218" y="28" width="72" height="16" rx="6"/>
+            <g>
+              <rect class="m-icon" x="218" y="60" width="10" height="10" rx="2"/><rect class="m-bar" x="234" y="62" width="95" height="6" rx="3"/>
+              <rect class="m-icon" x="218" y="86" width="10" height="10" rx="2"/><rect class="m-bar" x="234" y="88" width="115" height="6" rx="3"/>
+              <rect class="m-icon" x="218" y="112" width="10" height="10" rx="2"/><rect class="m-bar" x="234" y="114" width="75" height="6" rx="3"/>
+              <rect class="m-icon" x="218" y="138" width="10" height="10" rx="2"/><rect class="m-bar" x="234" y="140" width="105" height="6" rx="3"/>
+              <rect class="m-icon" x="218" y="164" width="10" height="10" rx="2"/><rect class="m-bar" x="234" y="166" width="85" height="6" rx="3"/>
+            </g>
+            <line class="m-divider" x1="200" y1="18" x2="200" y2="232"/>
+            <circle class="m-btn" cx="200" cy="125" r="14"/>
+            <path class="m-glyph" d="M195 121l-4 4 4 4M205 121l4 4-4 4"/>
+          </svg>
+          <span class="label" data-i18n="shot1Label">Dual-pane view</span>
         </div>
+
         <div class="shot-card reveal">
-          <span class="badge">Hamarosan</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="16" rx="1.5"/><rect x="16" y="4" width="5" height="16" rx="1.5"/></svg>
-          <span class="label">Oszlopos nézet</span>
+          <svg class="mockup" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect class="m-panel" x="16" y="18" width="104" height="214" rx="10"/>
+            <rect class="m-icon" x="26" y="32" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="34" width="60" height="6" rx="3"/>
+            <rect class="m-icon" x="26" y="58" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="60" width="48" height="6" rx="3"/>
+            <rect class="m-row-hl" x="20" y="80" width="96" height="22" rx="6"/>
+            <rect class="m-icon" x="26" y="86" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="88" width="52" height="6" rx="3"/><path class="m-chevron" d="M104 87l5 5-5 5"/>
+            <rect class="m-icon" x="26" y="112" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="114" width="58" height="6" rx="3"/>
+            <rect class="m-icon" x="26" y="138" width="10" height="10" rx="2"/><rect class="m-bar" x="42" y="140" width="44" height="6" rx="3"/>
+
+            <rect class="m-panel" x="128" y="18" width="104" height="214" rx="10"/>
+            <rect class="m-icon" x="138" y="32" width="10" height="10" rx="2"/><rect class="m-bar" x="154" y="34" width="56" height="6" rx="3"/>
+            <rect class="m-row-hl" x="132" y="54" width="96" height="22" rx="6"/>
+            <rect class="m-icon" x="138" y="60" width="10" height="10" rx="2"/><rect class="m-bar" x="154" y="62" width="50" height="6" rx="3"/><path class="m-chevron" d="M216 61l5 5-5 5"/>
+            <rect class="m-icon" x="138" y="86" width="10" height="10" rx="2"/><rect class="m-bar" x="154" y="88" width="60" height="6" rx="3"/>
+            <rect class="m-icon" x="138" y="112" width="10" height="10" rx="2"/><rect class="m-bar" x="154" y="114" width="46" height="6" rx="3"/>
+
+            <rect class="m-panel" x="240" y="18" width="144" height="214" rx="10"/>
+            <rect class="m-row-hl" x="244" y="30" width="136" height="22" rx="6"/>
+            <rect class="m-icon" x="250" y="36" width="10" height="10" rx="2"/><rect class="m-bar" x="266" y="38" width="80" height="6" rx="3"/>
+            <rect class="m-icon" x="250" y="62" width="10" height="10" rx="2"/><rect class="m-bar" x="266" y="64" width="70" height="6" rx="3"/>
+            <rect class="m-icon" x="250" y="88" width="10" height="10" rx="2"/><rect class="m-bar" x="266" y="90" width="90" height="6" rx="3"/>
+            <rect class="m-icon" x="250" y="114" width="10" height="10" rx="2"/><rect class="m-bar" x="266" y="116" width="65" height="6" rx="3"/>
+          </svg>
+          <span class="label" data-i18n="shot2Label">Column view</span>
         </div>
+
         <div class="shot-card reveal">
-          <span class="badge">Hamarosan</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          <span class="label">Aktivitás-központ</span>
+          <svg class="mockup" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <g opacity="0.4">
+              <rect class="m-icon" x="20" y="24" width="10" height="10" rx="2"/><rect class="m-bar" x="36" y="26" width="120" height="6" rx="3"/>
+              <rect class="m-icon" x="20" y="50" width="10" height="10" rx="2"/><rect class="m-bar" x="36" y="52" width="95" height="6" rx="3"/>
+              <rect class="m-icon" x="20" y="76" width="10" height="10" rx="2"/><rect class="m-bar" x="36" y="78" width="135" height="6" rx="3"/>
+              <rect class="m-icon" x="20" y="102" width="10" height="10" rx="2"/><rect class="m-bar" x="36" y="104" width="80" height="6" rx="3"/>
+            </g>
+            <rect class="m-shadow" x="174" y="140" width="210" height="98" rx="13"/>
+            <rect class="m-panel" x="170" y="134" width="210" height="98" rx="13"/>
+            <rect class="m-bar-strong" x="184" y="148" width="86" height="8" rx="4"/>
+            <path class="m-chevron" d="M356 149l5 5-5 5" transform="rotate(90 361 154)"/>
+            <rect class="m-icon" x="184" y="170" width="12" height="12" rx="2"/>
+            <rect class="m-bar" x="202" y="172" width="108" height="7" rx="3.5"/>
+            <circle class="m-btn" cx="345" cy="176" r="10"/><path class="m-glyph" d="M342 172v8M348 172v8"/>
+            <circle class="m-btn" cx="366" cy="176" r="10"/><path class="m-glyph" d="M362 172l8 8M370 172l-8 8"/>
+            <rect class="m-track" x="184" y="196" width="176" height="7" rx="3.5"/>
+            <rect class="m-fill" x="184" y="196" width="102" height="7" rx="3.5"/>
+            <rect class="m-bar" x="184" y="212" width="56" height="6" rx="3"/>
+            <rect class="m-bar" x="248" y="212" width="40" height="6" rx="3"/>
+          </svg>
+          <span class="label" data-i18n="shot3Label">Activity center</span>
         </div>
+
         <div class="shot-card reveal">
-          <span class="badge">Hamarosan</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83Z"/></svg>
-          <span class="label">Címkék &amp; kedvencek</span>
+          <svg class="mockup" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect class="m-panel-faint" x="248" y="16" width="136" height="218" rx="10"/>
+            <rect class="m-panel" x="16" y="16" width="216" height="218" rx="10"/>
+
+            <rect class="m-label-bar" x="32" y="32" width="58" height="7" rx="3.5"/>
+            <path class="m-heart" d="M42 55c0-4 3-6 6-6 2 0 3 1 4 2 1-1 2-2 4-2 3 0 6 2 6 6 0 5-6 9-10 12-4-3-10-7-10-12Z" transform="translate(0,3) scale(0.9)"/>
+            <rect class="m-bar" x="66" y="54" width="118" height="7" rx="3.5"/>
+            <path class="m-heart" d="M42 55c0-4 3-6 6-6 2 0 3 1 4 2 1-1 2-2 4-2 3 0 6 2 6 6 0 5-6 9-10 12-4-3-10-7-10-12Z" transform="translate(0,29) scale(0.9)"/>
+            <rect class="m-bar" x="66" y="80" width="100" height="7" rx="3.5"/>
+            <path class="m-heart" d="M42 55c0-4 3-6 6-6 2 0 3 1 4 2 1-1 2-2 4-2 3 0 6 2 6 6 0 5-6 9-10 12-4-3-10-7-10-12Z" transform="translate(0,55) scale(0.9)"/>
+            <rect class="m-bar" x="66" y="106" width="112" height="7" rx="3.5"/>
+
+            <rect class="m-label-bar" x="32" y="138" width="48" height="7" rx="3.5"/>
+            <circle class="m-fill" cx="38" cy="160" r="5.5" style="fill:#e5484d"/><rect class="m-bar" x="52" y="156" width="106" height="7" rx="3.5"/>
+            <circle class="m-fill" cx="38" cy="184" r="5.5" style="fill:#4c8bf5"/><rect class="m-bar" x="52" y="180" width="130" height="7" rx="3.5"/>
+            <circle class="m-fill" cx="38" cy="208" r="5.5" style="fill:#a463f2"/><rect class="m-bar" x="52" y="204" width="90" height="7" rx="3.5"/>
+          </svg>
+          <span class="label" data-i18n="shot4Label">Tags &amp; favorites</span>
         </div>
+
       </div>
     </div>
   </section>
@@ -455,17 +668,164 @@
   <div class="wrap footer-inner">
     <div class="footer-brand">
       <img src="assets/brand/png/icon-24.png" alt="">
-      <span>© 2026 Pilaster — MIT licenc</span>
+      <span data-i18n="footerCopyright">© 2026 Pilaster — MIT license</span>
     </div>
     <div class="footer-links">
       <a href="https://github.com/GREG13-PRO/pilaster">GitHub</a>
-      <a href="https://github.com/GREG13-PRO/pilaster/issues">Hibabejelentés</a>
-      <a href="https://github.com/GREG13-PRO/pilaster/blob/main/LICENSE">Licenc</a>
+      <a href="https://github.com/GREG13-PRO/pilaster/issues" data-i18n="footerIssues">Report a bug</a>
+      <a href="https://github.com/GREG13-PRO/pilaster/blob/main/LICENSE" data-i18n="footerLicense">License</a>
     </div>
   </div>
 </footer>
 
 <script>
+  // Fordítási szótár + nyelvváltó logika. Alapértelmezett nyelv: angol
+  // (a statikus HTML is angolul van előre megírva, így angol látogatóknál
+  // nincs "villanás" a betöltéskor).
+  var I18N = {
+    en: {
+      navFeatures: "Features",
+      navScreenshots: "Screenshots",
+      navReleases: "Releases",
+      tagline: "A modern file manager for Windows 11 — dual-pane view, column view, its own copy-progress indicator, and a lot of things Explorer never had.",
+      downloadLabel: "Download for Windows",
+      allVersions: "All versions on GitHub →",
+      armNotePrefix: "On an ARM64 device (Snapdragon X, Surface Pro)? Download the ",
+      armNoteLink: "arm64 package",
+      armNoteSuffix: " instead.",
+      featuresTitle: "What it brings",
+      featuresSub: "Not add-on features — these are Pilaster's own capabilities that Explorer is missing.",
+      feature1Title: "Dual-pane view",
+      feature1Desc: "Two independent panels — each with its own history, syncable navigation, and drag-and-drop copy/move between them.",
+      feature2Title: "Colorful tags",
+      feature2Desc: "macOS-style tags in any color and name on any file or folder — filter by them with one click from the sidebar.",
+      feature3Title: "Favorites",
+      feature3Desc: "One click on the heart icon and anything is reachable from the sidebar — with a faint marker for missing targets and one-click removal.",
+      feature4Title: "Customizable quick access",
+      feature4Desc: "Pin your own folders by right-click or drag, and reorder them however you like — everything is saved, even after a restart.",
+      feature5Title: "Its own copy indicator",
+      feature5Desc: "Not Explorer's green bar: real control — pause, resume, cancel, speed and time remaining, multiple operations at once.",
+      feature6Title: "Color themes",
+      feature6Desc: "Light, dark, or system-following, with a selectable accent color — or automatically follow your own Windows accent color.",
+      screenshotsTitle: "Screenshots",
+      screenshotsSub: "Here's the interface — dual-pane, column view, activity center, and tags at a glance.",
+      shot1Label: "Dual-pane view",
+      shot2Label: "Column view",
+      shot3Label: "Activity center",
+      shot4Label: "Tags & favorites",
+      footerCopyright: "© 2026 Pilaster — MIT license",
+      footerIssues: "Report a bug",
+      footerLicense: "License",
+      pageTitle: "Pilaster — a modern file manager for Windows 11",
+      pageDescription: "A modern file manager for Windows 11 — dual-pane view, column view, its own copy indicator, tags, favorites and customizable quick access."
+    },
+    hu: {
+      navFeatures: "Funkciók",
+      navScreenshots: "Képernyőképek",
+      navReleases: "Verziók",
+      tagline: "Modern fájlkezelő Windows 11-re — kétablakos nézet, oszlopos nézet, saját másolásjelző, és sok minden, ami az Intézőből hiányzik.",
+      downloadLabel: "Letöltés Windowsra",
+      allVersions: "Összes verzió a GitHubon →",
+      armNotePrefix: "ARM64-es gépen (Snapdragon X, Surface Pro)? Az ",
+      armNoteLink: "arm64 csomagot",
+      armNoteSuffix: " töltsd le helyette.",
+      featuresTitle: "Amit hoz",
+      featuresSub: "Nem toldalék-funkciók — ezek a Pilaster saját, az Intézőből hiányzó képességei.",
+      feature1Title: "Kétablakos nézet",
+      feature1Desc: "Kétpaneles, független panelek — saját előzménnyel, szinkronizálható navigációval és húzd-és-ejtsd másolással/áthelyezéssel a kettő között.",
+      feature2Title: "Színes címkék",
+      feature2Desc: "macOS-stílusú, tetszőleges színű és nevű címkék bármely fájlon vagy mappán — az oldalsávból egy kattintással rájuk szűrhetsz.",
+      feature3Title: "Kedvencek",
+      feature3Desc: "Egy kattintás a szív ikonra, és bármi elérhető az oldalsávból — hiányzó célnál halvány jelzéssel, egykattintásos eltávolítással.",
+      feature4Title: "Testreszabható gyorselérés",
+      feature4Desc: "Rögzítsd a saját mappáidat jobbklikkel vagy húzással, rendezd át tetszés szerint — minden mentve marad, újraindítás után is.",
+      feature5Title: "Saját másolásjelző",
+      feature5Desc: "Nem az Intéző zöld sávja: valódi irányítás — szünet, folytatás, megszakítás, sebesség és hátralévő idő, több művelet egyszerre.",
+      feature6Title: "Színtémák",
+      feature6Desc: "Világos, sötét vagy rendszerkövető, választható akcentus színnel — vagy kövesd automatikusan a Windows saját színedet.",
+      screenshotsTitle: "Képernyőképek",
+      screenshotsSub: "Íme a felület — kétablakos, oszlopos, aktivitás-központ és címkék egy pillantásra.",
+      shot1Label: "Kétablakos nézet",
+      shot2Label: "Oszlopos nézet",
+      shot3Label: "Aktivitás-központ",
+      shot4Label: "Címkék & kedvencek",
+      footerCopyright: "© 2026 Pilaster — MIT licenc",
+      footerIssues: "Hibabejelentés",
+      footerLicense: "Licenc",
+      pageTitle: "Pilaster — modern fájlkezelő Windows 11-re",
+      pageDescription: "Modern fájlkezelő Windows 11-re — kétablakos nézet, oszlopos nézet, saját másolásjelző, címkék, kedvencek és testreszabható gyorselérés."
+    }
+  };
+
+  function setTexts(dict) {
+    document.title = dict.pageTitle;
+    var desc = document.getElementById("pageDescription");
+    if (desc) { desc.setAttribute("content", dict.pageDescription); }
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      var key = el.getAttribute("data-i18n");
+      if (dict[key]) { el.textContent = dict[key]; }
+    });
+  }
+
+  function applyLanguage(lang, animate) {
+    var dict = I18N[lang] || I18N.en;
+    document.documentElement.setAttribute("lang", lang);
+    document.querySelectorAll(".lang-opt").forEach(function (btn) {
+      btn.classList.toggle("is-active", btn.getAttribute("data-lang") === lang);
+    });
+
+    var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!animate || reduceMotion) {
+      setTexts(dict);
+      return;
+    }
+
+    // Lágy elhalványulás/visszaúszás: a régi szöveg eltűnik, majd az újjal visszajön.
+    var nodes = document.querySelectorAll("[data-i18n]");
+    nodes.forEach(function (el) { el.style.opacity = "0"; });
+    window.setTimeout(function () {
+      setTexts(dict);
+      nodes.forEach(function (el) { el.style.opacity = "1"; });
+    }, 160);
+  }
+
+  (function () {
+    var stored = null;
+    try { stored = localStorage.getItem("pilaster-lang"); } catch (e) { /* nincs elerheto tarolo */ }
+    applyLanguage(stored === "hu" ? "hu" : "en", false);
+
+    document.querySelectorAll(".lang-opt").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var lang = btn.getAttribute("data-lang");
+        try { localStorage.setItem("pilaster-lang", lang); } catch (e) { /* nincs elerheto tarolo */ }
+        applyLanguage(lang, true);
+      });
+    });
+  })();
+
+  // Sötét/világos téma kapcsoló — a betöltéskori döntést a <head> szkriptje
+  // hozza meg, ez csak a kézi átkapcsolást és a rendszerváltozás-figyelést adja hozzá.
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById("themeToggle");
+    if (!toggle) { return; }
+
+    toggle.addEventListener("click", function () {
+      var current = root.getAttribute("data-theme") === "light" ? "light" : "dark";
+      var next = current === "light" ? "dark" : "light";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("pilaster-theme", next); } catch (e) { /* nincs elerheto tarolo */ }
+    });
+
+    var media = window.matchMedia("(prefers-color-scheme: light)");
+    var onSystemChange = function (e) {
+      var stored = null;
+      try { stored = localStorage.getItem("pilaster-theme"); } catch (err) { /* nincs elerheto tarolo */ }
+      if (!stored) { root.setAttribute("data-theme", e.matches ? "light" : "dark"); }
+    };
+    if (media.addEventListener) { media.addEventListener("change", onSystemChange); }
+  })();
+
   // Letöltés gomb: a legfrissebb GitHub Release adatai — statikus alapérték
   // marad érvényben, ha az API hívás sikertelen (pl. korlátozott ráta, offline).
   (function () {

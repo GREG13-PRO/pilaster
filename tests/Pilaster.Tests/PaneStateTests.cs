@@ -14,8 +14,7 @@ namespace Pilaster.Tests;
 /// tesztkészletben, nem futásidejű öntesztként. Amit NEM tudnak lefedni (mert
 /// valódi vizuális fát igényel): a kijelölés és a görgetési pozíció
 /// visszaállítása fülváltáskor, a splitter húzása, és az elrendezés vizuális
-/// váltása. Ezek a <c>docs/THEME-CHECKLIST.md</c> melletti
-/// <c>docs/DUAL-PANE-CHECKLIST.md</c>-ben kézi ellenőrzésre vannak jelölve.
+/// váltása. Ezek kézi ellenőrzésre vannak jelölve.
 /// </para>
 /// <para>
 /// A <see cref="TabViewModel"/> valódi fájlrendszer-szolgáltatást igényelne,

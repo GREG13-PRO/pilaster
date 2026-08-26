@@ -28,14 +28,15 @@
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="$(VanaraVersion)" />
     <PackageReference Include="Vanara.PInvoke.Shell32" Version="$(VanaraVersion)" />
     <PackageReference Include="Vanara.PInvoke.User32" Version="$(VanaraVersion)" />
+    <!--  A felhő meghajtók (NextCloud stb.) a Windows saját WebDAV-átirányítóján keresztül csatlakoznak — lásd Network/WebDavConnector.cs.  -->
+    <PackageReference Include="Vanara.PInvoke.Mpr" Version="$(VanaraVersion)" />
 
     <!--
     HELYESBÍTÉS (v1.0.3): az alábbi megjegyzés korábban azt állította, hogy a
     Vanara.Windows.Shell.ShellContextMenu (PIDL-kezelés, TrackPopupMenuEx,
     üzenet-továbbítás) "tesztelt, biztonságos" — ez ELAVULT és TÉVES. A
     ShellContextMenu.CreateFromItems a dokumentált, öt körös 0xC0000374
-    heap-korrupció bizonyított okozója volt (lásd docs/CONTEXT-MENU.md,
-    "Miért NYERS a fájlmenü beszerzése"), ezért a FÁJL-elemek menüje azóta
+    heap-korrupció bizonyított okozója volt, ezért a FÁJL-elemek menüje azóta
     NYERS P/Invoke-kal épül (ShellMenuSession.CreateForItems). A csomag itt
     csak azért marad, mert a MAPPA-HÁTTÉR menüjéhez (IShellFolder.
     CreateViewObject, NEM CreateFromItems) és a lemezikon-kinyeréshez ma is

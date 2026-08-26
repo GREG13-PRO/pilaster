@@ -5,7 +5,7 @@ namespace Pilaster.Tests;
 
 /// <summary>
 /// A panelek közötti húzás-ejtés DÖNTÉSI MÁTRIXA — melyik módosító melyik
-/// hatást adja (spec A2, korábban a `DUAL-PANE-CHECKLIST.md` kézi pontja).
+/// hatást adja (spec A2, korábban egy kézi ellenőrzőlista pontja).
 /// </summary>
 /// <remarks>
 /// Az egérrel húzás maga (a <c>DoDragDrop</c> gesztus, a kurzor visszajelzés)

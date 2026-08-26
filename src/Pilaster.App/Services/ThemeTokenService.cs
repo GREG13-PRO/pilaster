@@ -25,8 +25,7 @@ namespace Pilaster.App.Services;
 /// </para>
 /// <para>
 /// Kontraszt: minden szövegtoken legalább 4,5:1 arányt ad a hozzá tartozó
-/// háttértokenen, mindkét témában (WCAG AA). A konkrét értékek a
-/// <c>docs/THEME-CHECKLIST.md</c> táblázatában vannak kimérve.
+/// háttértokenen, mindkét témában (WCAG AA), méréssel ellenőrizve.
 /// </para>
 /// </remarks>
 public sealed class ThemeTokenService(ISettingsService settings)

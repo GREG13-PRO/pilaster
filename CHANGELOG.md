@@ -1,512 +1,627 @@
-﻿# Változásnapló
+# Changelog
 
-A jelölés [Semantic Versioning](https://semver.org/lang/hu/) szerinti.
+Follows [Semantic Versioning](https://semver.org/).
 
-## Kiadatlan
+## v1.1.0 — 2026-08-26
+
+### New — cloud drives (NextCloud, ownCloud, WebDAV)
+
+- **"Cloud drives" section in the sidebar.** Right-click the header → "Add
+  cloud drive…" — connect any WebDAV server (NextCloud, ownCloud, etc.) by
+  entering a server URL, username, and password (or app password). The
+  connection goes through Windows' own, built-in WebDAV redirector (the
+  "WebClient" service) — the server then behaves like a plain network path,
+  so copying, tags, favorites, and everything else works on it unchanged.
+  The password is NOT stored in a Pilaster file — Windows' own Credential
+  Manager handles it. Removal: right-click a cloud drive row.
+
+### UI — airier design
+
+- **Real Windows 11 icons in Quick Access** — instead of the previous
+  simple, single-color Fluent glyph, folders now show their own badged
+  shell icon straight from `desktop.ini` (Documents, Downloads, Pictures,
+  Music, Videos), exactly as in Explorer. The Recycle Bin gets the same
+  treatment — requested via Windows' well-known namespace CLSID, since it
+  has no real file-system path — and reflects its actual empty/full state.
+  The Home tab intentionally keeps its own house glyph (user feedback: the
+  real "This PC" icon wasn't obviously "Home" at a glance) — the same house
+  icon now also appears on its tab label, and the Recycle Bin's tab label
+  gets the trash-can glyph instead of the generic folder icon.
+  Two side-effect fixes: (1) `IShellItemImageFactory.GetImage` would
+  occasionally return `E_PENDING` for these custom-icon folders (the shell
+  loads the icon asynchronously) — the call now waits it out with a few
+  short retries instead of giving up on the first failed attempt; (2)
+  requesting a 32px image instead of 20px, combined with WPF's smoother
+  downscaling, fixes the earlier request sometimes returning a pixelated,
+  upscaled icon.
+- **Colored icons for the default Quick Access folders** (Desktop,
+  Documents, Downloads, Pictures, Music, Videos) and the Recycle Bin —
+  following the Windows 11 reference design pattern, where each folder type
+  gets its own accent color instead of all of them inheriting the same
+  neutral text color. Applies retroactively to existing Quick Access files
+  too, if the user hasn't already set a custom color.
+- **Unpin needle on pinned Quick Access folders.** Hovering or selecting
+  shows a small pin icon at the right edge of the row — unpin with one
+  click, no right-click menu needed, matching the reference design.
+- **Section header arrows now point up when open, down when closed**
+  (previously right/down) — matching the reference design and the
+  direction convention used by Windows 11 Explorer's own grouped sidebar.
+- **In dual-pane view, the top back/forward/up/refresh bar and path row
+  disappear.** They were redundant there: both panes already draw their
+  own navigation buttons and breadcrumb (see FilePaneView.xaml) — the top,
+  whole-window-bound copy was just duplication. Search, the "…" menu, the
+  view switcher, and the theme/Settings buttons remain available in a thin
+  strip at the top right. Single-pane view is unchanged.
+- **Collapsible sidebar sections.** Click a section header (Quick Access,
+  Recent, Drives, and the rest) to collapse or expand it (an arrow shows
+  the state, with an animated rotation) — following the pattern used by
+  Windows 11 Explorer's grouped sidebar.
+- **Bigger, airier layout throughout.** Larger sidebar icons and spacing, a
+  bigger and rounder search box, a rounder/wider path pill (in both
+  single- and dual-pane view), bigger corner rounding on the main panels
+  (sidebar, file area, top bar) — altogether a roomier, less cramped look
+  compared to the earlier, tighter layout.
+
+### Website (docs/index.html)
+
+- **Dark/light theme.** Follows the browser's system setting by default,
+  but can also be switched manually (sun/moon icon in the nav) — the
+  choice is remembered.
+- **English/Hungarian language switch.** A toggle next to the GitHub
+  button, top right; default language is English, and the whole page
+  (text, title, meta description) fades smoothly between English and
+  Hungarian — the choice is remembered.
+
+### Fixes — Recycle Bin
+
+- **The Recycle Bin no longer opens in a separate window — it navigates
+  like a real folder.** Instead of the previous `RecycleBinWindow`
+  (a standalone OS window), clicking the Recycle Bin makes the tab
+  navigate there exactly like Documents or Downloads would — the same
+  Details/Grid/Columns view, breadcrumb, and tab title as any real folder.
+  Right-clicking an item offers Restore/Delete Permanently (instead of the
+  usual Open/Cut/Copy), the background right-click menu offers Empty
+  Recycle Bin, and the Delete key — just like Explorer — immediately
+  deletes PERMANENTLY after confirmation.
+- **A toolbar button to empty the Recycle Bin.** Only shown in Recycle Bin
+  view, next to the Refresh button — no need to right-click the background
+  for it.
+- **Modern, Fluent-style confirmation dialogs.** The Recycle Bin's Delete
+  Permanently/Empty dialogs now use WPF-UI's own `MessageBox` instead of
+  the native, old-fashioned `System.Windows.MessageBox` — the same
+  rounded, light/dark-theme-aware design as the rest of the UI (user
+  feedback: the old native dialog looked like a style break).
+- **Fixed: emptying the Recycle Bin threw an error if it was already
+  empty** (`E_UNEXPECTED` from `SHEmptyRecycleBin` — undocumented, but
+  observed Shell behavior). It now silently does nothing if it's already
+  empty.
+- **Fixed: navigating to a drive root (e.g. "C:\") showed a row with a
+  blank label in Quick Access's "Recent" section** — `GetFileName` returns
+  an empty string for a drive root, which made the row show up nameless
+  and "shifted." The full path is now used as the label in that case.
+- **The Activity Center (the copy/move progress panel) is no longer
+  transparent.** It now always gets an opaque card background instead of
+  the shared "liquid glass" background, regardless of the Color Themes
+  liquid-glass toggle — floating over a constantly changing file list, the
+  transparency made it hard to read and distracting.
 
 ## v1.0.3 — 2026-08-25
 
-### Új — jobbklikk menü
+### New — right-click menu
 
-- **Választható natív Windows menü (alapértelmezett).** Beállítások →
-  Jobbklikk menü alatt új választó: **Windows** (alapértelmezett,
-  meglévő felhasználóknál is erre áll át a frissítéskor) vagy
-  **Pilaster** (a saját, Fluent-stílusú menü). A Windows mód a VALÓDI
-  rendszermenüt jeleníti meg (`TrackPopupMenuEx`, ugyanazon a nyers,
-  nem-Vanara `HMENU`-n, amit a `ShellMenuSession` már eddig is épített) —
-  pontosan úgy viselkedik, mint az Intézőben, a telepített bővítmények
-  (7-Zip, Küldés ▸ stb.) VALÓDI, dinamikusan feltöltődő almenüivel
-  együtt. A nyolc, natív megfelelő NÉLKÜLI saját parancs (Megnyitás új
-  fülön, Megnyitás a másik panelen, Szerkesztés Pilaster Editorral,
-  Útvonal/Név másolása, Terminál megnyitása itt, Rögzítés a
-  gyorseléréshez, Címkék) a shell elemei ELÉ kerül be, saját
-  ikonokkal — ezeket a program NEM ismétli meg a natív listában.
-  A már meglévő Megnyitás/Kivágás/Másolás/Beillesztés/Törlés/Átnevezés/
-  Tulajdonságok stb. a VALÓDI shell-menüből jön, nincs duplikálva. Az A2
-  előretöltés (v1.0.2) mindkét módban működik — a lekérdezés ugyanaz,
-  csak a megjelenítés más. VALÓS, emberi próbával megerősítve: a 7-Zip
-  almenüje a kijelölt fájl nevével (pl. „Hozzáadás: »fájlnév.7z«")
-  dinamikusan, hiba nélkül populálódik.
+- **Selectable native Windows menu (default).** New option under Settings →
+  Right-click menu: **Windows** (the default, and existing users are
+  switched to it on update too) or **Pilaster** (the app's own,
+  Fluent-styled menu). Windows mode shows the REAL system menu
+  (`TrackPopupMenuEx`, on the same raw, non-Vanara `HMENU` the
+  `ShellMenuSession` already built) — behaving exactly like Explorer,
+  including installed extensions' (7-Zip, Send To ▸, etc.) REAL,
+  dynamically populated submenus. The eight custom commands with no native
+  equivalent (Open in New Tab, Open in Other Pane, Edit with Pilaster
+  Editor, Copy Path/Name, Open Terminal Here, Pin to Quick Access, Tags)
+  are inserted ahead of the shell's own items, with their own icons — the
+  app doesn't duplicate them in the native list. The existing
+  Open/Cut/Copy/Paste/Delete/Rename/Properties, etc. come straight from the
+  REAL shell menu, with no duplication. The A2 preload (v1.0.2) works in
+  both modes — the query is the same, only the display differs. Confirmed
+  with a REAL, human test: 7-Zip's submenu populates dynamically, with the
+  selected file's name (e.g. "Add to »filename.7z«"), with no errors.
 
-### Javítások/technikai megjegyzések — jobbklikk menü
+### Fixes/technical notes — right-click menu
 
-- **Holt, veszélyes kód eltávolítva.** A `NativeContextMenuService`
-  korábban a FÁJL-elemek natív menüjét is a Vanara
-  `ShellContextMenu.CreateFromItems`-en keresztül jelenítette meg — ez a
-  hívás volt a dokumentált, öt körös 0xC0000374 heap-korrupció bizonyított
-  okozója (lásd docs/CONTEXT-MENU.md), és a kódban élő, de nem hívott
-  (`ShowAsync`/`ShowItemsCore`) állapotban maradt utána — csendes
-  csapdaként egy jövőbeli módosításnak. Eltávolítva; a `Pilaster.Shell.csproj`
-  Vanara-megjegyzése is javítva, ami korábban tévesen „tesztelt,
-  biztonságosnak" nevezte ugyanezt a hívást.
-- **Új natív megjelenítési réteg** (`ShellMenuSession.ShowNativeAsync`,
-  `NativeMenuOwnerWindow`, `NativeMenuInterop` bővítései): a
-  `TrackPopupMenuEx`-et a MEGOSZTOTT STA száron, ugyanazon a szálon hívja,
-  ahol az `IContextMenu` létrejött (kötelező — másképp a dinamikus
-  almenük üresek maradnának). A `WM_INITMENUPOPUP`/`WM_DRAWITEM`/
-  `WM_MEASUREITEM`/`WM_MENUCHAR` üzeneteket egy minden megjelenítéshez
-  frissen létrehozott, láthatatlan segédablak (`NativeMenuOwnerWindow`)
-  továbbítja `IContextMenu3::HandleMenuMsg2`-nek. A menü NEM fagyasztja
-  le a WPF ablakot, amíg nyitva van — MÉRVE (headless önteszt): a UI
-  Dispatcher ~30 ms-onként pingelve is folyamatosan válaszolt egy ~500
-  ms-ig nyitva tartott menü alatt.
-- **Éles hiba, csak kézi próbával kiderítve.** A `GetDC` P/Invoke
-  deklarációja tévesen a `gdi32.dll`-re mutatott — valójában a `user32.dll`
-  exportálja (klasszikus Win32-csapda). Ez minden natív menünyitáskor
-  `EntryPointNotFoundException`-t dobott az ikon-renderelésben, ami a
-  teljes jobbklikk-menüt (és vele az appot) elvitte. A headless önteszt
-  ezt NEM kapta el, mert egy `nint.Zero` (ikon nélküli) próba-parancsot
-  használt — a hibát csak egy VALÓDI jobbklikk fedte fel. Javítva, és az
-  önteszt mostantól VALÓDI renderelt ikonnal fut, hogy ugyanez a
-  hibaosztály többé ne juthasson át észrevétlenül. Az ikon-renderelés
-  köré emellett egy szándékosan tág `catch (Exception)` került: egy
-  P/Invoke-határon (GDI-hívások) történő hiba mostantól legfeljebb egy
-  hiányzó ikont okoz, sosem app-összeomlást.
+- **Dead, dangerous code removed.** `NativeContextMenuService` used to
+  render FILE items' native menu through Vanara's
+  `ShellContextMenu.CreateFromItems` too — this call was the proven cause
+  of a documented, five-round 0xC0000374 heap corruption, and it stayed in
+  the code afterward, alive but unused (`ShowAsync`/`ShowItemsCore`) — a
+  silent trap for some future change. Removed; the Vanara comment in
+  `Pilaster.Shell.csproj` that previously (and incorrectly) called this
+  same call "tested, safe" has also been corrected.
+- **New native display layer** (`ShellMenuSession.ShowNativeAsync`,
+  `NativeMenuOwnerWindow`, extensions to `NativeMenuInterop`): calls
+  `TrackPopupMenuEx` on the SHARED STA thread, the same thread the
+  `IContextMenu` was created on (mandatory — otherwise dynamic submenus
+  would come back empty). A freshly created, invisible helper window
+  (`NativeMenuOwnerWindow`) for each display forwards
+  `WM_INITMENUPOPUP`/`WM_DRAWITEM`/`WM_MEASUREITEM`/`WM_MENUCHAR` messages
+  to `IContextMenu3::HandleMenuMsg2`. The menu does NOT freeze the WPF
+  window while it's open — MEASURED (headless self-test): the UI
+  Dispatcher, pinged every ~30 ms, kept responding throughout a menu held
+  open for ~500 ms.
+- **A real bug, only found by manual testing.** The `GetDC` P/Invoke
+  declaration incorrectly pointed at `gdi32.dll` — it's actually exported
+  by `user32.dll` (a classic Win32 trap). This threw an
+  `EntryPointNotFoundException` in icon rendering on every native menu
+  open, taking down the entire right-click menu (and the app with it). The
+  headless self-test didn't catch this, because it used a `nint.Zero`
+  (iconless) test command — only a REAL right-click exposed the bug.
+  Fixed, and the self-test now runs with a REAL rendered icon, so this
+  class of bug can't slip through unnoticed again. A deliberately broad
+  `catch (Exception)` was also added around icon rendering: a failure at a
+  P/Invoke boundary (GDI calls) now causes at most a missing icon, never an
+  app crash.
 
-### Ismert korlátok
+### Known limitations
 
-- **Almenü-navigáció automatizált tesztelése nem megbízható.** Egy
-  headless önteszt-kísérlet, ami `PostMessage`-dzsel (nem globális
-  bevitel) navigált be egy VALÓDI, lassú bővítmény (7-Zip) almenüjébe,
-  egy alkalommal 90 másodpercnél tovább „lefagyasztotta" a tesztfolyamatot
-  — feltehetően a `WM_CANCELMODE` egy lassú, szinkron
-  `HandleMenuMsg2`-hívás KÖZBEN érkezett. Végül magától lezárult, semmi
-  nem maradt függőben, de emiatt az almenü-feltöltés VÉGSŐ megerősítése
-  kézi próbával történt, nem automatizálva.
-- A meglévő korlátok (folyamat-izoláció, lassú shell-bővítmények,
-  kódaláírás hiánya stb., lásd v1.0.2) változatlanok.
+- **Automated testing of submenu navigation isn't reliable.** A headless
+  self-test attempt that used `PostMessage` (not global input) to navigate
+  into a REAL, slow extension's (7-Zip) submenu once "froze" the test
+  process for over 90 seconds — likely because `WM_CANCELMODE` arrived
+  WHILE a slow, synchronous `HandleMenuMsg2` call was in progress. It
+  eventually closed on its own, with nothing left hanging, but because of
+  this, final confirmation of submenu population was done by manual
+  testing, not automated.
+- The existing limitations (process isolation, slow shell extensions, no
+  code signing, etc., see v1.0.2) are unchanged.
 
 ## v1.0.2
 
-### Új — jobbklikk menü
+### New — right-click menu
 
-- **Nyitóanimáció visszahozva, biztonságosan (A1).** A v1.0.1-ben a fekete
-  keret javítása (lásd lent) az `EffectThicknessDecorator`-ral együtt a
-  hozzá kötött nyitóanimációt is elvitte — a menü ezután animáció nélkül,
-  azonnal jelent meg. Most a menü (és minden almenü) MÁR KÉSZ, végleges
-  méretű tartalmán fut egy halvány felúszás (`Opacity` 0→1 +
-  `RenderTransform.Y` −6→0 px, `CubicEase`/`EaseOut`, 130 ms — csökkentett
-  animációs szinten 70 ms), kód-mögöttes `BeginAnimation`-nel, SOSEM
-  `Style`/`Storyboard`+`DynamicResource` úton. Ez SZÁNDÉKOS: egy korábbi
-  kísérletnél (sorok/csempék hover-kiemelése) pontosan ez a minta
-  („Cannot freeze this Storyboard timeline tree") összeomlást okozott, mert
-  egy `DynamicResource`-öt tartalmazó `Storyboard` nem fagyasztható le. Az
-  új animáció sem a Popup méretét, sem a `Margin`-t nem módosítja utólag,
-  tehát a fekete keret hibáját NEM hozza vissza. A Megjelenés kategória
-  meglévő „Animációk" kapcsolójával (Teljes/Csökkentett/Ki) vezérelhető; Ki
-  állásban a menü animáció nélkül, azonnal jelenik meg. MÉRVE: a
-  megnyitás szinkron költsége nem nőtt (a `BeginAnimation` nem blokkol),
-  a saját elemek ~90 ms-os medián megnyitási ideje változatlan.
-- **Előretöltés kijelöléskor (A2).** Kijelöléskor, egy rövid (200 ms)
-  késleltetés után a program a háttérben előre elindítja a kijelölt
-  elem(ek) shell-menü-lekérdezését — ha a felhasználó ezután UGYANARRA a
-  kijelölésre jobbklikkel, a menü rögtön a TELJES tartalommal (saját ÉS
-  shell-elemekkel együtt) nyílik meg, a szokásos „Bővítmények
-  betöltése…" csúszás nélkül. Ha a kijelölés időközben megváltozik, a még
-  el nem indult előretöltés önként, gyorsan lemond a drága COM-hívásról,
-  hogy a mögötte várakozó (pl. tényleges jobbklikkből induló) lekérdezés
-  szinte azonnal futhasson — egy MÁR ELINDULT hívás, mint eddig is, nem
-  szakítható meg biztonságosan. Egyszerre legfeljebb EGY előretöltött
-  munkamenet él; a régi mindig a megosztott STA száron szabadul fel,
-  mielőtt az új elindulna, és egy ~30 mp-nél tovább használatlan
-  előretöltés is automatikusan felszabadul. MÉRVE (fejlesztői gép, Release
-  build, `notepad.exe`): a shell-elemek beérkezéséig tartó idő kész
-  előretöltéssel ~1081 ms → ~0 ms (fájl), ~240 ms → ~0 ms (mappa
-  elemként); ez a szám azért kicsi, mert ilyenkor a drága COM-hívás már
-  a kijelöléskor lezajlott. Kikapcsolható a Beállítások → Jobbklikk menü
-  alatt (alapból BE); ha bármi problémát okozna, kikapcsolás után a menü a
-  v1.0.1-es (előretöltés nélküli) úton működik tovább.
+- **Opening animation brought back, safely (A1).** In v1.0.1, fixing the
+  black border (see below) took the opening animation down with the
+  `EffectThicknessDecorator` it was attached to — the menu appeared
+  instantly afterward, with no animation. Now the menu (and every submenu)
+  runs a subtle fade-up on its ALREADY FINAL, fully-sized content
+  (`Opacity` 0→1 + `RenderTransform.Y` −6→0 px, `CubicEase`/`EaseOut`, 130 ms
+  — 70 ms at the reduced animation level), via code-behind
+  `BeginAnimation`, NEVER through `Style`/`Storyboard`+`DynamicResource`.
+  This is DELIBERATE: an earlier experiment (row/tile hover highlighting)
+  crashed with exactly this pattern ("Cannot freeze this Storyboard
+  timeline tree"), because a `Storyboard` containing a `DynamicResource`
+  can't be frozen. The new animation doesn't modify the Popup's size or
+  `Margin` afterward either, so it does NOT bring back the black-border bug.
+  Controlled by the existing Appearance category's "Animations" toggle
+  (Full/Reduced/Off); at Off, the menu appears instantly, with no
+  animation. MEASURED: the synchronous cost of opening didn't increase
+  (`BeginAnimation` doesn't block), the ~90 ms median open time for the
+  app's own items is unchanged.
+- **Preload on selection (A2).** On selection, after a short (200 ms)
+  delay, the app preloads the selected item(s)' shell-menu query in the
+  background — if the user then right-clicks the SAME selection, the menu
+  opens immediately with its FULL content (both the app's own items and
+  the shell's), with none of the usual "Loading extensions…" lag. If the
+  selection changes in the meantime, a preload that hasn't started yet
+  cancels itself quickly, so the expensive COM call doesn't run, and
+  whatever query is waiting behind it (e.g. from an actual right-click) can
+  run almost immediately — an ALREADY STARTED call, as before, can't be
+  safely interrupted. At most ONE preloaded session is alive at a time; the
+  old one always releases on the shared STA thread before a new one
+  starts, and a preload left unused for more than ~30s also releases
+  itself automatically. MEASURED (dev machine, Release build,
+  `notepad.exe`): time until shell items arrive, with a ready preload,
+  ~1081 ms → ~0 ms (file), ~240 ms → ~0 ms (folder as an item); that number
+  is small because the expensive COM call already ran at selection time.
+  Can be turned off under Settings → Right-click menu (ON by default); if
+  it ever causes trouble, turning it off falls back to the v1.0.1 path
+  (no preload).
 
-### Javítások — jobbklikk menü
+### Fixes — right-click menu
 
-- **Fekete keret/sötét sáv a menü körül.** Gyökérok: a WPF-UI
-  `ContextMenu`-sablonja a menüt egy `EffectThicknessDecorator`-ba
-  csomagolja, ami MEGNYITÁS UTÁN, dinamikusan 30 px Margin-t ad a menühöz
-  a `DropShadowEffect`-alapú árnyék elmosásának. Amikor a menü a
-  shell-elemek beérkezése után utólag megnő, ez a margó a Popup újonnan
-  feltáruló sávjaiban nem kap tényleges (átlátszó) újrarajzolást — állott,
-  tömör szürke/sötét sáv marad ott. MÉRVE: mindkét témában, a natív
-  Acrylic háttértől (Liquid Glass) függetlenül reprodukálható volt. A
-  sablon mostantól a WPF beépített, natív `HasDropShadow` mechanizmusát
-  használja a dekorátor+effekt helyett — ez nem módosítja utólag
-  dinamikusan a Popup méretét, így nem hagy állott sávot. Mellékhatásként
-  a menü megnyitási ideje MÉRVE nem romlott, hanem gyorsult (Release,
-  warmup után: ~130 ms → ~90 ms medián), mert a korábbi GPU-effektus és
-  nyitóanimáció elmaradt.
+- **Black border/dark strip around the menu.** Root cause: WPF-UI's
+  `ContextMenu` template wraps the menu in an `EffectThicknessDecorator`,
+  which AFTER OPENING dynamically adds a 30px margin to the menu to make
+  room for blurring the `DropShadowEffect`-based shadow. When the menu
+  grows afterward, once the shell items arrive, this margin's newly
+  exposed strips of the Popup don't get an actual (transparent) repaint —
+  a stale, solid gray/dark strip is left there. MEASURED: reproducible in
+  both themes, independent of the native Acrylic background (Liquid
+  Glass). The template now uses WPF's built-in, native `HasDropShadow`
+  mechanism instead of the decorator+effect — this doesn't dynamically
+  resize the Popup afterward, so it doesn't leave a stale strip. As a side
+  effect, the menu's open time MEASURED not just held steady but got
+  faster (Release, after warmup: ~130 ms → ~90 ms median), since the
+  earlier GPU effect and opening animation were dropped.
 
 ## v1.0.1
 
-Tisztán UI-javítások a v1.0.0 kiadás utáni valós használatból — **nincs benne
-új funkció**, a jobbklikk-menü és a kétpaneles nézet kizárólag a
-megjelenítése változott.
+Pure UI fixes from real-world use after the v1.0.0 release — **no new
+features**, only the right-click menu's and dual-pane view's appearance
+changed.
 
-### Javítások — jobbklikk menü
+### Fixes — right-click menu
 
-- **Üres szürke doboz a menü tetején.** A beépített keresőmező dísztelen,
-  natív `TextBox` volt — placeholder és ikon nélkül üres dobozként ütött el.
-  Most a WPF-UI `TextBox`-ának `PlaceholderText`/`Icon` tulajdonságaival
-  ugyanaz a minta, mint a Beállítások keresőjén.
-- **A menü levágódott a képernyő alján.** A `ContextMenu` nem korlátozta
-  magát a munkaterülethez. Megnyíláskor mostantól lekérdezi a natív
-  `MonitorFromWindow`/`GetMonitorInfo`-val a MEGFELELŐ (nem feltétlenül
-  elsődleges) monitor munkaterületét, a monitor saját DPI-jével átváltva
-  WPF-egységre, és ehhez korlátozza a `MaxHeight`-ot — ez aktiválja a natív
-  `ContextMenu`-sablon beépített görgetését (fel/le nyilak), mint az
-  Intézőben. MÉRVE: egy 68 elemes menü (természetes magassága ~1900+ px)
-  972 px-re korlátozódott egy 1032 px munkaterületen — a görgetés helyesen
-  bekapcsolt.
-- **Duplikált „Megnyitás".** A saját „Megnyitás" mellett az „Egyéb
-  alkalmazások" szekcióban egy shell-eredetű „Megnyitás" is megjelent. A
-  szűrés a shell-elem NYELVFÜGGETLEN verbje alapján történik
-  (`IContextMenu.GetCommandString(GCS_VERBW)`); ha egy bővítmény nem ad
-  verbet, a másodlagos jelző az `MFS_DEFAULT` állapot. A szűrt elemet
-  `Debug` szinten naplózzuk.
-- **Indokolatlanul letiltott saját elemek.** A „Megnyitás új fülön",
-  „Megnyitás a másik panelen" és „Rögzítés a gyorseléréshez" fájlon (nem
-  navigálható elemen) szürkén jelent meg, ahelyett hogy eltűnt volna — egy
-  letiltott saját elem azt sugallja, hogy elromlott valami. A
-  `PilasterMenuEntry` mostantól `IsVisible`/`IsEnabled` között
-  különböztet: ami elvileg sosem értelmezhető az adott elemtípuson (fájlon a
-  fenti három, vagy „Megnyitás a másik panelen" kétpaneles nézet nélkül),
-  az EGYÁLTALÁN NEM kerül a menübe.
-- **Az „Egyéb alkalmazások" felirat beleolvadt.** Üres ikont kapott — ugyanazt
-  az ikon-oszlopot foglalja le, mint egy valódi elem —, így pixelre egybeesik
-  a többi sor szövegének bal szélével, és egyenletes függőleges térközt kapott.
+- **Empty gray box at the top of the menu.** The built-in search box was a
+  plain, undecorated native `TextBox` — with no placeholder or icon, it
+  read as an empty box. Now it uses WPF-UI's `TextBox` with
+  `PlaceholderText`/`Icon`, the same pattern as the Settings search box.
+- **The menu got clipped at the bottom of the screen.** The `ContextMenu`
+  didn't constrain itself to the work area. On open, it now queries the
+  CORRECT (not necessarily primary) monitor's work area via native
+  `MonitorFromWindow`/`GetMonitorInfo`, converts it to WPF units using that
+  monitor's own DPI, and constrains `MaxHeight` to it — this activates the
+  native `ContextMenu` template's built-in scrolling (up/down arrows), just
+  like Explorer. MEASURED: a 68-item menu (natural height ~1900+ px) was
+  constrained to 972px on a 1032px work area — scrolling correctly kicked
+  in.
+- **Duplicated "Open".** Alongside the app's own "Open," a shell-sourced
+  "Open" also showed up in the "Other apps" section. Filtering is now
+  based on the shell item's LANGUAGE-INDEPENDENT verb
+  (`IContextMenu.GetCommandString(GCS_VERBW)`); if an extension doesn't
+  provide a verb, the fallback signal is the `MFS_DEFAULT` state. The
+  filtered item is logged at `Debug` level.
+- **Own items disabled without reason.** "Open in New Tab," "Open in
+  Other Pane," and "Pin to Quick Access" showed up grayed out on a file (a
+  non-navigable item) instead of disappearing — a disabled item of the
+  app's own implies something is broken. `PilasterMenuEntry` now
+  distinguishes between `IsVisible`/`IsEnabled`: whatever is conceptually
+  never applicable to that item type (the three above on a file, or "Open
+  in Other Pane" without dual-pane view) doesn't make it into the menu AT
+  ALL.
+- **The "Other apps" label blended in.** It had an empty icon — occupying
+  the same icon column as a real item — which visually lined it up with
+  the left edge of every other row's text, and it got even vertical
+  spacing.
 
-### Javítások — kétpaneles nézet
+### Fixes — dual-pane view
 
-- **Nem voltak oszlopfejlécek.** A panelek fájllistája mostantól `GridView`-t
-  használ Név/Méret/Típus/Módosítva oszlopokkal — kattintással rendezhető
-  (ugyanaz a `TabViewModel.ApplySort`, mint az egypaneles Részletes nézeten),
-  húzással átméretezhető, és a Méret/Típus/Módosítva szélessége **panelenként
-  külön** mentődik (`AppSettings.LeftPane…`/`RightPane…`). A Név oszlop
-  tölti ki a maradék helyet — a `GridViewColumn` nem támogat „*" méretezést,
-  ezért ezt a code-behind számolja újra a panel és az oszlopok
-  átméretezésekor. A Beállítások → Panelek kategóriában is megjelenik
-  (húzással állítható, a kategória „Alapértelmezettek visszaállítása"
-  gombja innen is nullázza).
-- **Az oszlopelrendezés zsúfolt volt.** Méret jobbra igazítva, Típus és
-  Módosítva fix szélességgel, a Név a maradékot tölti ki hosszú névnél `…`-vel.
-- **A sorok nehezen követhetők.** A kijelölés/hover mostantól 4 px-rel
-  beljebb kezdődik mindkét oldalon, lekerekítve. Új, alapból bekapcsolt
-  páros/páratlan csíkozás (`AppSettings.DualPaneRowStriping`), kapcsolóval a
-  Beállítások → Panelek kategóriában, azonnali hatással.
-- **Négy sornyi vezérlő a tartalom előtt.** Az eszköztár (vissza/előre/fel/
-  frissítés) és az útvonalsáv egy sorba vonva — egy teljes sornyi hellyel
-  több jut a fájloknak.
-- **Az aktív panel jelzése túl hangsúlyos volt.** A mind a négy oldalán
-  1,5 px-es akcentusszínű keret helyett a keret mindig semleges, csak a
-  FELSŐ éle vastagodik és színeződik akcentusra, amíg a panel aktív.
-- **Rendereléshiba a bal panel jobb felső sarkában.** A panelek közötti
-  szinkronizálás/csere gomb korábban `VerticalAlignment="Top"` mellett
-  pontosan a panelek saját fülsávjával azonos magasságban lebegett — keskeny
-  ablaknál vagy DPI-nél ez egymásra csúszott az „+" új fül gombbal.
-  Függőlegesen középre helyezve a választóra float-ol, ami szélességtől és
-  DPI-től függetlenül sosem esik egybe egyik panel fejlécével sem.
-- **Nem volt állapotsor.** Egy közös sor a két panel alatt, az AKTÍV panel
-  elemszámával, kijelölésével és a kötet szabad helyével.
+- **No column headers.** The panes' file list now uses a `GridView` with
+  Name/Size/Type/Modified columns — sortable by click (the same
+  `TabViewModel.ApplySort` as single-pane Details view), resizable by
+  dragging, and the Size/Type/Modified widths are saved **per pane**
+  separately (`AppSettings.LeftPane…`/`RightPane…`). The Name column fills
+  the remaining space — `GridViewColumn` doesn't support "*" sizing, so
+  code-behind recalculates it whenever the pane or its columns are
+  resized. Also shown under Settings → Panes (adjustable by dragging, and
+  the category's "Restore Defaults" button resets it from there too).
+- **The column layout was cramped.** Size right-aligned, Type and Modified
+  at a fixed width, Name fills the rest with `…` for long names.
+- **Rows were hard to track.** Selection/hover now starts 4px in on both
+  sides, rounded. New alternating-row striping, on by default
+  (`AppSettings.DualPaneRowStriping`), with a toggle under Settings →
+  Panes, applied instantly.
+- **Four rows of controls before the content.** The toolbar
+  (back/forward/up/refresh) and the path bar are now combined into one
+  row — a full row's worth of extra room for files.
+- **The active-pane indicator was too heavy.** Instead of a 1.5px
+  accent-colored border on all four sides, the border is now always
+  neutral, with only the TOP edge thickening and turning accent-colored
+  while the pane is active.
+- **A rendering glitch in the left pane's top-right corner.** The
+  sync/swap button between panes used to float, with
+  `VerticalAlignment="Top"`, at exactly the same height as the panes' own
+  tab strip — at a narrow window width or DPI, this overlapped the "+"
+  new-tab button. Centered vertically on the splitter instead, where it
+  floats independent of width and DPI, and never overlaps either pane's
+  header.
+- **No status bar.** One shared row below the two panes, showing the
+  ACTIVE pane's item count, selection, and the volume's free space.
 
-### Javítások — gyorselérés
+### Fixes — Quick Access
 
-- **Túl vékony sorok.** A `SidebarItemStyle`-nak korábban nem volt explicit
-  magassága — a `TokenRowPadding` mindhárom sűrűségnél 0 függőleges paddingot
-  ad, tehát a sormagasság pusztán a tartalomra zsugorodott, a
-  sűrűség-beállítástól függetlenül. Most a `TokenRowHeight`-re kötve
-  „kényelmes" sűrűségben 32 px (a kért 32–36 px tartomány alján), „tömör"
-  sűrűségben a korábbi szűkebb 24 px marad. A kijelölés 4 px-rel beljebb
-  kezdődik, 4 px lekerekítéssel. A szekciócím bal margója igazodik a
-  listaelemekhez, egyenletesebb térközzel.
+- **Rows were too thin.** `SidebarItemStyle` previously had no explicit
+  height — `TokenRowPadding` gives 0 vertical padding at all three
+  densities, so row height just shrank to fit the content, regardless of
+  the density setting. Now bound to `TokenRowHeight`, giving 32px at
+  "comfortable" density (the low end of the requested 32–36px range), and
+  keeping the previous, narrower 24px at "compact" density. Selection now
+  starts 4px in, with 4px rounding. The section header's left margin lines
+  up with the list items, with more even spacing.
 
-### Javítások — egyéb
+### Fixes — other
 
-- **A hibabejelentőhöz csatolt képernyőmentés üresen jelent meg sötét
-  témában.** Gyökérok: a `RenderTargetBitmap`-alapú rögzítés a WPF vizuális
-  fát DWM-kompozitálás NÉLKÜL rendereli — ez a legtöbb felületen
-  pixelpontos, de a félig áttetsző, Mica-rétegre épülő „liquid glass"
-  oldalsávon (`GlassPanelBrush`) sötét témában derengő, majdnem üres
-  eredményt adott, mert a valódi Mica-alapszín hiányában az alfa-keverés a
-  háttér nélküli feloldásra esik vissza. A képrögzítés mostantól elsődlegesen
-  a natív `PrintWindow`-t hívja `PW_RENDERFULLCONTENT` jelzővel — ez a
-  TÉNYLEGESEN összeállított, DWM-kompozitált felületet másolja, Mica-val
-  együtt, és akkor is működik, ha az ablakot közben más takarja ki. Hiba
-  esetén visszaesik az eredeti `RenderTargetBitmap`-útra.
-- **A kétpaneles nézet Kezdőlap füle üres maradt.** A panelek fájllistája
-  (`FilePaneView`) nem ismeri a Kezdőlap-irányítópultot (kártyák, meghajtók)
-  — ez a v1.1 feladata marad. Ehelyett az ÚJ fülek kétpaneles nézetben
-  mostantól valódi mappát nyitnak (a beállított kezdőmappát, vagy ennek
-  híján a felhasználói profilt) a virtuális Kezdőlap helyett. Ha egy fül
-  mégis Kezdőlap-állapotba kerülne (pl. régebbi mentett munkamenetből), ott
-  legalább a gyorselérés-lista jelenik meg, nem üres felület.
-- A „Ismert korlátok" szakasz duplikált pontjai (folyamat-izoláció,
-  kódaláírás, egyedi kiosztás-szerkesztő) összevonva.
-- A K1 (oszlopszélesség-perzisztencia) és K3 (sorcsíkozás) beállítás
-  mostantól a Beállítások → Panelek kategóriában is elérhető, nem csak a
-  config fájlban — lásd lent.
+- **The screenshot attached to bug reports came out blank in dark theme.**
+  Root cause: `RenderTargetBitmap`-based capture renders the WPF visual
+  tree WITHOUT DWM compositing — pixel-perfect on most surfaces, but on
+  the semi-transparent, Mica-backed "liquid glass" sidebar
+  (`GlassPanelBrush`), in dark theme, it produced a dim, nearly blank
+  result, because without the real Mica base color, alpha blending falls
+  back to resolving against nothing. Capture now primarily calls the
+  native `PrintWindow` with the `PW_RENDERFULLCONTENT` flag — this copies
+  the ACTUALLY composited, DWM-rendered surface, Mica included, and still
+  works even if another window is covering it at the time. Falls back to
+  the original `RenderTargetBitmap` path on failure.
+- **The dual-pane view's Home tab stayed blank.** The panes' file list
+  (`FilePaneView`) doesn't know about the Home dashboard (cards, drives) —
+  that stays a v1.1 task. Instead, NEW tabs in dual-pane view now open a
+  real folder (the configured start folder, or the user profile if none is
+  set) instead of the virtual Home. If a tab does end up in Home state
+  anyway (e.g. from an older saved session), it at least shows the Quick
+  Access list there, not a blank surface.
+- Duplicated bullets in the "Known limitations" section (process
+  isolation, code signing, custom keymap editor) merged.
+- The K1 (column-width persistence) and K3 (row striping) settings are now
+  also available under Settings → Panes, not just in the config file —
+  see below.
 
-### Javítások — Beállítások
+### Fixes — Settings
 
-- **A „Vízszintes elrendezés" kapcsoló a Panelek kategóriában látszott, de
-  nem hatott.** A XAML egy `DualPaneVertical` nevű tulajdonságra kötött, ami
-  a `SettingsViewModel`-en sosem létezett — a kapcsoló némán, hiba nélkül
-  eltűnt kötésként állt ott. Most valódi tulajdonságra köt, ami azonnal
-  átbillenti a látható elrendezést mindkét panelen (a `MainWindowViewModel`
-  a beállítás-változás eseményén keresztül veszi át), és a kategória
-  „Alapértelmezettek visszaállítása" gombja is eléri.
-- **Új sorcsíkozás- és oszlopszélesség-kapcsoló** a Panelek kategóriában —
-  lásd a fenti K1/K3 pontot.
-- **Védelem a néma kötési hibák ellen.** A WPF kötési hibák alapból nem
-  jelennek meg sehol — pontosan ez okozta a fenti `DualPaneVertical`-hibát.
-  Mostantól minden ablak vizuális fáját egy beépített ellenőrző járja be
-  (`BindingErrorScanner`), ami a `BindingExpression.Status` alapján
-  megtalálja a feloldatlan kötéseket; Debug buildben a talált hibák a
-  diagnosztikai naplóba (`CrashDiagnostics`) is bekerülnek. Egy új automata
-  teszt (`BindingErrorTests`) minden ablakot és Beállítások-kategóriát
-  megnyit, és megbukik, ha akár egyetlen kötési hiba is keletkezik — ez a
-  teszt automatikusan elkapta volna a fenti hibát.
+- **The "Horizontal layout" toggle under the Panes category showed up but
+  had no effect.** The XAML bound to a property named `DualPaneVertical`,
+  which never existed on `SettingsViewModel` — the toggle sat there as a
+  silent, error-free dead binding. It now binds to a real property, which
+  immediately flips the visible layout on both panes
+  (`MainWindowViewModel` picks it up through the settings-change event),
+  and the category's "Restore Defaults" button reaches it too.
+- **New row-striping and column-width toggle** under the Panes category —
+  see the K1/K3 note above.
+- **Protection against silent binding errors.** WPF binding errors don't
+  show up anywhere by default — which is exactly what caused the
+  `DualPaneVertical` bug above. A built-in scanner now walks every
+  window's visual tree (`BindingErrorScanner`), finding unresolved
+  bindings via `BindingExpression.Status`; in Debug builds, found errors
+  also go into the diagnostic log (`CrashDiagnostics`). A new automated
+  test (`BindingErrorTests`) opens every window and every Settings
+  category, and fails if even a single binding error occurs — this test
+  would have caught the bug above automatically.
 
 ## v1.0.0
 
-Az első kiadás, ami nem egy mérföldkő, hanem egy **kerek termék**: a
-kétpaneles nézet a nulláról újraírva, a jobbklikk-menü saját designnal de
-valódi shell-integrációval, beépített szövegszerkesztő, átszervezett
-beállítások, és teljes téma-audit.
+The first release that isn't a milestone, but a **complete product**: the
+dual-pane view rewritten from scratch, a right-click menu with its own
+design but real shell integration, a built-in text editor, reorganized
+settings, and a full theme audit.
 
-### Új funkciók
+### New features
 
-**Pilaster Editor — beépített szövegszerkesztő**
-- `F4` (Pilaster Classic kiosztás) vagy `Ctrl+E` (mindkét kiosztásban) a
-  kijelölt fájlon; jobbklikk-menüből is.
-- Több fül, fülönként külön fájl. A módosított fület pötty jelöli, bezáráskor
-  és kilépéskor rákérdez a mentésre.
-- Szintaxiskiemelés: `txt, md, json, xml, yaml, yml, ini, cfg, conf,
+**Pilaster Editor — built-in text editor**
+- `F4` (Pilaster Classic keymap) or `Ctrl+E` (both keymaps) on a selected
+  file; also from the right-click menu.
+- Multiple tabs, one file per tab. A dot marks a modified tab, and it asks
+  to save on close and on exit.
+- Syntax highlighting: `txt, md, json, xml, yaml, yml, ini, cfg, conf,
   properties, log, js, ts, py, java, cs, c, cpp, html, css, sh, bat, ps1,
-  sql, sk`. A **`.sk` és `.yml`** saját, e kiadásban írt definíciót kapott.
-- Sorszámozás, sortörés, aktuális sor kiemelése, téglalap-kijelölés.
-- `Ctrl+F`/`Ctrl+H` keresés és csere regex + kis/nagybetű + egész szó
-  opciókkal; `Ctrl+G` ugrás sorra; `Ctrl+D` sor duplikálás;
-  `Ctrl+Shift+K` sor törlés; `Alt+↑/↓` sor mozgatás.
-- Kódolás: automatikus felismerés (BOM + heurisztika), kézi váltás UTF-8 /
-  UTF-8 BOM / CP1250 / CP852 / UTF-16LE / UTF-16BE között. Az „Újranyitás
-  ezzel a kódolással" és a „Mentés ezzel a kódolással" külön parancs.
-- Sorvég felismerés (CRLF/LF/CR/vegyes) és konvertálás.
-- Státuszsor: sor:oszlop, kijelölt karakterek, kódolás, sorvég, nyelv, INS/OVR.
-- **Atomi mentés**: ideiglenes fájlba írás, majd csere — áramszünetnél sem
-  csonkul a fájl.
-- Írásvédett fájl bannerrel nyílik; 50 MB fölött csak olvasható; bináris
-  tartalom meg sem nyílik, hanem az `F3` hexdump-előnézetre esik vissza.
-- A lemezen történt külső változást jelzi, és felajánlja az újratöltést.
+  sql, sk`. **`.sk` and `.yml`** got their own definitions, written for
+  this release.
+- Line numbers, word wrap, current-line highlighting, box selection.
+- `Ctrl+F`/`Ctrl+H` find and replace with regex + case + whole-word
+  options; `Ctrl+G` go to line; `Ctrl+D` duplicate line;
+  `Ctrl+Shift+K` delete line; `Alt+↑/↓` move line.
+- Encoding: auto-detection (BOM + heuristics), manual switching between
+  UTF-8 / UTF-8 BOM / CP1250 / CP852 / UTF-16LE / UTF-16BE. "Reopen with
+  this encoding" and "Save with this encoding" are separate commands.
+- Line-ending detection (CRLF/LF/CR/mixed) and conversion.
+- Status bar: line:column, selected characters, encoding, line ending,
+  language, INS/OVR.
+- **Atomic save**: writes to a temp file, then swaps it in — no truncated
+  file even on a power loss.
+- Read-only files open with a banner; over 50 MB, read-only only; binary
+  content doesn't open at all, falling back to the `F3` hexdump preview.
+- Detects external changes on disk and offers to reload.
 
-**Saját jobbklikk-menü, shell-integrációval**
-- A menü teljes egészében a Pilaster designja, **de** megjeleníti a telepített
-  shell-bővítmények (7-Zip, Notepad++, TortoiseGit, PowerToys, …) elemeit
-  almenükkel és ikonokkal, és azok ugyanazt csinálják, mint az Intézőben.
-- Nincs „További lehetőségek megjelenítése" kétszintűség — minden egy szinten.
-- Aszinkron betöltés időkorláttal: a saját elemek azonnal megjelennek.
-- Bővítmény-feketelista név vagy CLSID alapján.
-- Opcionális kereső a nyitott menüben, billentyűzetes navigációval.
+**Its own right-click menu, with shell integration**
+- The menu is entirely Pilaster's own design, **but** shows installed
+  shell extensions' (7-Zip, Notepad++, TortoiseGit, PowerToys, …) items
+  with submenus and icons, and they do exactly what they do in Explorer.
+- No "Show more options" two-tier split — everything's on one level.
+- Asynchronous loading with a timeout: the app's own items appear
+  instantly.
+- Extension blocklist by name or CLSID.
+- Optional search in the open menu, with keyboard navigation.
 
-**Gyorselérés: szerkeszthető és perzisztens**
-- Saját, verziózott `quickaccess.json`; minden módosítás azonnal mentődik.
-- Szerkesztő ablak: drag & drop sorrendezés, hozzáadás, átnevezés, ikon és
-  szín, csoport, elválasztó, eltávolítás, alapértelmezettek, import/export.
-- Jobbklikk a fejlécen és a sorokon; **Rögzített** és **Legutóbbi** szekció.
-- Nem létező útvonal nem tűnik el magától: szürkítve, figyelmeztető ikonnal,
-  jobbklikkből javíthatóan.
-- Hálózati útvonalak aszinkron, időkorlátos elérhetőség-ellenőrzéssel.
+**Quick Access: editable and persistent**
+- Its own, versioned `quickaccess.json`; every change saves instantly.
+- An editor window: drag-and-drop reordering, add, rename, icon and
+  color, group, separator, remove, defaults, import/export.
+- Right-click on the header and on rows; **Pinned** and **Recent**
+  sections.
+- A missing path doesn't disappear on its own: grayed out, with a warning
+  icon, fixable from the right-click menu.
+- Network paths get an asynchronous, timeout-bound reachability check.
 
-**Beállítások átszervezése**
-- Bal oldali kategórialista (11 kategória) + kereső, ami a névre, a leírásra
-  **és rejtett kulcsszavakra** is illeszkedik, magyarul és angolul.
-- Mélyhivatkozás: minden beállításnak van azonosítója, más helyről közvetlenül
-  odaugorhatunk.
-- Kategóriánkénti „Alapértelmezettek visszaállítása" + teljes export/import.
-- Kb. 30 új beállítás, mindegyik alatt rövid segédszöveg.
+**Reorganized Settings**
+- A left-side category list (11 categories) + a search box that matches
+  the name, the description, **and hidden keywords**, in both Hungarian
+  and English.
+- Deep links: every setting has an ID, so other places can jump straight
+  to it.
+- Per-category "Restore Defaults" + full export/import.
+- About 30 new settings, each with a short help text underneath.
 
-**Modern telepítő**
-- Inno Setup 6, `WizardStyle=modern`, per-user alapértelmezéssel (nincs UAC).
-- Telepítés típusa: Normál / Egyedi / **Hordozható**.
-- Opciók: asztali parancsikon, Start menü, Explorer jobbklikk (fájl, mappa és
-  mappa-háttér verb), fájltársítások, indítás Windowsszal, alapértelmezett
-  fájlkezelő.
-- Csendes telepítés: `/VERYSILENT /NORESTART /DIR="…" /PORTABLE=1 /TASKS="…"`.
-- Az eltávolító **rákérdez** a beállítások törlésére, és alapból megtartja őket.
+**Modern installer**
+- Inno Setup 6, `WizardStyle=modern`, per-user by default (no UAC).
+- Install type: Normal / Custom / **Portable**.
+- Options: desktop shortcut, Start menu, Explorer right-click (file,
+  folder, and folder-background verbs), file associations, launch with
+  Windows, default file manager.
+- Silent install: `/VERYSILENT /NORESTART /DIR="…" /PORTABLE=1 /TASKS="…"`.
+- The uninstaller **asks** whether to delete settings, and keeps them by
+  default.
 
-**Egyéb**
-- Panelenkénti fülek (`Ctrl+T`, `Ctrl+W`, `Ctrl+Tab`).
-- `Ctrl+U` panelcsere, `Ctrl+L`/`Ctrl+R` útvonal átadása, `Alt+F5` mindkét
-  panel frissítése.
-- `Alt`+húzás: parancsikon készítése.
-- Munkamenet mentése és visszaállítása mindkét panel összes fülével.
-- Hordozható mód: a beállítások a program mappájába kerülnek.
+**Other**
+- Per-pane tabs (`Ctrl+T`, `Ctrl+W`, `Ctrl+Tab`).
+- `Ctrl+U` swap panes, `Ctrl+L`/`Ctrl+R` pass path across, `Alt+F5` refresh
+  both panes.
+- `Alt`+drag: create a shortcut.
+- Session save and restore, with both panes' full tab set.
+- Portable mode: settings go into the app's own folder.
 
-### Változások
+### Changes
 
-- **A kétpaneles nézet a nulláról újraíródott.** A v0.9-ig a két panel egy-egy
-  magányos fül volt, a fülrendszer pedig ezektől függetlenül, globális
-  állapotként élt — emiatt nem lehetett panelenként füle, és az állapotuk
-  összemosódott. Most **minden fájllista-állapot panelenként él** (fülek,
-  aktív fül, és fülönként útvonal, előzmény, kijelölés, fókuszált elem,
-  rendezés, nézetmód, görgetés, szűrő); globálisan csak az aktív panel és az
-  elrendezés marad.
-- **A billentyűkiosztás új nevet kapott.** A „Total Commander billentyűkiosztás"
-  helyett **Pilaster Classic (kétpaneles)** és **Pilaster Modern
-  (Explorer-szerű)**. A viselkedés változatlan, csak a felirat más. A
-  felhasználónak látható felületen sehol nem szerepel idegen terméknév.
-- **A shell-menü előmelegítése induláskor**, alacsony prioritású háttérszálon.
-  MÉRVE: az első jobbklikk enélkül 2186 ms, vele 1132 ms — a különbség a COM
-  apartment indulása és a bővítmény-DLL-ek betöltése, ami egyszeri költség.
-- A jobbklikk-menü shell-elemeinek **időkorlátja 2000 ms** (a specifikációban
-  javasolt 400 ms helyett). Az érték mérésből származik: az előmelegítés utáni
-  legrosszabb első lekérdezés 1132 ms, ×1,75 biztonsági szorzóval. Ez nem
-  lassít semmit: a menü megnyitása MÉRVE 96 ms, a shell elemek utólag
-  csúsznak be. Részletes számok: `docs/CONTEXT-MENU.md`.
-- **A telepítő mindig per-user ágon fut.** MÉRVE: a korábbi
-  `PrivilegesRequiredOverridesAllowed=dialog` mellett a csendes telepítés
-  per-machine ágra ment (HKLM-be írt, a parancsikonokat a Public Desktopra
-  tette); `commandline dialog` mellett pedig a mód-választó ablak `/VERYSILENT`
-  mellett is felugrott. Most csak `commandline` marad — per-machine telepítés
-  az `/ALLUSERS` kapcsolóval kérhető.
-- A szerkesztő alapértelmezett betűkészlete Consolas (nem Cascadia Mono: az
-  utóbbi a Windows Terminallal érkezik, nem magával a Windowsszal).
+- **Dual-pane view was rewritten from scratch.** Through v0.9, the two
+  panes were each a single, lone tab, with the tab system living
+  independently as global state — which meant no per-pane tabs, and their
+  state got mixed together. Now **every file-list state lives per pane**
+  (tabs, active tab, and per-tab path, history, selection, focused item,
+  sort, view mode, scroll, filter); only the active pane and the layout
+  remain global.
+- **The keymap got new names.** "Total Commander keymap" is now
+  **Pilaster Classic (dual-pane)** and **Pilaster Modern (Explorer-like)**.
+  Behavior is unchanged, only the label. No third-party product name
+  appears anywhere in the user-visible UI.
+- **The shell menu warms up on startup**, on a low-priority background
+  thread. MEASURED: the first right-click takes 2186 ms without this,
+  1132 ms with it — the difference is the COM apartment starting up and
+  extension DLLs loading, a one-time cost.
+- The right-click menu's shell-item **timeout is 2000 ms** (instead of the
+  400 ms suggested in the spec). The value comes from measurement: the
+  worst-case first query after warmup is 1132 ms, ×1.75 safety margin.
+  This doesn't slow anything down: the menu's own open time MEASURED at
+  96 ms, with shell items sliding in afterward. Detailed numbers used to
+  live in `docs/CONTEXT-MENU.md`.
+- **The installer always runs on the per-user branch.** MEASURED: with the
+  previous `PrivilegesRequiredOverridesAllowed=dialog`, a silent install
+  used to go down the per-machine branch (writing to HKLM, putting
+  shortcuts on the Public Desktop); with `commandline dialog`, the
+  mode-picker dialog popped up even under `/VERYSILENT`. Now only
+  `commandline` remains — per-machine install can be requested with the
+  `/ALLUSERS` switch.
+- The editor's default font is Consolas (not Cascadia Mono: the latter
+  ships with Windows Terminal, not Windows itself).
 
-#### Breaking változás: `Ctrl+R` — **csak a Pilaster Classic kiosztásban**
+#### Breaking change: `Ctrl+R` — **Pilaster Classic keymap only**
 
 | Preset | `Ctrl+R` | `Ctrl+Shift+R` | `F5` | `Alt+F5` |
 |---|---|---|---|---|
-| **Pilaster Classic** | jobb panel útvonala a balra *(változás)* | frissítés | másolás a másik panelbe | mindkét panel frissítése |
-| **Pilaster Modern** | frissítés *(változatlan)* | – | frissítés *(változatlan)* | mindkét panel frissítése |
-| Egyedi | a felhasználó kiosztása szerint | | | |
+| **Pilaster Classic** | copy right pane's path to left *(changed)* | refresh | copy to other pane | refresh both panes |
+| **Pilaster Modern** | refresh *(unchanged)* | – | refresh *(unchanged)* | refresh both panes |
+| Custom | per the user's own bindings | | | |
 
-A Pilaster Modern kiosztás az Explorer/böngésző konvencióját követi: a `Ctrl+R`
-és az `F5` is frissít, pontosan úgy, mint eddig. **Aki a Modern kiosztást
-használja, nem tapasztal semmilyen változást.**
+Pilaster Modern follows the Explorer/browser convention: both `Ctrl+R` and
+`F5` refresh, exactly as before. **Anyone using the Modern keymap sees no
+change at all.**
 
-A Classic kiosztásban a `Ctrl+R` eddig frissítés volt; mostantól a klasszikus
-kétpaneles konvenciót követi. A frissítés ott `Ctrl+Shift+R`-re került.
+In the Classic keymap, `Ctrl+R` used to refresh; it now follows the
+classic dual-pane convention instead. Refresh moved to `Ctrl+Shift+R`
+there.
 
-*Migráció:* nincs teendő — a kiosztás nem konfigurációs adat. A teljes lista a
-Beállítások → Billentyűzet → „Kiosztás megtekintése" gombjával bármikor
-előhívható.
+*Migration:* nothing to do — the keymap isn't stored config data. The full
+list is available anytime from Settings → Keyboard → "View keymap."
 
-#### Migrációk (automatikusak, adatvesztés nélkül)
+#### Migrations (automatic, no data loss)
 
-- A v0.9-es `totalcommander` / `tc` / `total_commander` konfigurációs értékek
-  és a régi logikai kapcsoló **Pilaster Classic**-ra képződnek.
-- A `settings.json`-ben tárolt gyorselérés átkerül a `quickaccess.json`-be —
-  egyszer, az első v1.0-s indításkor, és csak ha az új fájl még üres.
-- A címkék `metadata.json`-je változatlanul betöltődik; a paletta 7-ről 12
-  színre bővült, a régi színnevek érintetlenek.
+- The v0.9 `totalcommander` / `tc` / `total_commander` config values and
+  the old boolean toggle map to **Pilaster Classic**.
+- Quick Access stored in `settings.json` moves to `quickaccess.json` —
+  once, on the first v1.0 startup, and only if the new file is still
+  empty.
+- Tags' `metadata.json` still loads unchanged; the palette grew from 7 to
+  12 colors, the old color names untouched.
 
-### Javítások
+### Fixes
 
-- **Világos módban sötéten maradt felületek.** Gyökérok: a `GlassPanelBrush`
-  egyszer másolódott a WPF-UI szótárából, és témaváltáskor a régi (sötét)
-  ecsetobjektum maradt benne — ettől ragadt sötétben az oldalsáv, a felső sáv
-  és a Beállítások panel. A teljes felület átállt egy 23 elemű
-  téma-tokenkészletre (`ThemeTokenService`), minden beégetett hex eltűnt, és
-  minden szövegtoken teljesíti a WCAG AA 4,5:1 kontrasztot. Ellenőrző lista:
-  `docs/THEME-CHECKLIST.md`.
-- **A címke színe nem látszott a Beállításokban.** A pötty helyére a
-  specifikált 14×14-es, lekerekített, **mindig szegélyezett** színminta került
-  (enélkül egy világos címke beleolvadna a világos háttérbe). A minta a
-  fájllistában, a szűrőben és a panelekben is megjelenik, és színválasztó
-  popup tartozik hozzá: 12 előre definiált szín + egyedi hex, élő előnézettel.
-- **Rossz ikon a tálcán.** Az alkalmazás mostantól a folyamat elején beállítja
-  az `AppUserModelID`-t (`Obsidix.Pilaster`), minden ablak explicit,
-  multi-resolution `.ico` ikont kap, és a telepítő ugyanezt az azonosítót
-  írja a Start menü és az asztali parancsikon tulajdonságába.
-- Egy panel útvonalának megszűnésekor (kihúzott pendrive) a panel a
-  legközelebbi elérhető szülőre lép hibaüzenettel, nem ürül ki némán.
-- A felső fülsáv `ListBox`-a panelváltáskor `null`-t írt vissza az aktív fül
-  helyére; az aktív panelnek így egy pillanatra nem volt aktív füle.
-- Az AvalonEdit `TextDocument` szálhoz kötött; a szerkesztő minden
-  megnyitáskor `NullReferenceException`-t dobott a mérési fázisban.
-- **A nagy fájl megnyitása befagyasztotta a felületet.** MÉRVE: egy 122,7 MB-os
-  naplófájlnál a betöltés alatt egy 50 ms-os órajel a várt 97 ütésből csak
-  17-et kapott meg — 4,6 másodperc néma fagyás. A beolvasás, a dekódolás és a
-  dokumentum felépítése átkerült háttérszálra (az AvalonEdit szabályos
-  `SetOwnerThread` tulajdonjog-átadásával, mert a dokumentum szálhoz kötött), a
-  megnyitás megszakítható lett, és arányt mutató folyamatjelzőt kapott.
-  Újramérve: az ütések aránya az ÜRESJÁRATI alapvonalra állt vissza (78% helyett
-  74–77%), és egyetlen, 196–1343 ms-os szünet maradt — a dokumentum átadása az
-  AvalonEdit nézetének, ami kötelezően a UI-szálon fut. „Mégse" után nem marad
-  félig betöltött fül.
-- **A jobbklikk-menü összeomlasztotta a programot a második megnyitásnál.**
-  MÉRVE (Release, éles menü-út): a folyamat `0xC0000374`
-  (heap-korrupció) hibával elszállt, mind a négy forgatókönyvben az 1–2.
-  körben. A hibát a `Vanara.Windows.Shell` `ShellContextMenu.CreateFromItems`
-  hívása okozta. A bizonyítás a MŰKÖDŐ oldalról indult, egyszerre egy változót
-  mozgatva (`tools/ShellCrashRepro/`): a minimál, nyers P/Invoke harness
-  4×10/10 tisztán fut; pumpálás nélkül is 3×10/10; csak a `ShellItem`
-  életciklusával is 3×10/10; a `CreateFromItems`-szel viszont 3-ból 3-szor
-  elszáll — a Vanara 5.0.6-tal is. Ezért a fájlmenü mostantól közvetlenül a
-  shell API-ját hívja (`SHParseDisplayName` → `SHBindToParent` →
-  `GetUIObjectOf`); a menüolvasó, az ikonkonverter és a mappa-háttér ág
-  változatlan. Utána: mind a négy forgatókönyv 10/10, és 200 menünyitásból
-  nulla összeomlás. Részletes bisect-táblázat: `docs/CONTEXT-MENU.md`.
-- **A shell-szál lezárása megölte a folyamatot.** A `StaWorker.Dispose()`
-  eldobta a munkasort, miközben a szivattyú szál még benne állt a
-  `GetConsumingEnumerable()` ciklusban; a keletkező `ObjectDisposedException`
-  a `foreach`-en kívül csapódott ki, tehát kezeletlenül vitte a folyamatot
-  (`0xE0434352`). Jellemzően akkor, amikor egy időtúllépés miatt eldobtuk a
-  közös szálat. MÉRVE: 200 menünyitásból 3 futás halt így meg; a javítás után
-  nulla. A sort mostantól az a szál szabadítja fel, amelyik olvassa.
-- **Kettős felszabadítás a jobbklikk-menüben.** A shell-menü `ShellItem`-jeit
-  előbb kétszer engedtük el, majd egyáltalán nem — utóbbitól a GC véglegesítő
-  szálára (MTA) kerültek, ami apartment-kötött COM-objektumnál szintén
-  memóriasérülés. A helyes felszabadítási sorrend a kód kommentjében,
-  táblázattal rögzítve.
-- **A csendes eltávolítás törölte a felhasználó beállításait.** MÉRVE: a
-  `/VERYSILENT` eltávolítás a `%APPDATA%\Pilaster` mappát elvitte, pedig az
-  alapértelmezés a megtartás. A csendes ág többé nem a megerősítő párbeszéd
-  alapértelmezésétől függ: csak a kifejezett `/DELETESETTINGS=1` kapcsolóra
-  töröl. Interaktív eltávolításnál marad a kérdés, „Nem" alapértelmezéssel.
-- **A három „halott" beállítás mostantól hat**: a kiterjesztés-megjelenítés, a
-  rendszerfájlok kapcsolója (a rejtett elemektől függetlenül) és a sűrűség
-  (sormagasság és margó a fájllistában, a gyorselérésben és a Beállításokban).
-  Mindhárom azonnal érvényesül, újraindítás nélkül, mindkét panelen és minden
-  nyitott fülön. Az átnevezés továbbra is a TELJES nevet szerkeszti, tehát a
-  kiterjesztés akkor sem veszik el, ha nincs megjelenítve.
+- **Surfaces stayed dark in light mode.** Root cause: `GlassPanelBrush`
+  was copied once from WPF-UI's dictionary, and on theme change the old
+  (dark) brush object stayed stuck in it — this is what kept the sidebar,
+  top bar, and Settings panel stuck dark. The entire UI moved to a
+  23-token theme token set (`ThemeTokenService`), every hardcoded hex
+  color disappeared, and every text token now meets WCAG AA's 4.5:1
+  contrast requirement, measured and verified.
+- **A tag's color wasn't visible in Settings.** The dot was replaced with
+  the spec's 14×14, rounded, **always-bordered** color swatch (without
+  which a light-colored tag would blend into a light background). The
+  swatch also appears in the file list, in the filter, and in the panes,
+  with a color-picker popup: 12 predefined colors + a custom hex, with a
+  live preview.
+- **Wrong taskbar icon.** The app now sets its `AppUserModelID`
+  (`Obsidix.Pilaster`) at process start, every window gets an explicit,
+  multi-resolution `.ico` icon, and the installer writes the same ID into
+  the Start menu and desktop shortcut properties.
+- If a pane's path disappears (an unplugged flash drive), the pane now
+  moves to the nearest available parent with an error message, instead of
+  silently going blank.
+- The top tab strip's `ListBox` was writing `null` back to the active-tab
+  slot on pane switch; the active pane would briefly have no active tab as
+  a result.
+- AvalonEdit's `TextDocument` is thread-bound; the editor threw a
+  `NullReferenceException` in the measurement phase on every open.
+- **Opening a large file froze the UI.** MEASURED: for a 122.7 MB log
+  file, a 50 ms clock only got 17 of the expected 97 ticks during
+  loading — a 4.6-second silent freeze. Reading, decoding, and building
+  the document moved to a background thread (with AvalonEdit's proper
+  `SetOwnerThread` ownership transfer, since the document is thread-bound),
+  opening became cancelable, and got a proportional progress indicator.
+  Re-measured: the tick ratio returned to the IDLE baseline (74–77%
+  instead of 78%), with a single 196–1343 ms pause left — handing the
+  document to AvalonEdit's view, which has to run on the UI thread. No
+  half-loaded tab is left behind after "Cancel."
+- **The right-click menu crashed the app on the second open.** MEASURED
+  (Release, real menu path): the process crashed with `0xC0000374`
+  (heap corruption), in rounds 1–2, across all four scenarios. The bug was
+  caused by `Vanara.Windows.Shell`'s `ShellContextMenu.CreateFromItems`
+  call. The proof started from the WORKING side, moving one variable at a
+  time (`tools/ShellCrashRepro/`): a minimal, raw P/Invoke harness runs
+  4×10/10 cleanly; 3×10/10 even without message pumping; 3×10/10 even with
+  the `ShellItem` lifecycle included — but with `CreateFromItems`, it
+  crashes 3 out of 3 times, even on Vanara 5.0.6. So the file menu now
+  calls the shell API directly (`SHParseDisplayName` → `SHBindToParent` →
+  `GetUIObjectOf`); the menu reader, icon converter, and folder-background
+  path are unchanged. Afterward: all four scenarios 10/10, and zero
+  crashes out of 200 menu opens.
+- **Shutting down the shell thread killed the process.** `StaWorker.Dispose()`
+  disposed the work queue while the pump thread was still inside the
+  `GetConsumingEnumerable()` loop; the resulting
+  `ObjectDisposedException` escaped outside the `foreach`, so it took the
+  process down unhandled (`0xE0434352`). Typically happened when a shared
+  thread got disposed due to a timeout. MEASURED: 3 out of 200 menu opens
+  died this way; zero after the fix. The queue is now released by the
+  thread that reads it.
+- **Double-free in the right-click menu.** The shell menu's `ShellItem`s
+  used to be released twice in one place, and not at all in another — the
+  latter left them to the GC's finalizer thread (MTA), which is also
+  memory corruption for an apartment-bound COM object. The correct release
+  order is documented in the code, with a table.
+- **Silent uninstall deleted the user's settings.** MEASURED: a
+  `/VERYSILENT` uninstall removed the `%APPDATA%\Pilaster` folder, even
+  though the default is to keep it. The silent branch no longer depends on
+  the confirmation dialog's default: it only deletes on the explicit
+  `/DELETESETTINGS=1` switch. An interactive uninstall still asks, with
+  "No" as the default.
+- **Three "dead" settings are now six**: extension display, the system
+  files toggle (independent of hidden items), and density (row height and
+  margin in the file list, Quick Access, and Settings). All three apply
+  instantly, with no restart needed, on both panes and every open tab.
+  Rename still edits the FULL name, so the extension is never lost even
+  when it's not displayed.
 
-### Ismert korlátok
+### Known limitations
 
-Ezek **nem hibák**, hanem tudatosan a v1.1-re halasztott munkák.
+These are **not bugs** — they're deliberately deferred to v1.1.
 
-- **Folyamat-izoláció a shell-menühöz.** A kivétel, a beragadás és a hibás
-  menüfa ellen védve vagyunk, és a v1.0-t blokkoló heap-korrupció is elhárult
-  (lásd a Javításokat). Egy natív hozzáférési hiba egy bővítmény kódjában
-  viszont továbbra is viheti a folyamatot — ez ellen csak külön FOLYAMAT
-  védene. Enyhítésként a v1.0 összeomlás-jelzőt ír a lekérdezés köré, és az
-  előmelegítés köré is: ha a következő indulás beragadt jelzőt talál, a
-  bővítmények KIMARADNAK, a menü tetején egy sorban jelezzük ezt a bűnös
-  útvonalával, és a Beállítások → Jobbklikk menü szakaszban van „Bővítmények
-  újra bekapcsolása" gomb. A `ShellMenuSession` felülete IPC-kompatibilis
-  marad, tehát a helper-folyamat visszafelé kompatibilisen bevezethető — ez a
-  **v1.1** feladata.
-- **Lassú shell-bővítmények.** MÉRVE: a fájlmenü ~780 ms-os állandósult
-  idejéből 650–790 ms **egyetlen** kezelőé (NVIDIA `NvAppShExt`,
-  `nv3dappshext.dll`), és ez az egyetlen, ami nem melegszik be. `Debug`
-  naplószinten a program felsorolja az 5 leglassabb kezelőt és megnevezi a
-  400 ms fölöttieket, de **magától nem tilt le semmit** — a döntés a
-  Beállítások → Jobbklikk menü → Kikapcsolt bővítmények mezőé.
-- **Kódaláírás.** A `signtool` hook helye megvan a build scriptben,
-  tanúsítvány viszont nincs.
-- **Egyedi kiosztás-szerkesztő UI.** A `Custom` preset és a tároló mező
-  (`CustomKeyBindings`) megvan; a hozzárendelések ma még csak kézzel, a
-  `settings.json`-ben adhatók meg. A preset-választó és a „Kiosztás
-  megtekintése" táblázat működik.
-- **Nagy fájl memóriaigénye a szerkesztőben.** MÉRVE: egy 122,7 MB-os
-  naplófájl megnyitása 4,6 mp, és 701 MB felügyelt memóriát köt le (871 MB
-  working set). A fájl helyesen csak olvasható módban nyílik, a görgetés és a
-  keresés gyors (807 ms, illetve 161 ms), de a memóriaigény a fájlméret
-  ~5,7-szerese — ezt a v1.1 memóriaképezett betöltéssel csökkentheti. A
-  betöltés alatti fagyást a v1.0 megszüntette (lásd a Javításokat), de a
-  dokumentum átadása a nézetnek így is 196–1343 ms egyszeri szünet marad.
-- **A tálcaikon tiszta profilon nincs ellenőrizve.** Az `AppUserModelID`, a
-  multi-resolution `.ico` és a parancsikon-tulajdonság a fejlesztői gépen
-  helyes, de az ikongyorsítótár nélküli, FRISS Windows-felhasználói profilon
-  végzett ellenőrzés kimaradt — ahhoz új profilt kell létrehozni. Ezt a
-  kiadás előtti kézi körben kell megnézni.
-- **Néhány új beállítás még nem hat mindenre.** A sűrűség, a rendszerfájlok
-  és a kiterjesztés-megjelenítés kapcsolója mentődik, de a fájllista
-  megjelenítése még nem olvassa őket.
+- **Process isolation for the shell menu.** We're protected against
+  exceptions, hangs, and a broken menu tree, and the heap corruption that
+  blocked v1.0 is gone too (see Fixes). A native access violation in an
+  extension's code, though, can still take down the process — only a
+  separate PROCESS would protect against that. As a mitigation, v1.0
+  writes a crash flag around the query, and around warmup too: if the next
+  startup finds a stuck flag, extensions are LEFT OUT, a line at the top
+  of the menu names the culprit path, and there's a "Re-enable extensions"
+  button under Settings → Right-click menu. `ShellMenuSession`'s interface
+  stays IPC-compatible, so a helper-process approach can be introduced
+  backward-compatibly later — that's a **v1.1** task.
+- **Slow shell extensions.** MEASURED: of the file menu's ~780 ms steady
+  state, 650–790 ms belongs to a SINGLE handler (NVIDIA's `NvAppShExt`,
+  `nv3dappshext.dll`), and it's the only one that doesn't warm up. At
+  `Debug` log level, the app lists the 5 slowest handlers and names
+  anything over 400 ms, but **doesn't disable anything on its own** — that
+  decision belongs to Settings → Right-click menu → Disabled extensions.
+- **Code signing.** The `signtool` hook has a place in the build script,
+  but there's no certificate yet.
+- **Custom keymap editor UI.** The `Custom` preset and its storage field
+  (`CustomKeyBindings`) exist; bindings can currently only be set by hand,
+  in `settings.json`. The preset picker and the "View keymap" table work.
+- **Large files' memory footprint in the editor.** MEASURED: opening a
+  122.7 MB log file takes 4.6s and holds 701 MB of managed memory (871 MB
+  working set). The file correctly opens read-only, scrolling and search
+  are fast (807 ms and 161 ms respectively), but memory use is ~5.7× the
+  file size — v1.1 may reduce this with memory-mapped loading. v1.0
+  eliminated the freeze during loading (see Fixes), but handing the
+  document to the view is still a one-time 196–1343 ms pause.
+- **The taskbar icon hasn't been verified on a clean profile.** The
+  `AppUserModelID`, the multi-resolution `.ico`, and the shortcut property
+  are correct on the dev machine, but verification on a FRESH Windows
+  user profile with no icon cache is still pending — that needs a new
+  profile to be created. This should be checked manually before release.
+- **Some new settings don't affect everything yet.** Density, system
+  files, and the extension-display toggle save correctly, but the file
+  list's rendering doesn't read them yet.

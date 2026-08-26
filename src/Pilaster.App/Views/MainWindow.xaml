@@ -105,7 +105,7 @@
         <Style x:Key="ToolbarButtonStyle" TargetType="ui:Button">
             <Setter Property="Width" Value="34" />
             <Setter Property="Height" Value="34" />
-            <Setter Property="Margin" Value="1,0" />
+            <Setter Property="Margin" Value="2,0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -712,7 +712,7 @@
             Grid.RowSpan="2"
             Margin="6,2,6,2"
             Background="{DynamicResource GlassPanelBrush}"
-            CornerRadius="9" />
+            CornerRadius="12" />
 
         <!--
             Fülsáv — csak EGYPANELES nézetben. Kétpaneles nézetben minden
@@ -742,10 +742,29 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:TabViewModel}">
                         <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon
-                                Margin="0,0,8,0"
-                                FontSize="15"
-                                Symbol="Folder24" />
+                            <!--
+                                A Kezdőlap és a Lomtár fület a saját ikonja
+                                jelzi, ne az általános mappa-glyph. FONTOS: a
+                                Symbol NEM állítható be közvetlen attribútumként
+                                — a helyi érték mindig felülírná a Style
+                                Trigger-ek Setter-jeit, tehát a feltételes
+                                ikonváltás soha nem látszana.
+                            -->
+                            <ui:SymbolIcon Margin="0,0,8,0" FontSize="15">
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="Folder24" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHome}" Value="True">
+                                                <Setter Property="Symbol" Value="Home24" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsRecycleBin}" Value="True">
+                                                <Setter Property="Symbol" Value="Delete24" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
                             <TextBlock
                                 MaxWidth="180"
                                 VerticalAlignment="Center"
@@ -758,7 +777,7 @@
         </Border>
 
         <!--  Eszköztár: navigáció, útvonalsáv, keresés, nézetváltó  -->
-        <Grid Grid.Row="2" Margin="10,0,10,8">
+        <Grid Grid.Row="2" Margin="12,2,12,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -766,10 +785,18 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
+            <!--
+                Navigáció + útvonalsáv: csak EGYPANELES nézetben — kétpaneles
+                nézetben mindkét panel a saját vissza/előre/fel/frissítés
+                gombjait és breadcrumbját rajzolja (lásd FilePaneView.xaml),
+                úgyhogy ez a felső, „SelectedTab"-ra kötött másolat felesleges
+                lenne ott.
+            -->
             <StackPanel
                 Grid.Column="0"
                 Margin="0,0,8,0"
-                Orientation="Horizontal">
+                Orientation="Horizontal"
+                Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                 <ui:Button
                     Command="{Binding SelectedTab.GoBackCommand}"
                     IsEnabled="{Binding SelectedTab.CanGoBack}"
@@ -796,6 +823,20 @@
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTip="{loc:Loc Cmd_Refresh}">
                     <ui:SymbolIcon Symbol="ArrowClockwise24" />
+                </ui:Button>
+
+                <!--
+                    Lomtár ürítése — csak Lomtár-nézetben látszik (lásd
+                    TabViewModel.IsRecycleBin). Külön Click-kezelő, mert a
+                    tényleges ürítés előtt megerősítést kér — lásd
+                    OnEmptyRecycleBinToolbarClick.
+                -->
+                <ui:Button
+                    Click="OnEmptyRecycleBinToolbarClick"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="{loc:Loc Cmd_EmptyRecycleBin}"
+                    Visibility="{Binding SelectedTab.IsRecycleBin, Converter={StaticResource BoolToVisibility}}">
+                    <ui:SymbolIcon Symbol="Delete24" />
                 </ui:Button>
 
                 <!--
@@ -841,12 +882,13 @@
             -->
             <Border
                 Grid.Column="1"
-                Padding="6,3"
+                Padding="10,6"
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="7"
-                PreviewMouseLeftButtonDown="OnBreadcrumbAreaPreviewLeftButtonDown">
+                CornerRadius="10"
+                PreviewMouseLeftButtonDown="OnBreadcrumbAreaPreviewLeftButtonDown"
+                Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -869,7 +911,7 @@
                                 <DataTemplate DataType="{x:Type vm:BreadcrumbSegment}">
                                     <StackPanel Orientation="Horizontal">
                                         <ui:Button
-                                            Padding="7,3"
+                                            Padding="9,5"
                                             Appearance="Transparent"
                                             Command="{Binding DataContext.OpenBreadcrumbCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
                                             CommandParameter="{Binding}"
@@ -922,8 +964,9 @@
             <ui:TextBox
                 x:Name="QuickFilterBox"
                 Grid.Column="2"
-                Width="240"
-                Margin="8,0,8,0"
+                Width="290"
+                Margin="10,0,10,0"
+                Padding="10,7"
                 PlaceholderText="{loc:Loc Search_Placeholder}"
                 Text="{Binding SelectedTab.QuickFilterText, UpdateSourceTrigger=PropertyChanged}">
                 <ui:TextBox.Icon>
@@ -1066,26 +1109,54 @@
                 Background="{DynamicResource GlassPanelBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="9">
-                <ScrollViewer Padding="0,6" VerticalScrollBarVisibility="Auto">
+                CornerRadius="12">
+                <ScrollViewer Padding="0,8" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <ItemsControl ItemsSource="{Binding Sections}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:SidebarSection}">
-                                <StackPanel Margin="0,0,0,10" Visibility="{Binding Items.Count, Converter={StaticResource CountToVisibility}}">
+                                <StackPanel Margin="0,0,0,12" Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}">
                                     <!--
-                                        A fejléc jobbklikkje nyitja a gyorselérés-szerkesztőt
-                                        (spec F5). A menü csak a Gyorselérés szekcióban jelenik
-                                        meg — a Tag adja át a szekció kulcsát a kezelőnek.
+                                        Kattintható fejléc: bal kattintásra a szekció össze-/
+                                        kicsukódik (ToggleExpandedCommand), a nyíl a Windows 11
+                                        Intéző csoportosított oldalsávjának mintáját követve
+                                        forog. A jobbklikk nyitja a gyorselérés-szerkesztőt
+                                        (spec F5) — a menü csak a Gyorselérés szekcióban
+                                        jelenik meg, a Tag adja át a szekció kulcsát.
                                     -->
-                                    <TextBlock
-                                        Margin="12,10,12,6"
-                                        FontSize="11"
-                                        FontWeight="SemiBold"
-                                        Foreground="{DynamicResource TokenTextMuted}"
+                                    <ui:Button
+                                        Padding="12,11,10,7"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Appearance="Transparent"
+                                        Command="{Binding ToggleExpandedCommand}"
                                         MouseRightButtonUp="OnSidebarHeaderRightClick"
-                                        Tag="{Binding HeaderKey}"
-                                        Text="{Binding Header}" />
+                                        Tag="{Binding HeaderKey}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                FontSize="12"
+                                                FontWeight="SemiBold"
+                                                Foreground="{DynamicResource TokenTextMuted}"
+                                                Text="{Binding Header}" />
+                                            <ui:SymbolIcon
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                FontSize="12"
+                                                Foreground="{DynamicResource TokenTextMuted}"
+                                                RenderTransformOrigin="0.5,0.5"
+                                                Symbol="ChevronDown24">
+                                                <ui:SymbolIcon.RenderTransform>
+                                                    <!--  Alapból kinyitva → felfelé mutat (Windows 11 Intéző mintája); csukva lefelé.  -->
+                                                    <RotateTransform x:Name="ChevronRotate" Angle="180" />
+                                                </ui:SymbolIcon.RenderTransform>
+                                            </ui:SymbolIcon>
+                                        </Grid>
+                                    </ui:Button>
                                     <ListBox
                                         AllowDrop="True"
                                         Background="Transparent"
@@ -1095,7 +1166,8 @@
                                         ItemContainerStyle="{StaticResource SidebarItemStyle}"
                                         ItemsSource="{Binding Items}"
                                         SelectionChanged="OnSidebarSelectionChanged"
-                                        SelectionMode="Single">
+                                        SelectionMode="Single"
+                                        Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:SidebarItemViewModel}">
                                                 <StackPanel Opacity="{Binding IsMissing, Converter={StaticResource HiddenOpacity}}">
@@ -1129,17 +1201,18 @@
                                                                 DiscIconResolver.
                                                             -->
                                                             <ui:SymbolIcon
-                                                                Margin="0,0,10,0"
+                                                                Margin="0,0,12,0"
                                                                 VerticalAlignment="Center"
-                                                                FontSize="16"
+                                                                FontSize="18"
                                                                 Foreground="{Binding IconColorHex, Converter={StaticResource HexToBrush}}"
                                                                 Symbol="{Binding Icon}"
                                                                 Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
                                                             <Image
-                                                                Width="16"
-                                                                Height="16"
-                                                                Margin="0,0,10,0"
+                                                                Width="18"
+                                                                Height="18"
+                                                                Margin="0,0,12,0"
                                                                 VerticalAlignment="Center"
+                                                                RenderOptions.BitmapScalingMode="HighQuality"
                                                                 Source="{Binding CustomIcon}"
                                                                 Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}}" />
                                                             <TextBlock
@@ -1181,6 +1254,37 @@
                                                                 <ui:SymbolIcon FontSize="12" Symbol="Dismiss24" />
                                                             </ui:Button>
 
+                                                            <!--
+                                                                Leoldás-tű: a rögzített gyorselérés-sorokon, csak
+                                                                rámutatáskor/kijelölve (spec: oldalsáv-redesign,
+                                                                a referenciakép mintája) — nem állandó „x", hogy a
+                                                                korábbi véletlen-kattintás elleni óvatosság megmaradjon,
+                                                                mégis egy kattintással leoldható legyen jobbklikk nélkül is.
+                                                            -->
+                                                            <ui:Button
+                                                                Padding="4"
+                                                                VerticalAlignment="Center"
+                                                                Appearance="Transparent"
+                                                                Command="{Binding DataContext.UnpinQuickAccessCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="{loc:Loc Cmd_UnpinQuickAccess}"
+                                                                Visibility="{Binding IsUnpinnable, Converter={StaticResource BoolToVisibility}}">
+                                                                <ui:Button.Style>
+                                                                    <Style BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
+                                                                        <Setter Property="Opacity" Value="0" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsMouseOver}" Value="True">
+                                                                                <Setter Property="Opacity" Value="1" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                                                                <Setter Property="Opacity" Value="1" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </ui:Button.Style>
+                                                                <ui:SymbolIcon FontSize="12" Symbol="Pin24" />
+                                                            </ui:Button>
+
                                                             <!--  Kiadás — csak cserélhető/optikai meghajtóknál, sosem a rendszermeghajtónál (CanEject)  -->
                                                             <ui:Button
                                                                 Padding="4"
@@ -1209,19 +1313,38 @@
                                                             Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                             Text="{Binding Detail}" />
                                                     </StackPanel>
-
-                                                    <!--  Lomtár: „üres" jelzés, ha nincs benne semmi  -->
-                                                    <TextBlock
-                                                        Margin="26,3,2,0"
-                                                        FontSize="11"
-                                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                        Text="{Binding Detail}"
-                                                        Visibility="{Binding IsRecycleBin, Converter={StaticResource BoolToVisibility}}" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
                                     </ListBox>
                                 </StackPanel>
+                                <!--  Nyíl-forgatás a szekció össze-/kicsukásakor — ugyanaz a lágy időzítés, mint a sorok hover-átúsztatásánál.  -->
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="ChevronRotate"
+                                                        Storyboard.TargetProperty="Angle"
+                                                        To="0"
+                                                        Duration="{StaticResource HoverOutDuration}" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="ChevronRotate"
+                                                        Storyboard.TargetProperty="Angle"
+                                                        To="180"
+                                                        Duration="{StaticResource HoverInDuration}" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -1293,7 +1416,7 @@
                 Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="9"
+                CornerRadius="12"
                 RenderTransformOrigin="0.5,0.5"
                 Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                 <Border.RenderTransform>
@@ -1331,13 +1454,36 @@
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="{x:Type fs:FileSystemItem}">
                                             <StackPanel Orientation="Horizontal">
-                                                <controls:ShellIconImage
+                                                <Grid
                                                     Width="16"
                                                     Height="16"
                                                     Margin="0,0,10,0"
-                                                    VerticalAlignment="Center"
-                                                    IconSize="16"
-                                                    Item="{Binding}" />
+                                                    VerticalAlignment="Center">
+                                                    <controls:ShellIconImage
+                                                        IconSize="16"
+                                                        Item="{Binding}"
+                                                        Visibility="{Binding IsRecycled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                                    <!--
+                                                        Lomtár-elem: nincs valódi útvonal, tehát nincs
+                                                        natív shell-ikon sem (lásd ShellImageService.
+                                                        GetImageAsync IsRecycled ága) — helyette egyszerű
+                                                        mappa/dokumentum szimbólum.
+                                                    -->
+                                                    <ui:SymbolIcon
+                                                        FontSize="16"
+                                                        Symbol="Document24"
+                                                        Visibility="{Binding IsRecycled, Converter={StaticResource BoolToVisibility}}">
+                                                        <ui:SymbolIcon.Style>
+                                                            <Style TargetType="ui:SymbolIcon">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Kind}" Value="Directory">
+                                                                        <Setter Property="Symbol" Value="Folder24" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ui:SymbolIcon.Style>
+                                                    </ui:SymbolIcon>
+                                                </Grid>
                                                 <TextBlock
                                                     VerticalAlignment="Center"
                                                     Text="{Binding DisplayName}"
@@ -1944,11 +2090,19 @@
             Margin="0,0,16,16"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
-            Background="{DynamicResource GlassPanelBrush}"
+            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Visibility="{Binding FileOperationJobs.Count, Converter={StaticResource CountToVisibility}}">
+            <!--
+                SZÁNDÉKOSAN nem a megosztott GlassPanelBrush (liquid glass
+                kapcsoló) — ez a panel a folyamatosan változó fájllista FÖLÉ
+                lebeg, ahol az áttetsző háttér a mozgó tartalom miatt
+                olvashatatlanná/zavaróvá vált (felhasználói visszajelzés).
+                Mindig tömör kártyaháttere van, függetlenül a Beállítások
+                → Színtémák „folyékony üveg" kapcsolójától.
+            -->
             <Border.Effect>
                 <DropShadowEffect BlurRadius="24" Opacity="0.3" ShadowDepth="2" />
             </Border.Effect>

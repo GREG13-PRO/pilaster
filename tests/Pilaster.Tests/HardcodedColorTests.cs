@@ -68,10 +68,13 @@ public class HardcodedColorTests
     /// kell venni.
     /// </summary>
     /// <remarks>
-    /// Három fájl kivétel, és mindegyiknél a színkészlet MAGA a tartalom:
+    /// Négy fájl kivétel, és mindegyiknél a színkészlet MAGA a tartalom:
     /// a <c>ThemeTokenService</c> definiálja a tokeneket, a <c>TagPalette</c>
     /// a címkék fix, szándékosan nem téma-függő palettáját, az
-    /// <c>AccentColorService</c> pedig a választható akcentus-swatch-öket.
+    /// <c>AccentColorService</c> a választható akcentus-swatch-öket, a
+    /// <c>QuickAccessService</c> pedig a Gyors elérés alapértelmezett
+    /// mappáinak (Asztal, Dokumentumok stb.), a Lomtárnak és a Felhő
+    /// meghajtóknak a fix, szándékosan nem téma-függő ikonszíneit.
     /// </remarks>
     [Fact]
     public void CSharpDoesNotContainHardcodedColorsOutsidePaletteFiles()
@@ -80,6 +83,7 @@ public class HardcodedColorTests
         [
             "Services/ThemeTokenService.cs",
             "Services/AccentColorService.cs",
+            "Services/QuickAccessService.cs",
             "Converters/Converters.cs",
             "ViewModels/QuickAccessEditorViewModel.cs",
         ];

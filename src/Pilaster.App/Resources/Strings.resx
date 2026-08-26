@@ -93,6 +93,57 @@
   <data name="Nav_Favorites" xml:space="preserve">
     <value>Favorites</value>
   </data>
+  <data name="Nav_CloudDrives" xml:space="preserve">
+    <value>Cloud drives</value>
+  </data>
+  <data name="CloudDrive_Add" xml:space="preserve">
+    <value>Add cloud drive…</value>
+  </data>
+  <data name="CloudDrive_Remove" xml:space="preserve">
+    <value>Remove cloud drive</value>
+  </data>
+  <data name="CloudDrive_AddTitle" xml:space="preserve">
+    <value>Add cloud drive</value>
+  </data>
+  <data name="CloudDrive_Intro" xml:space="preserve">
+    <value>Connects over WebDAV — works with NextCloud, ownCloud, and most other WebDAV servers.</value>
+  </data>
+  <data name="CloudDrive_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="CloudDrive_NamePlaceholder" xml:space="preserve">
+    <value>e.g. Work NextCloud</value>
+  </data>
+  <data name="CloudDrive_ServerUrl" xml:space="preserve">
+    <value>Server URL</value>
+  </data>
+  <data name="CloudDrive_ServerUrlPlaceholder" xml:space="preserve">
+    <value>https://cloud.example.com/remote.php/dav/files/user/</value>
+  </data>
+  <data name="CloudDrive_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="CloudDrive_Password" xml:space="preserve">
+    <value>Password (or app password)</value>
+  </data>
+  <data name="CloudDrive_RememberCredentials" xml:space="preserve">
+    <value>Remember credentials (Windows Credential Manager)</value>
+  </data>
+  <data name="CloudDrive_Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="CloudDrive_Connecting" xml:space="preserve">
+    <value>Connecting…</value>
+  </data>
+  <data name="CloudDrive_ConnectFailed" xml:space="preserve">
+    <value>Couldn't connect — check the server address and credentials.</value>
+  </data>
+  <data name="CloudDrive_InvalidUrl" xml:space="preserve">
+    <value>Enter a valid http:// or https:// server address.</value>
+  </data>
+  <data name="CloudDrive_NameRequired" xml:space="preserve">
+    <value>Enter a name for this cloud drive.</value>
+  </data>
   <data name="Nav_RecycleBin" xml:space="preserve">
     <value>Recycle Bin</value>
   </data>
@@ -117,6 +168,9 @@
   </data>
   <data name="Cmd_CloseTab" xml:space="preserve">
     <value>Close tab</value>
+  </data>
+  <data name="Cmd_Close" xml:space="preserve">
+    <value>Close</value>
   </data>
   <data name="Cmd_Settings" xml:space="preserve">
     <value>Settings</value>
@@ -630,6 +684,9 @@
   <data name="RecycleBin_ConfirmDelete" xml:space="preserve">
     <value>Permanently delete "{0}"? This can't be undone.</value>
   </data>
+  <data name="RecycleBin_ConfirmDeleteMultiple" xml:space="preserve">
+    <value>Permanently delete these {0} items? This can't be undone.</value>
+  </data>
   <data name="RecycleBin_ConfirmEmpty" xml:space="preserve">
     <value>Permanently delete everything in the Recycle Bin? This can't be undone.</value>
   </data>
@@ -638,6 +695,9 @@
   </data>
   <data name="RecycleBin_DeleteFailed" xml:space="preserve">
     <value>Couldn't permanently delete "{0}"</value>
+  </data>
+  <data name="RecycleBin_EmptyFailed" xml:space="preserve">
+    <value>Couldn't empty the Recycle Bin</value>
   </data>
 
   <data name="Cmd_Cancel" xml:space="preserve">

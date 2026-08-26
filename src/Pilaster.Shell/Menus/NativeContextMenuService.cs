@@ -19,8 +19,7 @@ namespace Pilaster.Shell.Menus;
 /// (Nézet, Rendezés, Új ▸ stb.), mert ténylegesen a rendszer
 /// <c>IShellFolder::CreateViewObject(IID_IContextMenu)</c> hívását adja
 /// vissza (a projekt Vanara.Windows.Shell.Common csomagján keresztül) — ez a
-/// hívási minta a heap-korrupciós bisectben (lásd
-/// docs/CONTEXT-MENU.md) SOHA nem volt vétkes.
+/// hívási minta a heap-korrupciós bisectben SOHA nem volt vétkes.
 /// </para>
 /// <para>
 /// A <see cref="ShellContextMenu.ShowContextMenu"/> belül a natív, BLOKKOLÓ
