@@ -91,10 +91,16 @@ SetupIconFile=..\docs\assets\brand\app.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 
+; WizardImageStretch alapértéken (yes) marad: a wizard-large.bmp/wizard-small.bmp
+; a saját natív pixelméretében (497x314, ill. 138x140) sosem egyezik pontosan
+; azzal a hellyel, amit a WizardSizePercent=110 felskálázott varázsló-terület
+; elvár — "no" mellett a kép nem töltötte ki a helyét, balra-fentre igazítva,
+; szinte minden lapon "elcsúszottnak" látszott (felhasználói visszajelzés).
+; "yes" mellett Inno mindig pontosan kitölti a neki szánt helyet, DPI-től és
+; a forrás pixelméretétől függetlenül.
 WizardStyle=modern
 WizardImageFile=wizard-large.bmp
 WizardSmallImageFile=wizard-small.bmp
-WizardImageStretch=no
 WizardSizePercent=110
 
 ; A licencet a Ready lapon jelöltnégyzettel fogadtatjuk el, nem rádiógombokkal.
