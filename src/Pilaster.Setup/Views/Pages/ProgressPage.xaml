@@ -1,0 +1,35 @@
+<UserControl
+    x:Class="Pilaster.Setup.Views.Pages.ProgressPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="400"
+    d:DesignWidth="680"
+    mc:Ignorable="d">
+
+    <StackPanel
+        MaxWidth="440"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center">
+        <TextBlock
+            x:Name="HeaderText"
+            Margin="0,0,0,20"
+            HorizontalAlignment="Center"
+            FontSize="18"
+            FontWeight="SemiBold" />
+
+        <ProgressBar
+            Height="6"
+            Maximum="1"
+            Value="{Binding ProgressFraction, Mode=OneWay}" />
+
+        <TextBlock
+            Margin="0,10,0,0"
+            HorizontalAlignment="Center"
+            FontSize="12"
+            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+            Text="{Binding StatusText}"
+            TextTrimming="CharacterEllipsis" />
+    </StackPanel>
+</UserControl>

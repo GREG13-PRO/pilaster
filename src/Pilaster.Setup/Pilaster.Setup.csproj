@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Pilaster.Setup</RootNamespace>
+    <AssemblyName>Pilaster.Setup</AssemblyName>
+    <!-- Ugyanaz a forrás, mint Pilaster.App.csproj-ban — lásd az ottani megjegyzést. -->
+    <ApplicationIcon>..\..\docs\assets\brand\app.ico</ApplicationIcon>
+
+    <!--
+      SZÁNDÉKOSAN NEM PublishSingleFile: docs/ANTIVIRUS.md dokumentálja, hogy a
+      Pilaster maga is emiatt kapott hamis vírusriasztásokat (a natív DLL-ek
+      futáskori kicsomagolása a malware-letöltők viselkedésére hasonlít), és
+      v0.1.1 óta ezért sima, több fájlos self-contained kiadás készül. A
+      telepítő ugyanezt a bevált mintát követi — lásd a docs/assets/brand
+      terv (adaptive-napping-valley.md) "Distribution format changed
+      mid-planning" szakaszát.
+    -->
+    <NeutralLanguage>en</NeutralLanguage>
+    <SatelliteResourceLanguages>en;hu</SatelliteResourceLanguages>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="$(WpfUiVersion)" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="$(MvvmToolkitVersion)" />
+    <!-- InitPropVariantFromString (AppUserModelID parancsikonokhoz, lásd ShortcutBuilder). -->
+    <PackageReference Include="Vanara.PInvoke.ShlwApi" Version="$(VanaraVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      A ShellIntegrationService (registry backup/restore + jobbklikk-verb
+      hozzáadás/eltávolítás) és a Vanara COM-wrapperek (AppUserModelID-s
+      parancsikon-létrehozás) újrafelhasználásához.
+    -->
+    <ProjectReference Include="..\Pilaster.Shell\Pilaster.Shell.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\docs\assets\brand\app.ico" Link="Assets\app.ico" />
+    <Resource Include="..\..\docs\assets\brand\lockup-512.png" Link="Assets\lockup-512.png" />
+    <Resource Include="..\..\docs\assets\brand\wordmark.png" Link="Assets\wordmark.png" />
+
+    <!-- Beágyazva, hogy a Licenc oldal ne a telepítendő payload tartalmától függjön. -->
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="Pilaster.Setup.LICENSE.txt" />
+  </ItemGroup>
+
+</Project>

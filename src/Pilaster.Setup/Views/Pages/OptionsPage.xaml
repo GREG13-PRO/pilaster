@@ -1,0 +1,73 @@
+<UserControl
+    x:Class="Pilaster.Setup.Views.Pages.OptionsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    d:DesignHeight="400"
+    d:DesignWidth="680"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,13" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="2,0,0,8" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer Margin="32,24" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Telepítési hely" />
+            <Border Style="{StaticResource CardStyle}">
+                <DockPanel>
+                    <ui:Button
+                        DockPanel.Dock="Right"
+                        Margin="8,0,0,0"
+                        Click="OnBrowseClick"
+                        Content="Tallózás…" />
+                    <ui:TextBox Text="{Binding InstallDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Parancsikonok" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <CheckBox Content="Parancsikon az asztalra" IsChecked="{Binding CreateDesktopShortcut}" />
+                    <CheckBox
+                        Margin="0,8,0,0"
+                        Content="Bejegyzés a Start menübe"
+                        IsChecked="{Binding CreateStartMenuShortcut}" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Rendszerintegráció" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <CheckBox Content="„Megnyitás Pilaster-ben” a jobbklikk-menübe" IsChecked="{Binding EnableContextMenu}" />
+                    <CheckBox
+                        Margin="0,8,0,0"
+                        Content="Fájltársítások"
+                        IsChecked="{Binding EnableFileAssociations}" />
+                    <CheckBox
+                        Margin="0,8,0,0"
+                        Content="Indítás a Windowsszal"
+                        IsChecked="{Binding StartWithWindows}" />
+                    <CheckBox
+                        Margin="0,8,0,0"
+                        Content="Legyen az alapértelmezett fájlkezelő"
+                        IsChecked="{Binding MakeDefaultFileManager}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

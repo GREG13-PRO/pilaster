@@ -37,6 +37,15 @@ public static class ShellIntegrationService
     private const string DriveOpenVerbKey = @"Software\Classes\Drive\shell\open";
     private const string ContextMenuVerbKey = @"Software\Classes\Directory\shell\PilasterOpen";
 
+    /// <summary>
+    /// A mappa-háttér és a meghajtó jobbklikk-verb kulcsa — a telepítő
+    /// (Pilaster.Setup) mindhárom helyre felteszi a "Megnyitás Pilaster-ben"
+    /// bejegyzést, a futásidejű Beállítások viszont csak a
+    /// <see cref="ContextMenuVerbKey"/>-et (a fájl-elemek verbjét) kapcsolja.
+    /// </summary>
+    public const string BackgroundContextMenuVerbKey = @"Software\Classes\Directory\Background\shell\PilasterOpen";
+    public const string DriveContextMenuVerbKey = @"Software\Classes\Drive\shell\PilasterOpen";
+
     /// <summary>A jelenlegi állapot mentése visszaállításhoz — hívd a bekapcsolás ELŐTT.</summary>
     public static RegistryBackup Backup(string verbKeyPath)
     {
@@ -101,18 +110,29 @@ public static class ShellIntegrationService
     /// Tisztán ADDITÍV — új, korábban nem létező verbet hoz létre, tehát nincs
     /// mit visszamenteni: kikapcsoláskor egyszerűen törlődik a teljes ág.
     /// </summary>
-    public static void AddContextMenuEntry(string exePath, string displayLabel, string iconPath)
+    public static void AddContextMenuEntry(string exePath, string displayLabel, string iconPath) =>
+        AddContextMenuEntry(ContextMenuVerbKey, "%1", exePath, displayLabel, iconPath);
+
+    /// <summary>
+    /// Ugyanaz, de tetszőleges verb-kulcsra (lásd <see cref="BackgroundContextMenuVerbKey"/>,
+    /// <see cref="DriveContextMenuVerbKey"/>) és parancssori helyettesítő tokenre — a
+    /// mappa-háttér verbje <c>%V</c>-t vár (a háttéren jobbklikkelt mappa útvonalát),
+    /// a fájl- és meghajtó-verbek <c>%1</c>-et.
+    /// </summary>
+    public static void AddContextMenuEntry(string verbKeyPath, string placeholder, string exePath, string displayLabel, string iconPath)
     {
-        using (var verbKey = Registry.CurrentUser.CreateSubKey(ContextMenuVerbKey))
+        using (var verbKey = Registry.CurrentUser.CreateSubKey(verbKeyPath))
         {
             verbKey.SetValue(null, displayLabel);
             verbKey.SetValue("Icon", $"\"{iconPath}\"");
         }
 
-        WriteCommand(ContextMenuVerbKey, $"\"{exePath}\" \"%1\"");
+        WriteCommand(verbKeyPath, $"\"{exePath}\" \"{placeholder}\"");
     }
 
-    public static void RemoveContextMenuEntry() => DeleteVerbKey(ContextMenuVerbKey, recursive: true);
+    public static void RemoveContextMenuEntry() => RemoveContextMenuEntry(ContextMenuVerbKey);
+
+    public static void RemoveContextMenuEntry(string verbKeyPath) => DeleteVerbKey(verbKeyPath, recursive: true);
 
     private static void WriteCommand(string verbKeyPath, string commandLine)
     {
