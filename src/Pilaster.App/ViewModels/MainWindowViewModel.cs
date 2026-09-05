@@ -193,6 +193,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public bool ShowTabStrip => !DualPaneEnabled && Tabs.Count > 1;
 
+    /// <summary>
+    /// Az „Új fül" felugró menüpont csak EGYPANELES nézetben jelenik meg,
+    /// pontosan akkor, amikor a fülsáv rejtve van (lásd <see cref="ShowTabStrip"/>).
+    /// Kétpaneles nézetben nem kell, mert ott mindkét panelnek megvan a saját,
+    /// mindig látható „Új fül" gombja (lásd FilePaneView.xaml) — ide téve csak
+    /// felesleges duplikáció lenne.
+    /// </summary>
+    public bool ShowNewTabMenuEntry => !DualPaneEnabled && !ShowTabStrip;
+
     partial void OnIsLeftPaneActiveChanged(bool value)
     {
         LeftPane.IsActive = !DualPaneEnabled || value;
@@ -215,6 +224,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedTab));
         OnPropertyChanged(nameof(CanEjectCurrentDrive));
         OnPropertyChanged(nameof(ShowTabStrip));
+        OnPropertyChanged(nameof(ShowNewTabMenuEntry));
 
         UpdateActiveSidebarItem();
         SyncTagFilterHighlight();
@@ -918,12 +928,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         tab.PropertyChanged += OnTabPropertyChanged;
         OnPropertyChanged(nameof(ShowTabStrip));
+        OnPropertyChanged(nameof(ShowNewTabMenuEntry));
     }
 
     private void OnPaneTabClosed(object? sender, TabViewModel tab)
     {
         tab.PropertyChanged -= OnTabPropertyChanged;
         OnPropertyChanged(nameof(ShowTabStrip));
+        OnPropertyChanged(nameof(ShowNewTabMenuEntry));
         SaveSession();
     }
 

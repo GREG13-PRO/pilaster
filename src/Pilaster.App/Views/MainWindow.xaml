@@ -993,17 +993,21 @@
                     <ui:Button.ContextMenu>
                         <ContextMenu Opened="OnGlassContextMenuOpened">
                             <!--
-                                A fülsáv csak 2+ nyitott fülnél látszik (lásd
-                                ShowTabStrip) — az itteni bejegyzés az egyetlen
+                                A fülsáv csak EGYPANELES nézetben, 2+ nyitott
+                                fülnél látszik (lásd ShowTabStrip) — az itteni
+                                bejegyzés (lásd ShowNewTabMenuEntry) az egyetlen
                                 egérrel elérhető mód új fül nyitására, amíg csak
                                 egy fül van (a Ctrl+T persze mindig működik).
+                                Kétpaneles nézetben nem jelenik meg, mert ott
+                                mindkét panelnek megvan a saját, mindig látható
+                                „Új fül" gombja (lásd FilePaneView.xaml).
                             -->
                             <MenuItem
                                 Command="{Binding NewTabCommand}"
                                 Header="{loc:Loc Cmd_NewTab}"
                                 InputGestureText="Ctrl+T"
-                                Visibility="{Binding ShowTabStrip, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
-                            <Separator Visibility="{Binding ShowTabStrip, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                Visibility="{Binding ShowNewTabMenuEntry, Converter={StaticResource BoolToVisibility}}" />
+                            <Separator Visibility="{Binding ShowNewTabMenuEntry, Converter={StaticResource BoolToVisibility}}" />
                             <MenuItem Header="{loc:Loc View_Mode}">
                                 <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
                                 <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
