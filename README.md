@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/brand/lockup.png" alt="Pilaster" width="340">
+<img src="docs/assets/brand/lockup.png" alt="Pilaster" width="340">
 
 **A modern file manager for Windows 11 — with Finder-style column view, a real activity center, and a lot of things Explorer never had.**
 
@@ -18,7 +18,7 @@ Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **colu
 
 ## Status
 
-**v1.1.0 — actively developed, daily-driver ready.** What already works:
+**v1.1.1 — actively developed, daily-driver ready.** What already works:
 
 - **Cloud drives (NextCloud, ownCloud, WebDAV)**: connect any WebDAV server from the sidebar's "Cloud drives" section — through Windows' own built-in WebDAV redirector, so once connected it behaves like any other network path (copy, tags, favorites, everything just works). Credentials are never stored in a Pilaster file; Windows' own Credential Manager handles them.
 - **Real Windows 11 icons in Quick Access**: Documents, Downloads, Pictures, Music, and Videos show their actual badged shell icon straight from `desktop.ini`, exactly as in Explorer — not a generic glyph.
@@ -138,6 +138,7 @@ The `IFileSystemProvider` abstraction has been there from day one: the local dis
 | **v1.0.0** ✅ | Pilaster Editor (built-in text editor), native right-click menu with real shell integration, editable/persistent Quick Access, reorganized Settings, modern installer |
 | **v1.0.1–v1.0.3** ✅ | Dual-pane column headers and status bar, selectable native/Pilaster right-click menu, context-menu preload and crash fixes, dozens of UI/reliability fixes from real-world use |
 | **v1.1.0** ✅ | Cloud drives (NextCloud/ownCloud/WebDAV) via Windows' built-in WebDAV client, in-place Recycle Bin navigation, real Windows 11 Quick Access icons, collapsible sidebar sections, airier redesign, bilingual (EN/HU) website with light/dark theme |
+| **v1.1.1** ✅ | Single-pane tab strip only shows with 2+ tabs open, tighter toolbar padding, dual-pane overflow-menu fix, discord-bot duplicate-archive fix |
 | v1.2 | Instant search (NTFS MFT index), command palette, quick jump |
 | v1.3 | Workspaces, Shelf, bulk rename, duplicate finder |
 | v1.4 | Terminal, Git integration, archives as folders, rule engine |

@@ -2,6 +2,30 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## v1.1.1 — 2026-09-05
+
+### UI — tab strip only when it's useful
+
+- **The single-pane tab strip now stays hidden until a 2nd tab is open.**
+  With only one tab, it used to occupy a full row for nothing to switch
+  between. It reappears automatically the moment a second tab opens
+  (Ctrl+T, or the overflow menu's new "New tab" entry, which only shows up
+  while the strip itself is hidden — the shortcut always works regardless).
+- **Tighter padding across the toolbar, breadcrumb pill, and quick-filter
+  box** for a slightly more compact single-pane top area.
+
+### Fixes
+
+- **Fixed: the "…" overflow menu's "New tab" entry also showed up in
+  dual-pane view**, where it was a pointless duplicate of the "New tab"
+  button each pane already draws for itself.
+- **Fixed: the README's top banner image pointed at a path that doesn't
+  exist** (`assets/brand/lockup.png` instead of `docs/assets/brand/lockup.png`),
+  so it rendered as a broken image on GitHub.
+- **discord-bot: fixed a race where two near-simultaneous clicks on the same
+  bug report's "Kész" button could archive it twice**, if both reached
+  Discord before the button was actually removed from the original message.
+
 ## v1.1.0 — 2026-08-26
 
 ### New — cloud drives (NextCloud, ownCloud, WebDAV)
