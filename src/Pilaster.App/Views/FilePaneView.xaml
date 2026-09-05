@@ -501,7 +501,7 @@
 
                 <Border
                     Grid.Column="1"
-                    Padding="9,5"
+                    Padding="7,4"
                     Background="{DynamicResource TokenBgInput}"
                     BorderBrush="{DynamicResource TokenBorder}"
                     BorderThickness="1"

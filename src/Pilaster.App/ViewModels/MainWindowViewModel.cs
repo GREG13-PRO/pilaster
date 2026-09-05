@@ -186,6 +186,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </remarks>
     public ObservableCollection<TabViewModel> Tabs => ActivePane.Tabs;
 
+    /// <summary>
+    /// A felső fülsáv csak akkor látszik, ha van mit váltani — egyetlen nyitott
+    /// fülnél csak egy üres sávnyi helyet foglalna feleslegesen (felhasználói
+    /// visszajelzés). Új fül nyitásakor (Ctrl+T) automatikusan visszajön.
+    /// </summary>
+    public bool ShowTabStrip => !DualPaneEnabled && Tabs.Count > 1;
+
     partial void OnIsLeftPaneActiveChanged(bool value)
     {
         LeftPane.IsActive = !DualPaneEnabled || value;
@@ -207,6 +214,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(Tabs));
         OnPropertyChanged(nameof(SelectedTab));
         OnPropertyChanged(nameof(CanEjectCurrentDrive));
+        OnPropertyChanged(nameof(ShowTabStrip));
 
         UpdateActiveSidebarItem();
         SyncTagFilterHighlight();
@@ -906,11 +914,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// való beállítások (rejtett elemek, nézetmód) követése, valamint az
     /// oldalsáv-kiemelés és a munkamenet frissen tartása.
     /// </summary>
-    private void OnPaneTabCreated(object? sender, TabViewModel tab) => tab.PropertyChanged += OnTabPropertyChanged;
+    private void OnPaneTabCreated(object? sender, TabViewModel tab)
+    {
+        tab.PropertyChanged += OnTabPropertyChanged;
+        OnPropertyChanged(nameof(ShowTabStrip));
+    }
 
     private void OnPaneTabClosed(object? sender, TabViewModel tab)
     {
         tab.PropertyChanged -= OnTabPropertyChanged;
+        OnPropertyChanged(nameof(ShowTabStrip));
         SaveSession();
     }
 

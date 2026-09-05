@@ -715,14 +715,16 @@
             CornerRadius="12" />
 
         <!--
-            Fülsáv — csak EGYPANELES nézetben. Kétpaneles nézetben minden
-            panel a saját fülsávját rajzolja (lásd FilePaneView), különben
-            ugyanaz a fülkészlet két helyen jelenne meg.
+            Fülsáv — csak EGYPANELES nézetben, ÉS csak akkor, ha van mit
+            váltani (2+ fül) — lásd MainWindowViewModel.ShowTabStrip.
+            Kétpaneles nézetben minden panel a saját fülsávját rajzolja
+            (lásd FilePaneView), különben ugyanaz a fülkészlet két helyen
+            jelenne meg.
         -->
         <Border
             Grid.Row="1"
-            Padding="10,0,10,4"
-            Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+            Padding="10,5,10,4"
+            Visibility="{Binding ShowTabStrip, Converter={StaticResource BoolToVisibility}}">
             <ListBox
                 Background="Transparent"
                 BorderThickness="0"
@@ -777,7 +779,7 @@
         </Border>
 
         <!--  Eszköztár: navigáció, útvonalsáv, keresés, nézetváltó  -->
-        <Grid Grid.Row="2" Margin="12,2,12,12">
+        <Grid Grid.Row="2" Margin="12,0,12,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -882,11 +884,11 @@
             -->
             <Border
                 Grid.Column="1"
-                Padding="10,6"
+                Padding="7,4"
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="10"
+                CornerRadius="8"
                 PreviewMouseLeftButtonDown="OnBreadcrumbAreaPreviewLeftButtonDown"
                 Visibility="{Binding DualPaneEnabled, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                 <Grid>
@@ -911,7 +913,7 @@
                                 <DataTemplate DataType="{x:Type vm:BreadcrumbSegment}">
                                     <StackPanel Orientation="Horizontal">
                                         <ui:Button
-                                            Padding="9,5"
+                                            Padding="7,3"
                                             Appearance="Transparent"
                                             Command="{Binding DataContext.OpenBreadcrumbCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
                                             CommandParameter="{Binding}"
@@ -964,9 +966,9 @@
             <ui:TextBox
                 x:Name="QuickFilterBox"
                 Grid.Column="2"
-                Width="290"
+                Width="260"
                 Margin="10,0,10,0"
-                Padding="10,7"
+                Padding="8,4"
                 PlaceholderText="{loc:Loc Search_Placeholder}"
                 Text="{Binding SelectedTab.QuickFilterText, UpdateSourceTrigger=PropertyChanged}">
                 <ui:TextBox.Icon>
@@ -990,6 +992,18 @@
                     <ui:SymbolIcon Symbol="MoreHorizontal24" />
                     <ui:Button.ContextMenu>
                         <ContextMenu Opened="OnGlassContextMenuOpened">
+                            <!--
+                                A fülsáv csak 2+ nyitott fülnél látszik (lásd
+                                ShowTabStrip) — az itteni bejegyzés az egyetlen
+                                egérrel elérhető mód új fül nyitására, amíg csak
+                                egy fül van (a Ctrl+T persze mindig működik).
+                            -->
+                            <MenuItem
+                                Command="{Binding NewTabCommand}"
+                                Header="{loc:Loc Cmd_NewTab}"
+                                InputGestureText="Ctrl+T"
+                                Visibility="{Binding ShowTabStrip, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                            <Separator Visibility="{Binding ShowTabStrip, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
                             <MenuItem Header="{loc:Loc View_Mode}">
                                 <MenuItem Click="OnSetViewDetails" Header="{loc:Loc View_Details}" />
                                 <MenuItem Click="OnSetViewGrid" Header="{loc:Loc View_Grid}" />
