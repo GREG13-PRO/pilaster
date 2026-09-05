@@ -18,7 +18,7 @@ Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **colu
 
 ## Status
 
-**v1.1.3 — actively developed, daily-driver ready.** What already works:
+**v1.1.4 — actively developed, daily-driver ready.** What already works:
 
 - **Cloud drives (NextCloud, ownCloud, WebDAV)**: connect any WebDAV server from the sidebar's "Cloud drives" section — through Windows' own built-in WebDAV redirector, so once connected it behaves like any other network path (copy, tags, favorites, everything just works). Credentials are never stored in a Pilaster file; Windows' own Credential Manager handles them.
 - **Real Windows 11 icons in Quick Access**: Documents, Downloads, Pictures, Music, and Videos show their actual badged shell icon straight from `desktop.ini`, exactly as in Explorer — not a generic glyph.
@@ -47,6 +47,7 @@ Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **colu
 - **Eject** (safe removal) for removable and optical drives, with an "in use" error indicator on failure
 - **Optical drive's own icon and name**, taken from the inserted disc's volume label/autorun.inf icon, refreshed automatically on disc swap
 - Fluent UI with a Mica backdrop, rounded corners, **frameless/backgroundless toolbar buttons** (a subtle highlight only on hover, following the theme's text color)
+- **A fully custom installer**, built from scratch in WPF with the same Fluent/Mica look and animations as the app itself — not a native Windows wizard. Ships as a ZIP (unzip, run `Pilaster.Setup.exe`) rather than a self-extracting `.exe`, matching the app's own no-single-file policy (see [Antivirus](docs/ANTIVIRUS.md))
 - **Automatic updates** from GitHub Releases: checks quietly on startup, shows a non-intrusive banner, downloads with one click, verifies with a checksum, and installs after a restart confirmation
 - **Theme**: light / dark / follow system, one-click toggle, animated, **saved**
 - Sidebar with Quick Access, drives (usage bar, free space), Favorites, and Tags — **every level** of the folder chain highlighted, not just the exact match
@@ -79,7 +80,7 @@ For a file manager, speed isn't a nice-to-have, it's table stakes. So:
 
 Download from the [latest release](https://github.com/GREG13-PRO/pilaster/releases/latest):
 
-- **`Pilaster-<version>-x64-setup.exe`** — the installer. No admin rights needed, installs into your user profile.
+- **`Pilaster-<version>-x64-setup.zip`** — the installer: unzip, run `Pilaster.Setup.exe`. No admin rights needed, installs into your user profile.
 - **`...-portable.zip`** — the portable build: unzip and run, writes nothing to the system.
 
 On ARM64 hardware (Snapdragon X, Surface Pro), use the `arm64` build.
@@ -141,6 +142,7 @@ The `IFileSystemProvider` abstraction has been there from day one: the local dis
 | **v1.1.1** ✅ | Single-pane tab strip only shows with 2+ tabs open, tighter toolbar padding, dual-pane overflow-menu fix, discord-bot duplicate-archive fix |
 | **v1.1.2** ✅ | Fixed: the window could open with its title bar above the visible screen on smaller/DPI-scaled displays |
 | **v1.1.3** ✅ | Fixed: misaligned installer wizard logos, plus a developer-only test-suite side effect |
+| **v1.1.4** ✅ | Fully custom WPF installer replacing Inno Setup — same Fluent/Mica look as the app, ships as a ZIP (no self-extracting exe) |
 | v1.2 | Instant search (NTFS MFT index), command palette, quick jump |
 | v1.3 | Workspaces, Shelf, bulk rename, duplicate finder |
 | v1.4 | Terminal, Git integration, archives as folders, rule engine |

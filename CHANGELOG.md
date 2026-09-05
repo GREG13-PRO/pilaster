@@ -2,6 +2,41 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## v1.1.4 — 2026-09-05
+
+### New — a completely custom installer
+
+- **The Inno Setup installer is gone, replaced by a brand-new installer built
+  from scratch in WPF** — the same Fluent/Mica design language, animations,
+  and branding as Pilaster itself, instead of a native Windows wizard. A
+  gradient-washed welcome page with the full logo, an animated page-to-page
+  slide transition, a live progress bar with per-file status and transfer
+  speed, and a success/failure page with a pop-in checkmark.
+- **Ships as a ZIP, not a self-extracting `.exe`.** `docs/ANTIVIRUS.md`
+  documents that Pilaster dropped single-file/self-extracting packaging back
+  in v0.1.1 specifically because it triggered antivirus false positives —
+  the new installer follows the same rule: unzip, then run
+  `Pilaster.Setup.exe`, a plain multi-file self-contained app, exactly like
+  Pilaster itself. No runtime self-extraction anywhere in the download.
+- **Same functionality as before**: per-user install (no admin rights, no
+  UAC), Desktop/Start Menu shortcuts with the correct taskbar grouping
+  (`System.AppUserModel.ID`, set via the same COM mechanism Explorer itself
+  uses), the "Open in Pilaster" right-click entry (folders, folder
+  background, and drives), optional file associations, optional "start with
+  Windows," optional "make default file manager," and a proper uninstaller
+  registered in Windows' Programs list — including the "keep my settings?"
+  prompt, defaulting to keep (both interactively and silently), matching the
+  previous installer's behavior exactly.
+- **In-app auto-update updated to match**: it now downloads the new ZIP
+  format and runs the new installer's silent switches (`/SILENT /DIR=...`)
+  instead of the old Inno-specific ones.
+- Basic silent-install support: `/SILENT` (or `/S`), `/DIR=<path>`, and
+  (uninstall-only) `/DELETESETTINGS`.
+- Not carried over from the old installer (left as possible future work):
+  the in-wizard "portable" install type — the separately-published portable
+  ZIP already covers that — and the per-machine/admin (`/ALLUSERS`,
+  elevated) install path.
+
 ## v1.1.3 — 2026-09-05
 
 ### Fixes
