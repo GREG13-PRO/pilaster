@@ -2,6 +2,22 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## v1.1.3 — 2026-09-05
+
+### Fixes
+
+- **Fixed: the installer's wizard logos looked shifted/misaligned on almost
+  every page.** `WizardImageStretch=no` combined with the enlarged wizard
+  chrome (`WizardSizePercent=110`) meant the logo images were drawn at their
+  raw pixel size instead of filling their slot. They now always scale to
+  fill it correctly, regardless of the installing machine's display DPI.
+- **Fixed (developer-facing only, no effect on the shipped app for regular
+  users): running the test suite could leave a permanent duplicate "Önteszt"
+  tag in a developer's own Tags sidebar**, because the binding-error
+  self-test (only ever runs via an explicit environment variable, used by
+  `BindingErrorTests`) added a real tag to verify the tag editor's UI
+  template and never removed it again.
+
 ## v1.1.2 — 2026-09-05
 
 ### Fixes

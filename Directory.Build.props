@@ -18,7 +18,7 @@
     <Company>Pilaster</Company>
     <Authors>Pilaster contributors</Authors>
     <Copyright>Copyright © Pilaster contributors</Copyright>
-    <VersionPrefix>1.1.2</VersionPrefix>
+    <VersionPrefix>1.1.3</VersionPrefix>
     <RepositoryUrl>https://github.com/GREG13-PRO/pilaster</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
