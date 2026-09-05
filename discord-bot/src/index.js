@@ -20,6 +20,12 @@ const DONE_BUTTON_ID = 'bugreport_done';
 const ARCHIVE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
+// Azoknak a jelentés-üzeneteknek az ID-ja, amelyeken éppen fut a "Kész"
+// archiválás — két majdnem egyidejű kattintás (pl. két ügyeletes egyszerre)
+// enélkül mindkettő végigfutna, mielőtt a gomb ténylegesen eltűnik az eredeti
+// üzenetről, és duplán archiválná ugyanazt a jelentést.
+const closingReports = new Set();
+
 const requiredEnv = ['DISCORD_BOT_TOKEN', 'REPORT_CHANNEL_ID', 'ARCHIVE_CHANNEL_ID', 'API_KEY'];
 const missingEnv = requiredEnv.filter((name) => !process.env[name]);
 
@@ -55,43 +61,65 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 /**
+ * Lekéri a megadott azonosítójú csatornát, és ellenőrzi, hogy szöveges-e.
+ * Hiba esetén (nem található / nem szöveges) null-t ad vissza — a hívó dönti
+ * el, ez nála mit jelent (kivétel, csendes kilépés, vagy HTTP hibaválasz).
+ */
+async function fetchTextChannel(channelId) {
+  const channel = await client.channels.fetch(channelId);
+  return channel?.isTextBased() ? channel : null;
+}
+
+/**
  * A jelentés archiválása: az eredeti üzenet tartalmát átmásolja az
  * archívum-csatornára (a mellékletekkel együtt, a Discord CDN URL-jükről
  * újratöltve), majd az eredeti üzenetről leveszi a gombot és lezártnak
  * jelöli — nem törli, hogy a jelentés-csatornán megmaradjon a nyoma.
  */
 async function handleDoneButton(interaction) {
-  await interaction.deferUpdate();
+  const messageId = interaction.message.id;
 
-  const original = interaction.message;
-
-  const archiveChannel = await client.channels.fetch(process.env.ARCHIVE_CHANNEL_ID);
-
-  if (!archiveChannel?.isTextBased()) {
-    throw new Error(`Az ARCHIVE_CHANNEL_ID (${process.env.ARCHIVE_CHANNEL_ID}) nem szöveges csatorna.`);
+  if (closingReports.has(messageId)) {
+    return;
   }
 
-  const archivedEmbeds = original.embeds.map((embed) => EmbedBuilder.from(embed));
+  closingReports.add(messageId);
 
-  if (archivedEmbeds.length > 0) {
-    archivedEmbeds[0].setFooter({
-      text: `Lezárta: ${interaction.user.tag} · ${new Date().toLocaleString('hu-HU')}`,
+  try {
+    await interaction.deferUpdate();
+
+    const original = interaction.message;
+
+    const archiveChannel = await fetchTextChannel(process.env.ARCHIVE_CHANNEL_ID);
+
+    if (!archiveChannel) {
+      throw new Error(`Az ARCHIVE_CHANNEL_ID (${process.env.ARCHIVE_CHANNEL_ID}) nem szöveges csatorna.`);
+    }
+
+    const archivedEmbeds = original.embeds.map((embed) => EmbedBuilder.from(embed));
+
+    if (archivedEmbeds.length > 0) {
+      archivedEmbeds[0].setFooter({
+        text: `Lezárta: ${interaction.user.tag} · ${new Date().toLocaleString('hu-HU')}`,
+      });
+    }
+
+    const attachments = [...original.attachments.values()].map(
+      (attachment) => new AttachmentBuilder(attachment.url, { name: attachment.name ?? 'attachment' }),
+    );
+
+    await archiveChannel.send({ embeds: archivedEmbeds, files: attachments });
+
+    const closedEmbeds = original.embeds.map((embed) => EmbedBuilder.from(embed).setColor(0x71717a));
+
+    await original.edit({
+      content: `✅ Lezárva — ${interaction.user.tag}`,
+      embeds: closedEmbeds,
+      components: [],
     });
+  } finally {
+    closingReports.delete(messageId);
   }
-
-  const attachments = [...original.attachments.values()].map(
-    (attachment) => new AttachmentBuilder(attachment.url, { name: attachment.name ?? 'attachment' }),
-  );
-
-  await archiveChannel.send({ embeds: archivedEmbeds, files: attachments });
-
-  const closedEmbeds = original.embeds.map((embed) => EmbedBuilder.from(embed).setColor(0x71717a));
-
-  await original.edit({
-    content: `✅ Lezárva — ${interaction.user.tag}`,
-    embeds: closedEmbeds,
-    components: [],
-  });
 }
 
 /**
@@ -104,9 +132,9 @@ async function handleDoneButton(interaction) {
  * már önmagában időbélyeg).
  */
 async function sweepArchiveChannel() {
-  const archiveChannel = await client.channels.fetch(process.env.ARCHIVE_CHANNEL_ID);
+  const archiveChannel = await fetchTextChannel(process.env.ARCHIVE_CHANNEL_ID);
 
-  if (!archiveChannel?.isTextBased()) {
+  if (!archiveChannel) {
     return;
   }
 
@@ -182,9 +210,9 @@ app.post(
         return;
       }
 
-      const reportChannel = await client.channels.fetch(process.env.REPORT_CHANNEL_ID);
+      const reportChannel = await fetchTextChannel(process.env.REPORT_CHANNEL_ID);
 
-      if (!reportChannel?.isTextBased()) {
+      if (!reportChannel) {
         res.status(500).send('Report channel unavailable');
         return;
       }
