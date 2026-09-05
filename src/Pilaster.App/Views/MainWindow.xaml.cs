@@ -85,6 +85,17 @@ public partial class MainWindow : FluentWindow
 
         InitializeComponent();
 
+        // Kisebb felbontású vagy erősen felskálázott (DPI) kijelzőn a XAML-ben
+        // megadott 1280×820-as alapméret nagyobb lehet, mint a képernyő tényleges
+        // munkaterülete — a WindowStartupLocation="CenterScreen" ilyenkor a
+        // képernyő fölé/alá lógatná az ablakot, és a felső sáv (címsor,
+        // eszköztár) a látható területen kívülre kerülne (felhasználói
+        // visszajelzés). Az induló méretet ezért a munkaterületre korlátozzuk,
+        // hogy CenterScreen mindig teljesen látható ablakot pozicionáljon.
+        var workArea = SystemParameters.WorkArea;
+        Width = Math.Min(Width, workArea.Width);
+        Height = Math.Min(Height, workArea.Height);
+
         // A rendszertéma figyelése: „rendszerkövető" módban a Windows
         // világos/sötét váltása menet közben is átszínezi a felületet.
         Loaded += (_, _) => _theme.WatchSystemTheme(this);
