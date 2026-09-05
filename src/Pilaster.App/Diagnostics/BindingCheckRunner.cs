@@ -92,11 +92,16 @@ public static class BindingCheckRunner
         Pump(window.Dispatcher);
 
         // Címkeszerkesztő sor — legalább egy valódi elem kell, hogy a
-        // TagEditorViewModel sablonja ténylegesen megjelenjen.
+        // TagEditorViewModel sablonja ténylegesen megjelenjen. Ez a séta a
+        // VALÓDI, perzisztens címke-tárolót módosítja (lásd az osztály
+        // dokumentációját) — a sor végén ezért vissza is töröljük, különben
+        // minden önteszt-futás egy újabb "Önteszt" címkét hagyna a
+        // felhasználó tényleges beállításaiban.
         vm.SelectedCategory = vm.Categories.First(c => c.Id == SettingsCatalog.Tags);
         vm.NewTagName = "Önteszt";
         vm.AddTagCommand.Execute(null);
         Pump(window.Dispatcher);
+        var selfTestTag = vm.Tags[^1];
 
         // A keresés is saját nézetet vált (találatlista a kategória-tartalom
         // helyett) — ugyanígy valódi felhasználói út.
@@ -106,6 +111,7 @@ public static class BindingCheckRunner
         Pump(window.Dispatcher);
 
         results.AddRange(BindingErrorScanner.Scan(window));
+        vm.DeleteTagCommand.Execute(selfTestTag);
         window.Close();
     }
 
