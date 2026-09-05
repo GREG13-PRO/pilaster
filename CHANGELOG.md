@@ -2,6 +2,18 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## v1.1.2 — 2026-09-05
+
+### Fixes
+
+- **Fixed: on some machines, the window could open with its title bar above
+  the visible screen**, making the app's own close/minimize/maximize
+  buttons unreachable. The fixed 1280×820 startup size assumed the screen's
+  work area was always at least that tall; on a smaller or DPI-scaled
+  display where it wasn't, `CenterScreen` positioned the window with a
+  negative top. The startup size is now capped to the actual work area
+  first, so it's always fully on screen.
+
 ## v1.1.1 — 2026-09-05
 
 ### UI — tab strip only when it's useful
