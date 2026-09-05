@@ -15,6 +15,8 @@ Four things come together, and each one is suspicious to a heuristic on its own:
 
 **No more single-file package since v0.1.1.** The installer unpacks files into a normal folder and extracts nothing at runtime. This eliminates point 4, and speeds up cold start as a side effect.
 
+**The installer itself follows the same rule.** Pilaster's own custom-built installer (replacing the earlier Inno Setup one) ships as a ZIP you unzip yourself, not a self-extracting `.exe` — the installer executable is a plain, multi-file, self-contained app, exactly like Pilaster itself. No runtime self-extraction anywhere in the download.
+
 What we **can't** do: sign the binary. Until there's a code-signing certificate, false positives will keep coming back from time to time. We're not going to sugarcoat that.
 
 ## How to verify it yourself
@@ -24,7 +26,7 @@ Don't take our word for it — check:
 **1. Checksum.** Every release ships a `.sha256` file. After downloading:
 
 ```powershell
-Get-FileHash .\Pilaster-0.1.1-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Pilaster-0.1.1-x64-setup.zip -Algorithm SHA256
 ```
 
 If the value matches what's in the release, the file is bit-for-bit what GitHub built.

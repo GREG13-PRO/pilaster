@@ -46,7 +46,8 @@ public partial class App : Application
     /// gyakran ELTÉRŐ (a gyorsítótárból vett, régi vagy általános) ikont
     /// mutat — ez okozta a „rossz ikon a tálcán" hibát. Ugyanennek az
     /// azonosítónak kell szerepelnie a Start menü és az asztali parancsikon
-    /// <c>System.AppUserModel.ID</c> tulajdonságában is (lásd installer/Pilaster.iss).
+    /// <c>System.AppUserModel.ID</c> tulajdonságában is (lásd
+    /// src/Pilaster.Setup/Constants/SetupInfo.cs és Services/ShortcutBuilder.cs).
     /// </remarks>
     public const string AppUserModelId = "Obsidix.Pilaster";
 

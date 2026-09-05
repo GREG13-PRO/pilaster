@@ -103,7 +103,10 @@ public sealed class GitHubUpdateService : IUpdateService
         }
 
         var archTag = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "arm64" : "x64";
-        var installerSuffix = $"-{archTag}-setup.exe";
+        // A telepítő ZIP-ben megy (Setup.exe + a mellé csomagolt Payload\
+        // mappa, lásd src/Pilaster.Setup) — lásd BeginInstall lent és
+        // .github/workflows/release.yml.
+        var installerSuffix = $"-{archTag}-setup.zip";
 
         string? installerUrl = null;
         string? installerName = null;
@@ -204,6 +207,15 @@ public sealed class GitHubUpdateService : IUpdateService
         }
     }
 
+    /// <remarks>
+    /// A letöltött csomag egy ZIP (Setup.exe + Payload\ mappa, lásd
+    /// src/Pilaster.Setup) — előbb ki kell csomagolni egy ideiglenes
+    /// mappába, csak utána futtatható a benne lévő Setup.exe. A régi,
+    /// Inno Setup-specifikus <c>/VERYSILENT /SUPPRESSMSGBOXES /NORESTART</c>
+    /// kapcsolók helyett az új telepítő <c>/SILENT</c>-et és a JELENLEGI
+    /// telepítési könyvtárra mutató <c>/DIR=</c>-et kapja, hogy a helyben
+    /// frissítés ugyanoda írjon vissza, ne az alapértelmezett helyre.
+    /// </remarks>
     public void BeginInstall(string installerPath)
     {
         var currentExePath = Environment.ProcessPath;
@@ -213,13 +225,17 @@ public sealed class GitHubUpdateService : IUpdateService
             return;
         }
 
+        var installDir = Path.GetDirectoryName(currentExePath) ?? throw new InvalidOperationException();
+        var extractDir = Path.Combine(UpdateTempDirectory, "extracted");
         var scriptPath = Path.Combine(UpdateTempDirectory, "install.ps1");
 
         var script = $"""
             Wait-Process -Id {Environment.ProcessId} -ErrorAction SilentlyContinue
-            Start-Process -FilePath '{EscapeForPowerShell(installerPath)}' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+            Expand-Archive -Path '{EscapeForPowerShell(installerPath)}' -DestinationPath '{EscapeForPowerShell(extractDir)}' -Force
+            Start-Process -FilePath '{EscapeForPowerShell(Path.Combine(extractDir, "Pilaster.Setup.exe"))}' -ArgumentList '/SILENT', '/DIR={EscapeForPowerShell(installDir)}' -Wait
             Start-Process -FilePath '{EscapeForPowerShell(currentExePath)}'
             Remove-Item -Path '{EscapeForPowerShell(installerPath)}' -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path '{EscapeForPowerShell(extractDir)}' -Recurse -Force -ErrorAction SilentlyContinue
             """;
 
         File.WriteAllText(scriptPath, script);

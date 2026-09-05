@@ -61,35 +61,41 @@ jobs:
           -p:Version=${{ steps.version.outputs.version }}
           -o publish/${{ matrix.runtime }}
 
-      - name: Inno Setup megléte
-        shell: pwsh
-        run: |
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (-not (Test-Path $iscc)) {
-            Write-Host 'Inno Setup nincs a futtatón, telepítés Chocolatey-vel...'
-            choco install innosetup --no-progress -y
-          }
-          if (-not (Test-Path $iscc)) { throw "ISCC.exe nem található: $iscc" }
-          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append
+      # A telepítő maga is egy önálló, self-contained WPF app (src/Pilaster.Setup)
+      # — ugyanúgy TÖBBFÁJLOS kiadásban, nem PublishSingleFile-lal (lásd a
+      # fenti "Publish" lépés melletti megjegyzést, ugyanaz az indoklás vonatkozik
+      # rá is). A telepítő ZIP-ként megy: kicsomagolás után a benne lévő
+      # Setup.exe-t kell futtatni — ez a Setup.exe + a mellé csomagolt Payload\
+      # (a fent már publikált alkalmazás) egyetlen letölthető csomagba zárva.
+      - name: Setup varázsló publikálása
+        run: >
+          dotnet publish src/Pilaster.Setup
+          -c Release
+          -r ${{ matrix.runtime }}
+          --self-contained true
+          -p:PublishReadyToRun=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -o setup-publish/${{ matrix.runtime }}
 
-      - name: Telepítő fordítása
+      - name: Telepítő ZIP összeállítása
         shell: pwsh
-        working-directory: installer
         run: |
-          & $env:ISCC `
-            /DAppVersion=${{ steps.version.outputs.version }} `
-            /DArch=${{ matrix.arch }} `
-            "/DSourceDir=..\publish\${{ matrix.runtime }}" `
-            Pilaster.iss
-          if ($LASTEXITCODE -ne 0) { throw "A telepítő fordítása sikertelen ($LASTEXITCODE)" }
+          $rid = '${{ matrix.runtime }}'
+          $stage = "installer-stage/$rid"
+          New-Item -ItemType Directory -Force -Path "$stage/Payload" | Out-Null
+          Copy-Item "setup-publish/$rid/*" $stage -Recurse
+          Copy-Item "publish/$rid/*" "$stage/Payload" -Recurse
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "$stage/*" -DestinationPath "dist/Pilaster-${{ steps.version.outputs.version }}-${{ matrix.arch }}-setup.zip" -Force
 
       # A hordozható zip azoknak, akik nem akarnak telepíteni — kicsomagolás
       # után azonnal futtatható, semmit nem ír a rendszerbe.
       - name: Hordozható csomag
         shell: pwsh
         run: |
-          # A dist mappát az Inno Setup hozza létre, de ha a telepítő lépés
-          # valaha kimaradna, a tömörítés némán elhasalna rajta.
+          # A dist mappát a fenti "Telepítő ZIP összeállítása" lépés már
+          # létrehozta, de ha az valaha kimaradna, a tömörítés némán
+          # elhasalna rajta.
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $tag = '${{ steps.version.outputs.tag }}'
           $name = "Pilaster-$tag-${{ matrix.runtime }}-portable"
