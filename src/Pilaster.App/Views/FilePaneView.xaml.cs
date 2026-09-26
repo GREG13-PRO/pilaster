@@ -88,9 +88,6 @@ public partial class FilePaneView : UserControl
     /// </summary>
     public event EventHandler<(IReadOnlyList<string> Paths, string DestinationDir, PaneDropAction Action)>? FilesDropped;
 
-    /// <summary>Törlés kérése a kijelölt elemekre — a szülő végzi a <c>FileOperationEngine</c>-nel.</summary>
-    public event EventHandler<(IReadOnlyList<string> Paths, bool Permanent)>? DeleteRequested;
-
     /// <summary>A panel modellje.</summary>
     public PaneViewModel? Pane => DataContext as PaneViewModel;
 
@@ -295,14 +292,6 @@ public partial class FilePaneView : UserControl
         }
     }
 
-    private async void OnOpenItemClick(object sender, RoutedEventArgs e)
-    {
-        if (((FrameworkElement)sender).DataContext is FileSystemItem item)
-        {
-            await OpenItemAsync(item);
-        }
-    }
-
     private async Task OpenItemAsync(FileSystemItem item)
     {
         if (item.IsNavigable)
@@ -344,6 +333,29 @@ public partial class FilePaneView : UserControl
         if (!List.SelectedItems.Contains(item))
         {
             List.SelectedItem = item;
+        }
+
+        // Ugyanaz a (Pilaster vagy Windows) jobbklikk-menü, mint az egypaneles
+        // listán — a főablak építi fel (lásd MainWindow.OnItemPreviewRightButtonDown).
+        if (ItemContextMenuRequested is { } handler)
+        {
+            e.Handled = true;
+            handler(this, (container, e));
+        }
+    }
+
+    /// <summary>Jobbklikk egy panel-soron — a főablak nyitja meg rá a teljes jobbklikk-menüt.</summary>
+    public event EventHandler<(FrameworkElement Container, MouseButtonEventArgs Args)>? ItemContextMenuRequested;
+
+    /// <summary>
+    /// Soron történt jobbklikknél a lista saját (üres terület) menüje NEM
+    /// nyílhat meg a fő menü mellett — azt a főablak már megnyitotta.
+    /// </summary>
+    private void OnListContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && FindAncestor<ListViewItem>(source) is not null)
+        {
+            e.Handled = true;
         }
     }
 
@@ -565,12 +577,6 @@ public partial class FilePaneView : UserControl
         }
     }
 
-    private void OnCopyItemClick(object sender, RoutedEventArgs e) =>
-        ClipboardFileService.SetClipboard(GetSelectedPaths(), isCut: false);
-
-    private void OnCutItemClick(object sender, RoutedEventArgs e) =>
-        ClipboardFileService.SetClipboard(GetSelectedPaths(), isCut: true);
-
     private void OnPasteClick(object sender, RoutedEventArgs e)
     {
         if (Tab is not { CurrentPath: { } destinationDir })
@@ -588,32 +594,6 @@ public partial class FilePaneView : UserControl
         if (filtered.Count > 0)
         {
             FilesDropped?.Invoke(this, (filtered, destinationDir, isCut ? PaneDropAction.Move : PaneDropAction.Copy));
-        }
-    }
-
-    private void OnDeleteItemClick(object sender, RoutedEventArgs e)
-    {
-        var paths = GetSelectedPaths();
-
-        if (paths.Count > 0)
-        {
-            DeleteRequested?.Invoke(this, (paths, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)));
-        }
-    }
-
-    private void OnShowPropertiesClick(object sender, RoutedEventArgs e)
-    {
-        if (((FrameworkElement)sender).DataContext is not FileSystemItem item)
-        {
-            return;
-        }
-
-        try
-        {
-            Process.Start(new ProcessStartInfo(item.FullPath) { UseShellExecute = true, Verb = "properties" });
-        }
-        catch (Win32Exception)
-        {
         }
     }
 

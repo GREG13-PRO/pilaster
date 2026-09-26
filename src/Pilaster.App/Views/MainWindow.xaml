@@ -2310,8 +2310,8 @@
                         Grid.Row="0"
                         Activated="OnLeftPaneActivated"
                         DataContext="{Binding LeftPane}"
-                        DeleteRequested="OnPaneDeleteRequested"
-                        FilesDropped="OnPaneFilesDropped" />
+                        FilesDropped="OnPaneFilesDropped"
+                        ItemContextMenuRequested="OnPaneItemContextMenuRequested" />
 
                     <GridSplitter
                         x:Name="DualPaneSplitter"
@@ -2329,8 +2329,8 @@
                         Grid.Row="0"
                         Activated="OnRightPaneActivated"
                         DataContext="{Binding RightPane}"
-                        DeleteRequested="OnPaneDeleteRequested"
-                        FilesDropped="OnPaneFilesDropped" />
+                        FilesDropped="OnPaneFilesDropped"
+                        ItemContextMenuRequested="OnPaneItemContextMenuRequested" />
 
                 </Grid>
 

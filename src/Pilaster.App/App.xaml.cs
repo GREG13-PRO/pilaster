@@ -119,7 +119,6 @@ public partial class App : Application
         services.AddTransient<AddCloudDriveWindow>();
 
         _services = services.BuildServiceProvider();
-
         var settings = _services.GetRequiredService<ISettingsService>();
 
         // Egypéldányos futás: ha már fut egy Pilaster, annak adjuk át az
@@ -129,7 +128,6 @@ public partial class App : Application
         var isSelfTest = Environment.GetEnvironmentVariables().Keys
             .Cast<string>()
             .Any(k => k.StartsWith("PILASTER_SELFTEST_", StringComparison.Ordinal));
-
         if (settings.Current.SingleInstance && !isSelfTest)
         {
             _singleInstance = SingleInstanceService.TryAcquire(GetFolderArgument(), out var handedOff);
@@ -157,7 +155,6 @@ public partial class App : Application
         _services.GetRequiredService<AccentColorService>().ApplyInitial();
         _services.GetRequiredService<AnimationService>().ApplyInitial();
         _services.GetRequiredService<GlassEffectService>().ApplyInitial();
-
         var shellIntegration = _services.GetRequiredService<ShellIntegrationCoordinator>();
         shellIntegration.ApplyInitial();
 
@@ -177,6 +174,10 @@ public partial class App : Application
             AppVersionInfo.Current,
             RuntimeInformation.OSDescription,
             RuntimeInformation.FrameworkDescription);
+        if (!isSelfTest)
+        {
+            FolderSizeService.HoldUntilStarted();
+        }
 
         var mainWindow = _services.GetRequiredService<MainWindow>();
 
@@ -184,7 +185,6 @@ public partial class App : Application
         // ablakot — lásd ShellIntegrationCoordinator/WinEHookService. Csak
         // addig működik, amíg ez a folyamat fut.
         shellIntegration.ActivationRequested += (_, _) => ActivateMainWindow(mainWindow);
-
         mainWindow.Show();
 
         // Más programok (jobbklikk-menü, parancssor) egy mappa útvonalával
@@ -237,8 +237,6 @@ public partial class App : Application
         // idejét nem szabad terhelnie, ezért az ablak megjelenítése UTÁN, meg
         // sem várva indul — hálózati hiba vagy naprakész állapot esetén nem
         // jelenik meg semmi, csak elérhető frissítésnél (lásd UpdateViewModel).
-        _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
-
         // A shell COM-gépezetének előmelegítése (spec K3). MÉRVE: enélkül az
         // első jobbklikk 2186 ms, vele 1132 ms — a különbség a COM apartment
         // indulása és a bővítmény-DLL-ek betöltése, ami EGYSZERI költség.
@@ -246,20 +244,40 @@ public partial class App : Application
         // Összeomlás után kimarad, hogy ne ismételjük meg ugyanazt a hibát.
         var crashGuard = _services.GetRequiredService<ShellCrashGuard>();
 
-        if (!crashGuard.CrashDetected && settings.Current.ShellExtensionsEnabled)
+        // A frissítés-ellenőrzés és az előmelegítés az ELSŐ KÉPKOCKA UTÁN
+        // indul (MÉRVE: az ablak megjelenítésével párhuzamosan futva a
+        // bővítmény-DLL-ek betöltése és a hálózati kérés az első rajzolást
+        // lassította). Az öntesztek a korábbi, azonnali sorrendet kapják.
+        void StartDeferredWork()
         {
-            // Az előmelegítés is jelzőt ír: ugyanazokat a bővítményeket tölti
-            // be, mint egy valódi menü, tehát ugyanúgy el is tudja vinni a
-            // folyamatot — enélkül az indíthatatlanná válna.
-            Pilaster.Shell.Menus.ShellMenuSession.WarmUp(crashGuard.MarkInflight, crashGuard.Clear);
+            FolderSizeService.Start();
+            _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
 
-            // T1 diagnosztika: a bővítmények EGYENKÉNTI ideje. Csak Debug
-            // naplószinten fut (Beállítások → Speciális → Naplózás szintje),
-            // mert minden kezelőt betölt, és ez másodpercekig tart.
-            if (string.Equals(settings.Current.LogLevel, "Debug", StringComparison.OrdinalIgnoreCase))
+            if (!crashGuard.CrashDetected && settings.Current.ShellExtensionsEnabled)
             {
-                ReportSlowShellHandlers();
+                // Az előmelegítés is jelzőt ír: ugyanazokat a bővítményeket tölti
+                // be, mint egy valódi menü, tehát ugyanúgy el is tudja vinni a
+                // folyamatot — enélkül az indíthatatlanná válna.
+                Pilaster.Shell.Menus.ShellMenuSession.WarmUp(crashGuard.MarkInflight, crashGuard.Clear);
+
+                // T1 diagnosztika: a bővítmények EGYENKÉNTI ideje. Csak Debug
+                // naplószinten fut (Beállítások → Speciális → Naplózás szintje),
+                // mert minden kezelőt betölt, és ez másodpercekig tart.
+                if (string.Equals(settings.Current.LogLevel, "Debug", StringComparison.OrdinalIgnoreCase))
+                {
+                    ReportSlowShellHandlers();
+                }
             }
+        }
+
+        if (isSelfTest)
+        {
+            StartDeferredWork();
+        }
+        else
+        {
+            mainWindow.ContentRendered += (_, _) =>
+                Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, StartDeferredWork);
         }
 
         // Diagnosztikai önteszt (spec A2, v1.0.2): a ShellMenuPreloadCoordinator

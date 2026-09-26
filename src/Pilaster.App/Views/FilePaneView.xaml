@@ -84,6 +84,22 @@
         </Style>
 
         <!--
+            A lista StaticResource-szal hivatkozik rá, ezért a használat ELŐTT
+            kell definiálni — utána definiálva futáskor nem találta meg, és a
+            jobbklikk kivétellel állt meg („UnsetValue is not a valid value for
+            property 'ContextMenu'"). A sorok menüjét a főablak nyitja meg
+            (ItemContextMenuRequested), ugyanazt, mint az egypaneles listán.
+        -->
+
+        <ContextMenu x:Key="PaneEmptyContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+            <MenuItem Click="OnPasteClick" Header="{loc:Loc Cmd_Paste}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="ClipboardPaste24" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!--
             Sor-stílus a kétpaneles nézethez — szándékosan NEM a MainWindow.xaml
             FileRowStyle-ja (az a fő ablak lokális erőforrásaiban él, egy
             UserControl saját XAML-je onnan nem lát StaticResource-t).
@@ -98,7 +114,6 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{DynamicResource TokenTextPrimary}" />
             <Setter Property="Opacity" Value="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}" />
-            <Setter Property="ContextMenu" Value="{StaticResource PaneItemContextMenu}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
@@ -359,43 +374,7 @@
             (lásd OnItemPreviewRightButtonDown); ez itt csak akkor lép be, ha
             az valamiért nem elérhető.
         -->
-        <ContextMenu x:Key="PaneItemContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-            <MenuItem Click="OnOpenItemClick" Header="{loc:Loc Cmd_Open}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Open24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Click="OnCopyItemClick" Header="{loc:Loc Cmd_Copy}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="DocumentCopy24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Click="OnCutItemClick" Header="{loc:Loc Cmd_Cut}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Cut24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Click="OnDeleteItemClick" Header="{loc:Loc Cmd_Delete}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Delete24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Click="OnShowPropertiesClick" Header="{loc:Loc Cmd_Properties}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Info24" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
 
-        <ContextMenu x:Key="PaneEmptyContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-            <MenuItem Click="OnPasteClick" Header="{loc:Loc Cmd_Paste}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="ClipboardPaste24" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
     </UserControl.Resources>
 
     <!--
@@ -631,6 +610,7 @@
                     Background="Transparent"
                     BorderThickness="0"
                     ContextMenu="{StaticResource PaneEmptyContextMenu}"
+                    ContextMenuOpening="OnListContextMenuOpening"
                     DragOver="OnListDragOver"
                     Drop="OnListDrop"
                     GridViewColumnHeader.Click="OnPaneColumnHeaderClick"

@@ -65,6 +65,13 @@
 
     <!-- A képek nem kerülnek be automatikusan; a pack:// URI ehhez kell. -->
     <Resource Include="Assets\**\*.png" />
+    <!--
+      Indulóképernyő: a WPF a Main() legelején, natívan teszi ki — még a
+      .NET/WPF betöltése és a főablak felépítése (~3 mp) előtt —, és a
+      főablak megjelenésekor magától elhalványítja. Így kattintás után
+      rögtön látszik, hogy a program indul.
+    -->
+    <SplashScreen Include="SplashScreen.png" />
 
     <!-- Saját szintaxis-definíciók a beépített szerkesztőhöz (lásd HighlightingRegistry). -->
     <Resource Include="Resources\Highlighting\*.xshd" />

@@ -1444,4 +1444,7 @@
   <data name="Cmd_CloseWithoutSaving" xml:space="preserve">
     <value>Close without saving</value>
   </data>
+  <data name="Transfer_InvalidTarget" xml:space="preserve">
+    <value>You can't copy here — pick a real folder (Home isn't a folder).</value>
+  </data>
 </root>

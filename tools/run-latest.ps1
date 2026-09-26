@@ -3,7 +3,7 @@
 # KÜLÖN mappába, és onnan indítja.
 #
 # Miért külön mappából? A futó program zárolja a saját DLL-jeit. Ha a build
-# kimenetéből (bin\Debug) futna, a következő fordítás nem tudná felülírni őket
+# kimenetéből (bin\Release) futna, a következő fordítás nem tudná felülírni őket
 # — így viszont a fejlesztés közben is nyitva maradhat, és ez a szkript csak
 # akkor cseréli le, amikor újra lefuttatod.
 #
@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 
 $repo = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $repo 'src\Pilaster.App\Pilaster.App.csproj'
-$buildOutput = Join-Path $repo 'src\Pilaster.App\bin\Debug\net10.0-windows'
+$buildOutput = Join-Path $repo 'src\Pilaster.App\bin\Release\net10.0-windows'
 $live = Join-Path $env:LOCALAPPDATA 'PilasterLive'
 $exe = Join-Path $live 'Pilaster.exe'
 
@@ -23,7 +23,7 @@ Write-Host '  -----------------------------------------' -ForegroundColor Cyan
 Write-Host ''
 
 Write-Host '  [1/3] Forditas...' -ForegroundColor Yellow
-& dotnet build $project -c Debug -nologo -v quiet
+& dotnet build $project -c Release -nologo -v quiet
 $buildOk = $LASTEXITCODE -eq 0
 
 if (-not $buildOk) {

@@ -84,9 +84,16 @@ public sealed class AnimationService(ISettingsService settings)
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler((sender, _) =>
             {
-                if (sender is FluentWindow { Content: FrameworkElement content })
+                // Csak áttűnés, CSÚSZÁS NÉLKÜL, és a főablaknál egyáltalán nem:
+                // a teljes tartalom mozgatása animációs képkockánként minden
+                // elem helyzetét megváltoztatta, amiről a WPF — ha a gépen
+                // bármilyen akadálymentesítési kliens figyel — elemenként
+                // UI Automation-értesítést küld. MÉRVE ez induláskor ~0,9 mp-cel
+                // késleltette az első képkockát.
+                if (sender is FluentWindow { Content: FrameworkElement content } window
+                    && window is not Views.MainWindow)
                 {
-                    PlayEntrance(content, offsetY: 10, milliseconds: 260);
+                    PlayFadeIn(content, milliseconds: 180);
                 }
             }));
 
@@ -115,6 +122,18 @@ public sealed class AnimationService(ISettingsService settings)
                 item.ApplyTemplate();
                 PlayEntrance(item.Template?.FindName("SubmenuBorder", item) as FrameworkElement, offsetY: -4, milliseconds: 140);
             }));
+    }
+
+    /// <summary>Csak áttűnés (az elrendezést és a pozíciókat nem érinti).</summary>
+    public void PlayFadeIn(FrameworkElement? element, double milliseconds = 180)
+    {
+        if (element is null || !AreAnimationsEnabled)
+        {
+            return;
+        }
+
+        var duration = TimeSpan.FromMilliseconds(Current == AnimationLevel.Reduced ? milliseconds / 2 : milliseconds);
+        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = EntranceEase });
     }
 
     /// <summary>

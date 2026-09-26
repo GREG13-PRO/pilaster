@@ -137,6 +137,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         RefreshTagFilters();
 
+        RefreshDrives();
         RestoreSession();
 
         // A tulajdonságon keresztül állítjuk (nem közvetlen mezőn — a
@@ -351,9 +352,37 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Panel-ről panelre húzás/beillesztés — lásd FilePaneView.FilesDropped.</summary>
-    public void StartPaneCopy(IReadOnlyList<string> paths, string destinationDir) => _fileOperations.StartCopy(paths, destinationDir);
+    public void StartPaneCopy(IReadOnlyList<string> paths, string destinationDir)
+    {
+        if (IsValidTransferTarget(destinationDir))
+        {
+            _fileOperations.StartCopy(paths, destinationDir);
+        }
+    }
 
-    public void StartPaneMove(IReadOnlyList<string> paths, string destinationDir) => _fileOperations.StartMove(paths, destinationDir);
+    public void StartPaneMove(IReadOnlyList<string> paths, string destinationDir)
+    {
+        if (IsValidTransferTarget(destinationDir))
+        {
+            _fileOperations.StartMove(paths, destinationDir);
+        }
+    }
+
+    /// <summary>
+    /// A cél valódi (teljes) mappa-útvonal-e — a nem létezőt a motor létrehozza. A Kezdőlap és a Lomtár virtuális
+    /// (<c>pilaster:…</c>) — oda másolni nem lehet; korábban a másolás egy
+    /// „pilaster:home" nevű mappát próbált létrehozni, és hibával állt meg.
+    /// </summary>
+    private bool IsValidTransferTarget(string destinationDir)
+    {
+        if (!destinationDir.StartsWith("pilaster:", StringComparison.Ordinal) && Path.IsPathFullyQualified(destinationDir))
+        {
+            return true;
+        }
+
+        ShowToast(TranslationSource.Instance["Transfer_InvalidTarget"], Wpf.Ui.Controls.SymbolRegular.ErrorCircle24);
+        return false;
+    }
 
     public void StartPaneDelete(IReadOnlyList<string> paths, bool permanent) => _fileOperations.StartDelete(paths, permanent);
 
@@ -408,11 +437,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (isMove)
         {
-            _fileOperations.StartMove(sourcePaths, confirmedTargetDirectory);
+            StartPaneMove(sourcePaths, confirmedTargetDirectory);
         }
         else
         {
-            _fileOperations.StartCopy(sourcePaths, confirmedTargetDirectory);
+            StartPaneCopy(sourcePaths, confirmedTargetDirectory);
         }
     }
 
@@ -641,14 +670,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Az oldalsáv Meghajtók szekciójának újraépítése — pl. kiadás vagy médiaváltás után.</summary>
-    public void RefreshDrives()
+    public void RefreshDrives() => _ = RefreshDrivesAsync();
+
+    /// <summary>
+    /// A meghajtók és a felhőtárhely-kliensek felderítése HÁTTÉRSZÁLON
+    /// (DriveInfo, registry — együtt ~150–200 ms), utána a két szekció
+    /// cseréje a UI-szálon. Induláskor így az ablak nem várja meg: az
+    /// oldalsáv azonnal megjelenik, a meghajtók egy pillanattal később.
+    /// </summary>
+    private async Task RefreshDrivesAsync()
     {
+        var (drives, cloud) = await Task.Run(() =>
+            (DriveEnumerator.GetDrives(), Pilaster.Shell.Network.CloudStorageDiscovery.Discover()));
+
+        _drives = drives;
+        _cloudRoots = cloud;
         ReplaceSection("Nav_Drives", BuildDrives);
 
         // A felhőszinkron-meghajtók (Google Drive) a Felhő meghajtók
         // szekcióban élnek, de ugyanúgy csatlakozhatnak/leválhatnak.
         ReplaceSection("Nav_CloudDrives", BuildCloudDrives);
     }
+
+    /// <summary>A legutóbbi meghajtó-felderítés eredménye — lásd <see cref="RefreshDrivesAsync"/>.</summary>
+    private IReadOnlyList<DriveEntry> _drives = [];
+
+    /// <summary>A legutóbbi felhőtárhely-felderítés eredménye (OneDrive, Nextcloud …).</summary>
+    private IReadOnlyList<Pilaster.Shell.Network.CloudStorageRoot> _cloudRoots = [];
 
     private DriveType? GetCurrentDriveType() =>
         SelectedTab?.CurrentPath is { } path && GetCurrentDriveRoot(path) is { } root
@@ -1120,21 +1168,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void BuildSidebar()
     {
         Sections.Clear();
-
         Sections.Add(new SidebarSection
         {
             HeaderKey = "Nav_QuickAccess",
             Header = TranslationSource.Instance["Nav_QuickAccess"],
             Items = BuildQuickAccess(),
         });
-
         Sections.Add(new SidebarSection
         {
             HeaderKey = "Nav_Drives",
             Header = TranslationSource.Instance["Nav_Drives"],
             Items = BuildDrives(),
         });
-
         Sections.Add(new SidebarSection
         {
             HeaderKey = "Nav_CloudDrives",
@@ -1145,14 +1190,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // belépési pont az első felhő meghajtó hozzáadásához.
             AlwaysVisible = true,
         });
-
         Sections.Add(new SidebarSection
         {
             HeaderKey = "Nav_Favorites",
             Header = TranslationSource.Instance["Nav_Favorites"],
             Items = BuildFavorites(),
         });
-
         RaiseHomeItemsChanged();
     }
 
@@ -1172,12 +1215,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // helyi meghajtóként látszanak a Windowsnak, de a felhasználó számára
         // felhőtárhelyek. Nem kapnak IsCloudDrive-ot: az a WebDAV-bejegyzések
         // „Eltávolítás" menüjét kapcsolja, ami itt értelmetlen lenne.
-        .. DriveEnumerator.GetDrives().Where(d => d.IsCloudSync).Select(BuildDriveItem),
+        .. _drives.Where(d => d.IsCloudSync).Select(BuildDriveItem),
 
         // A mappaként szinkronizáló kliensek (OneDrive, Nextcloud, Dropbox,
         // iCloud, Box …) — ugyanabból a regisztrációból, amiből az Intéző
         // navigációs panelje is, lásd CloudStorageDiscovery.
-        .. Pilaster.Shell.Network.CloudStorageDiscovery.Discover().Select(BuildCloudStorageItem),
+        .. _cloudRoots.Select(BuildCloudStorageItem),
         .. _cloudDrives.Entries.Select(entry => new SidebarItemViewModel
         {
             EntryId = entry.Id,
@@ -1594,8 +1637,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// (pl. Google Drive, lásd <see cref="DriveEntry.IsCloudSync"/>) NEM ide,
     /// hanem a Felhő meghajtók szekcióba kerülnek.
     /// </summary>
-    private static List<SidebarItemViewModel> BuildDrives() =>
-        [.. DriveEnumerator.GetDrives().Where(d => !d.IsCloudSync).Select(BuildDriveItem)];
+    private List<SidebarItemViewModel> BuildDrives() =>
+        [.. _drives.Where(d => !d.IsCloudSync).Select(BuildDriveItem)];
 
     private static SidebarItemViewModel BuildDriveItem(DriveEntry drive)
     {

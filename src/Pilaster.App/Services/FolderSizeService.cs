@@ -82,10 +82,32 @@ public sealed class FolderSizeService
             Path.EndsInDirectorySeparator(folder) ? folder : folder + Path.DirectorySeparatorChar,
             StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Induláskor zárt „kapu": a méretszámítás (teljes mappafák bejárása,
+    /// párhuzamosan) csak az ablak első megjelenítése UTÁN indul — MÉRVE a
+    /// lemez- és processzorterhelése az első képkockát lassította. Az App
+    /// zárja be az ablak létrehozása előtt, és nyitja ki az első képkocka után.
+    /// Alapból nyitva (tesztek, öntesztek).
+    /// </summary>
+    private static TaskCompletionSource _startGate = CreateOpenGate();
+
+    private static TaskCompletionSource CreateOpenGate()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        gate.SetResult();
+        return gate;
+    }
+
+    public static void HoldUntilStarted() =>
+        _startGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public static void Start() => _startGate.TrySetResult();
+
     private async Task ComputeAsync(FileSystemItem item, CancellationToken cancellationToken)
     {
         try
         {
+            await _startGate.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
             await _concurrency.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)

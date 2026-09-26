@@ -86,6 +86,11 @@ public partial class MainWindow : FluentWindow
         viewModel.EjectCompleted += OnEjectCompleted;
 
         InitializeComponent();
+        ContentRendered += (_, _) =>
+        {
+            _firstFrameRendered = true;
+            Diagnostics.StartupTiming.LogFirstFrame();
+        };
 
         // Kisebb felbontású vagy erősen felskálázott (DPI) kijelzőn a XAML-ben
         // megadott 1280×820-as alapméret nagyobb lehet, mint a képernyő tényleges
@@ -380,8 +385,10 @@ public partial class MainWindow : FluentWindow
             TrackTab(_viewModel.SelectedTab);
             SyncViewModeVisuals(_viewModel.SelectedTab);
 
-            // Fülváltáskor ugyanaz a csúszó átmenet, mint mappaváltáskor.
-            if (!_viewModel.DualPaneEnabled)
+            // Fülváltáskor ugyanaz a csúszó átmenet, mint mappaváltáskor —
+            // az induláskori (első) fülbeállításnál nem, az csak az első
+            // képkockát késleltetné.
+            if (!_viewModel.DualPaneEnabled && _firstFrameRendered)
             {
                 PlayContentTransition();
             }
@@ -429,8 +436,17 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>Új fül megjelenésekor rövid beúszás.</summary>
-    private void OnTitleTabLoaded(object sender, RoutedEventArgs e) =>
-        _services.GetRequiredService<AnimationService>().PlayEntrance(sender as FrameworkElement, offsetX: -10, offsetY: 0, milliseconds: 200);
+    private void OnTitleTabLoaded(object sender, RoutedEventArgs e)
+    {
+        // Az induláskor visszaállított fülek NEM úsznak be — csak a később nyitottak.
+        if (_firstFrameRendered)
+        {
+            _services.GetRequiredService<AnimationService>().PlayEntrance(sender as FrameworkElement, offsetX: -10, offsetY: 0, milliseconds: 200);
+        }
+    }
+
+    /// <summary>Igaz az első képkocka után — addig az átmeneti animációk kimaradnak.</summary>
+    private bool _firstFrameRendered;
 
     private void OnToggleDualPaneClick(object sender, RoutedEventArgs e) =>
         _viewModel.DualPaneEnabled = !_viewModel.DualPaneEnabled;
@@ -592,9 +608,6 @@ public partial class MainWindow : FluentWindow
             _isApplyingSplitRatio = false;
         }
     }
-
-    private void OnPaneDeleteRequested(object? sender, (IReadOnlyList<string> Paths, bool Permanent) e) =>
-        _viewModel.StartPaneDelete(e.Paths, e.Permanent);
 
     /// <summary>
     /// A csúszó átmenet forrását a mindenkori aktív fülre állítja át.
@@ -798,7 +811,7 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private void PlayContentTransition()
     {
-        if (!_viewModel.AnimationsEnabled)
+        if (!_viewModel.AnimationsEnabled || !_firstFrameRendered)
         {
             return;
         }
@@ -1013,6 +1026,10 @@ public partial class MainWindow : FluentWindow
     /// itt csak <c>await</c>-olva várjuk meg — a WPF Dispatcher emiatt a menü
     /// nyitva léte alatt is fut, nem fagy le az alkalmazás.
     /// </remarks>
+    /// <summary>Kétpaneles nézet: a panel-sorokon ugyanaz a jobbklikk-menü, mint az egypaneles listán.</summary>
+    private void OnPaneItemContextMenuRequested(object? sender, (FrameworkElement Container, System.Windows.Input.MouseButtonEventArgs Args) e) =>
+        OnItemPreviewRightButtonDown(e.Container, e.Args);
+
     private async void OnItemPreviewRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: FileSystemItem item } container)

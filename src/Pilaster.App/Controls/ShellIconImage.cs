@@ -89,13 +89,19 @@ public sealed class ShellIconImage : Image
     {
         try
         {
-            var image = await _service!.GetImageAsync(item, size).ConfigureAwait(true);
+            var image = await _service!.GetImageAsync(item, size).ConfigureAwait(false);
 
-            // Közben a konténer másik elemet kaphatott — akkor ez a kép elavult.
-            if (generation == _generation)
+            // A rajzolás alatti prioritással tesszük ki: sok ikon egyszerre
+            // érkezik (mappa megnyitása, indulás), és Normal prioritáson
+            // visszatartották a képernyőfrissítést.
+            await Dispatcher.InvokeAsync(() =>
             {
-                Source = image;
-            }
+                // Közben a konténer másik elemet kaphatott — akkor ez a kép elavult.
+                if (generation == _generation)
+                {
+                    Source = image;
+                }
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
         }
         catch (OperationCanceledException)
         {

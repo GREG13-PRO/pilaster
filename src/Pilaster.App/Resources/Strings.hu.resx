@@ -1444,4 +1444,7 @@
   <data name="Cmd_CloseWithoutSaving" xml:space="preserve">
     <value>Bezárás mentés nélkül</value>
   </data>
+  <data name="Transfer_InvalidTarget" xml:space="preserve">
+    <value>Ide nem lehet másolni — válassz egy valódi mappát (a Kezdőlap nem mappa).</value>
+  </data>
 </root>

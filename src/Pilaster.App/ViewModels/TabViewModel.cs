@@ -1439,6 +1439,9 @@ public sealed partial class TabViewModel : ObservableObject
             return;
         }
 
-        await dispatcher.InvokeAsync(action);
+        // A rajzolás ALATTI prioritással: a háttérszálról érkező kötegek
+        // (mappatartalom, metaadat) így nem éheztetik ki a képernyőfrissítést —
+        // MÉRVE induláskor az első képkocka ezek miatt késett.
+        await dispatcher.InvokeAsync(action, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 }
