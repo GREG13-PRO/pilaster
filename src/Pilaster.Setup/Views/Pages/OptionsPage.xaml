@@ -68,6 +68,19 @@
                         IsChecked="{Binding MakeDefaultFileManager}" />
                 </StackPanel>
             </Border>
+
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Teljesítmény" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <CheckBox Content="Gyengébb géphez: animációk és átlátszóság kikapcsolva" IsChecked="{Binding PerformanceMode}" />
+                    <TextBlock
+                        Margin="28,4,0,0"
+                        FontSize="12"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Később a Beállításokban bármikor visszakapcsolható."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -134,17 +134,21 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
         }
     }
 
-    private static FileSystemItem ToItem(ref FileSystemEntry entry)
+    internal static FileSystemItem ToItem(ref FileSystemEntry entry)
     {
         var name = entry.FileName.ToString();
         var isDirectory = entry.IsDirectory;
         var attributes = entry.Attributes;
 
-        var kind = attributes.HasFlag(FileAttributes.ReparsePoint)
-            ? FileSystemItemKind.Link
-            : isDirectory
-                ? FileSystemItemKind.Directory
-                : FileSystemItemKind.File;
+        // A ReparsePoint attribútum NEM jelenti, hogy „link": a OneDrive MINDEN
+        // (felhőbe szinkronizált) fájlja és mappája is reparse point, ahogy a
+        // junction-ök és szimbolikus linkek is. Korábban ezek Link típust
+        // kaptak — a mappák így nem voltak megnyithatók, a fájlok pedig
+        // „Mappa" típusként jelentek meg. Mindkettő úgy viselkedjen, mint az
+        // Intézőben: a mappa mappa, a fájl fájl.
+        var kind = isDirectory
+            ? FileSystemItemKind.Directory
+            : FileSystemItemKind.File;
 
         return new FileSystemItem
         {
@@ -268,8 +272,10 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
     /// A rekurzív bejárás ugyanazt a <see cref="FileSystemEnumerable{TResult}"/>
     /// alapú, allokáció-szegény mintát követi, mint a listázás — csak
     /// <c>RecurseSubdirectories = true</c> mellett, és csak a fájlméreteket
-    /// összegzi. Az <see cref="FileAttributes.ReparsePoint"/> kihagyása
-    /// szimbolikus link/junction miatti végtelen ciklust előz meg.
+    /// összegzi. A szimbolikus link/junction mappákba NEM lép be (végtelen
+    /// ciklus ellen), a többi reparse pointba (OneDrive felhőfájlok/-mappák)
+    /// viszont igen — korábban MINDEN reparse point kimaradt, így egy
+    /// OneDrive-mappa mérete mindig 0 B lett.
     /// </summary>
     private static long ComputeFolderSize(string path, CancellationToken cancellationToken)
     {
@@ -279,9 +285,13 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
             new System.IO.EnumerationOptions
             {
                 RecurseSubdirectories = true,
-                AttributesToSkip = FileAttributes.ReparsePoint,
+                AttributesToSkip = 0,
                 IgnoreInaccessible = true,
-            });
+            })
+        {
+            ShouldRecursePredicate = static (ref FileSystemEntry entry) =>
+                !entry.Attributes.HasFlag(FileAttributes.ReparsePoint) || !IsLinkDirectory(entry.ToFullPath()),
+        };
 
         var total = 0L;
 
@@ -292,5 +302,22 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
         }
 
         return total;
+    }
+
+    /// <summary>
+    /// Igaz, ha a mappa szimbolikus link vagy junction (van link-célja) —
+    /// felhő-helyőrzőknél (OneDrive) és más reparse típusoknál hamis.
+    /// </summary>
+    private static bool IsLinkDirectory(string path)
+    {
+        try
+        {
+            return new DirectoryInfo(path).LinkTarget is not null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Kétes esetben inkább kihagyjuk — a pontatlan méret jobb, mint a végtelen ciklus.
+            return true;
+        }
     }
 }

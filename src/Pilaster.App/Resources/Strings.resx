@@ -59,9 +59,6 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
 
-  <data name="App_Name" xml:space="preserve">
-    <value>Pilaster</value>
-  </data>
 
   <data name="Nav_QuickAccess" xml:space="preserve">
     <value>Quick access</value>
@@ -132,9 +129,6 @@
   <data name="CloudDrive_Connect" xml:space="preserve">
     <value>Connect</value>
   </data>
-  <data name="CloudDrive_Connecting" xml:space="preserve">
-    <value>Connecting…</value>
-  </data>
   <data name="CloudDrive_ConnectFailed" xml:space="preserve">
     <value>Couldn't connect — check the server address and credentials.</value>
   </data>
@@ -188,17 +182,8 @@
   <data name="View_Grid" xml:space="preserve">
     <value>Icons</value>
   </data>
-  <data name="View_Tiles" xml:space="preserve">
-    <value>Tiles</value>
-  </data>
   <data name="View_Columns" xml:space="preserve">
     <value>Columns</value>
-  </data>
-  <data name="View_Gallery" xml:space="preserve">
-    <value>Gallery</value>
-  </data>
-  <data name="View_Tree" xml:space="preserve">
-    <value>Tree</value>
   </data>
 
   <data name="Col_Name" xml:space="preserve">
@@ -232,7 +217,7 @@
   </data>
 
   <data name="Search_Placeholder" xml:space="preserve">
-    <value>Search in this folder…</value>
+    <value>Search (incl. subfolders)…</value>
   </data>
 
   <data name="Status_Items" xml:space="preserve">
@@ -299,9 +284,6 @@
     <value>Switch light / dark</value>
   </data>
 
-  <data name="Settings_Appearance" xml:space="preserve">
-    <value>Appearance</value>
-  </data>
   <data name="Settings_ThemeHint" xml:space="preserve">
     <value>Following the system setting also switches automatically when Windows does.</value>
   </data>
@@ -392,8 +374,11 @@
   <data name="Settings_LiquidGlass" xml:space="preserve">
     <value>Glass effect</value>
   </data>
+  <data name="Settings_GlassIntensity" xml:space="preserve">
+    <value>Strength</value>
+  </data>
   <data name="Settings_LiquidGlassHint" xml:space="preserve">
-    <value>Translucent glass sidebar, top bar, menus and Settings panel over the Mica backdrop. Can be turned off on weaker machines.</value>
+    <value>Real frosted glass: whatever is behind the window shows through, blurred, on the sidebar, top bar and file list. Use the strength slider to set how much. Turned off, everything is opaque.</value>
   </data>
   <data name="Settings_TagsHint" xml:space="preserve">
     <value>Colored tags you can assign to files and folders — add them via the tag icon on a file row. Create, rename and delete them here.</value>
@@ -452,9 +437,6 @@
     <value>An item with that name already exists here</value>
   </data>
 
-  <data name="Cmd_More" xml:space="preserve">
-    <value>More</value>
-  </data>
 
   <data name="Settings_BugReport" xml:space="preserve">
     <value>Bug report</value>
@@ -527,35 +509,8 @@
   <data name="Cmd_Cut" xml:space="preserve">
     <value>Cut</value>
   </data>
-  <data name="Cmd_DeletePermanentlyShort" xml:space="preserve">
-    <value>Delete permanently</value>
-  </data>
-  <data name="FileOps_Copying" xml:space="preserve">
-    <value>Copying</value>
-  </data>
-  <data name="FileOps_Moving" xml:space="preserve">
-    <value>Moving</value>
-  </data>
-  <data name="FileOps_Deleting" xml:space="preserve">
-    <value>Deleting</value>
-  </data>
-  <data name="FileOps_Completed" xml:space="preserve">
-    <value>Done</value>
-  </data>
-  <data name="FileOps_CompletedWithErrors" xml:space="preserve">
-    <value>Done, with errors</value>
-  </data>
-  <data name="FileOps_Cancelled" xml:space="preserve">
-    <value>Cancelled</value>
-  </data>
-  <data name="FileOps_Paused" xml:space="preserve">
-    <value>Paused</value>
-  </data>
   <data name="FileOps_ConflictTitle" xml:space="preserve">
     <value>An item with this name already exists</value>
-  </data>
-  <data name="FileOps_ConflictSource" xml:space="preserve">
-    <value>To copy</value>
   </data>
   <data name="FileOps_ConflictDestination" xml:space="preserve">
     <value>Already here</value>
@@ -571,9 +526,6 @@
   </data>
   <data name="FileOps_ApplyToAll" xml:space="preserve">
     <value>Apply to all</value>
-  </data>
-  <data name="FileOps_ClearCompleted" xml:space="preserve">
-    <value>Clear completed</value>
   </data>
   <data name="FileOps_ActivityCenter" xml:space="preserve">
     <value>Activity</value>
@@ -602,9 +554,6 @@
 
   <data name="Paste_NoFiles" xml:space="preserve">
     <value>The clipboard doesn't contain any files.</value>
-  </data>
-  <data name="Paste_Failed" xml:space="preserve">
-    <value>Some items couldn't be pasted here.</value>
   </data>
 
   <data name="Settings_Updates" xml:space="preserve">
@@ -669,9 +618,6 @@
   <data name="RecycleBin_EmptyState" xml:space="preserve">
     <value>The Recycle Bin is empty</value>
   </data>
-  <data name="RecycleBin_OriginalLocation" xml:space="preserve">
-    <value>Original location</value>
-  </data>
   <data name="Cmd_Restore" xml:space="preserve">
     <value>Restore</value>
   </data>
@@ -698,6 +644,15 @@
   </data>
   <data name="RecycleBin_EmptyFailed" xml:space="preserve">
     <value>Couldn't empty the Recycle Bin</value>
+  </data>
+  <data name="FileOp_SourceMissing" xml:space="preserve">
+    <value>the source no longer exists</value>
+  </data>
+  <data name="FileOp_IntoItself" xml:space="preserve">
+    <value>a folder can't be copied or moved into itself</value>
+  </data>
+  <data name="FileOp_SourceDeleteFailed" xml:space="preserve">
+    <value>copied, but the original couldn't be removed ({0})</value>
   </data>
 
   <data name="Cmd_Cancel" xml:space="preserve">
@@ -763,17 +718,11 @@
   <data name="Settings_RestoreSessionHint" xml:space="preserve">
     <value>Every tab in both panes is saved on exit and restored on startup.</value>
   </data>
-  <data name="Cmd_PaneLayout" xml:space="preserve">
-    <value>Toggle layout</value>
-  </data>
   <data name="Settings_RestoreSession" xml:space="preserve">
     <value>Restore session</value>
   </data>
   <data name="Settings_DualPaneVertical" xml:space="preserve">
     <value>Horizontal layout (stacked)</value>
-  </data>
-  <data name="Settings_Panes" xml:space="preserve">
-    <value>Panes</value>
   </data>
   <data name="Cmd_SwapPanes" xml:space="preserve">
     <value>Swap panes (Ctrl+U)</value>
@@ -808,9 +757,6 @@
   <data name="QuickAccess_ResetDefaults" xml:space="preserve">
     <value>Restore defaults</value>
   </data>
-  <data name="QuickAccess_ClearRecent" xml:space="preserve">
-    <value>Clear recent</value>
-  </data>
   <data name="QuickAccess_ImportFailed" xml:space="preserve">
     <value>The file could not be read or is not valid.</value>
   </data>
@@ -832,12 +778,6 @@
   <data name="QuickAccess_AddFolder" xml:space="preserve">
     <value>Add folder</value>
   </data>
-  <data name="QuickAccess_RecentCleared" xml:space="preserve">
-    <value>Recent folders cleared.</value>
-  </data>
-  <data name="QuickAccess_RecentEnabled" xml:space="preserve">
-    <value>Track recent folders</value>
-  </data>
   <data name="QuickAccess_EditTitle" xml:space="preserve">
     <value>Edit Quick access</value>
   </data>
@@ -853,17 +793,11 @@
   <data name="QuickAccess_ChangeIcon" xml:space="preserve">
     <value>Change icon</value>
   </data>
-  <data name="QuickAccess_RecentLimit" xml:space="preserve">
-    <value>Items shown:</value>
-  </data>
   <data name="QuickAccess_Color" xml:space="preserve">
     <value>Colour</value>
   </data>
   <data name="QuickAccess_ImportDone" xml:space="preserve">
     <value>Import completed.</value>
-  </data>
-  <data name="QuickAccess_Recent" xml:space="preserve">
-    <value>Recent</value>
   </data>
   <data name="QuickAccess_Rename" xml:space="preserve">
     <value>Rename</value>
@@ -898,17 +832,11 @@
   <data name="Keymap_InvertSelectionHint" xml:space="preserve">
     <value>Selected and unselected items swap.</value>
   </data>
-  <data name="Keymap_ColAction" xml:space="preserve">
-    <value>Action</value>
-  </data>
   <data name="Keymap_RefreshHint" xml:space="preserve">
     <value>Reloads the active tab.</value>
   </data>
   <data name="Keymap_ViewTable" xml:space="preserve">
     <value>View layout</value>
-  </data>
-  <data name="Keymap_ColKey" xml:space="preserve">
-    <value>Key</value>
   </data>
   <data name="Keymap_ToggleMark" xml:space="preserve">
     <value>Toggle mark</value>
@@ -948,9 +876,6 @@
   </data>
   <data name="Keymap_RightToLeftHint" xml:space="preserve">
     <value>The left pane navigates to the right pane folder.</value>
-  </data>
-  <data name="Keymap_HideTable" xml:space="preserve">
-    <value>Hide layout</value>
   </data>
   <data name="Keymap_SwitchPane" xml:space="preserve">
     <value>Switch pane</value>
@@ -1017,9 +942,6 @@
   </data>
   <data name="Keymap_LeftToRight" xml:space="preserve">
     <value>Left path to the right</value>
-  </data>
-  <data name="Keymap_ColDescription" xml:space="preserve">
-    <value>Description</value>
   </data>
   <data name="Keymap_NextTabHint" xml:space="preserve">
     <value>Cycles through the tabs of the pane.</value>
@@ -1365,5 +1287,146 @@
   </data>
   <data name="Editor_LoadCancelled" xml:space="preserve">
     <value>Loading cancelled.</value>
+  </data>
+  <data name="Col_Accessed" xml:space="preserve">
+    <value>Date accessed</value>
+  </data>
+  <data name="Sort_Ascending" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="Sort_Descending" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="Cmd_ToggleDualPaneTooltip" xml:space="preserve">
+    <value>Dual-pane view (F9)</value>
+  </data>
+  <data name="Cmd_Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="Cmd_Redo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="Search_Running" xml:space="preserve">
+    <value>Searching subfolders too…</value>
+  </data>
+  <data name="Search_RunningCount" xml:space="preserve">
+    <value>Searching… {0} results so far</value>
+  </data>
+  <data name="Search_Done" xml:space="preserve">
+    <value>{0} results (including subfolders)</value>
+  </data>
+  <data name="Search_DoneLimited" xml:space="preserve">
+    <value>First {0} results — refine your search</value>
+  </data>
+  <data name="Search_NoResults" xml:space="preserve">
+    <value>No results in this folder or its subfolders.</value>
+  </data>
+  <data name="Settings_ExtraColumns" xml:space="preserve">
+    <value>Extra columns</value>
+  </data>
+  <data name="Settings_ExtraColumnsHint" xml:space="preserve">
+    <value>More details in the Details view — click a column header to sort by it.</value>
+  </data>
+  <data name="Mask_SelectTitle" xml:space="preserve">
+    <value>Select group</value>
+  </data>
+  <data name="Mask_UnselectTitle" xml:space="preserve">
+    <value>Unselect group</value>
+  </data>
+  <data name="Mask_Hint" xml:space="preserve">
+    <value>Name pattern, e.g. *.jpg — several patterns separated by semicolons: *.jpg;*.png</value>
+  </data>
+  <data name="Keymap_ToggleDualPane" xml:space="preserve">
+    <value>Dual-pane view</value>
+  </data>
+  <data name="Keymap_ToggleDualPaneHint" xml:space="preserve">
+    <value>Turn the dual-pane view on or off</value>
+  </data>
+  <data name="Keymap_OpenItem" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Keymap_OpenItemHint" xml:space="preserve">
+    <value>Open the folder or file under the cursor</value>
+  </data>
+  <data name="Keymap_DriveMenu" xml:space="preserve">
+    <value>Drive list</value>
+  </data>
+  <data name="Keymap_DriveMenuHint" xml:space="preserve">
+    <value>Choose a drive for the left / right pane (dual-pane view)</value>
+  </data>
+  <data name="Keymap_OpenInPane" xml:space="preserve">
+    <value>Open in left / right pane</value>
+  </data>
+  <data name="Keymap_OpenInPaneHint" xml:space="preserve">
+    <value>Open the folder under the cursor in the left / right pane (dual-pane view)</value>
+  </data>
+  <data name="Keymap_SelectMaskHint" xml:space="preserve">
+    <value>Select by name pattern, e.g. *.jpg</value>
+  </data>
+  <data name="Keymap_UnselectMaskHint" xml:space="preserve">
+    <value>Unselect by name pattern</value>
+  </data>
+  <data name="Keymap_NewFileHint" xml:space="preserve">
+    <value>New text file in the active pane</value>
+  </data>
+  <data name="ContextMenu_NoOtherApps" xml:space="preserve">
+    <value>No other apps</value>
+  </data>
+  <data name="Settings_PerformanceMode" xml:space="preserve">
+    <value>Performance mode</value>
+  </data>
+  <data name="Settings_PerformanceModeHint" xml:space="preserve">
+    <value>For slower PCs: turns off animations, the glass effect and context menu preloading. You can turn each back on at any time.</value>
+  </data>
+  <data name="Settings_PerformanceModeApply" xml:space="preserve">
+    <value>Turn on</value>
+  </data>
+  <data name="Cmd_NewTabTooltip" xml:space="preserve">
+    <value>New tab (Ctrl+T)</value>
+  </data>
+  <data name="Dual_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Dual_CopyTooltip" xml:space="preserve">
+    <value>Copy selection to the other pane (F5)</value>
+  </data>
+  <data name="Dual_Move" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="Dual_MoveTooltip" xml:space="preserve">
+    <value>Move selection to the other pane (F6)</value>
+  </data>
+  <data name="Dual_DeleteTooltip" xml:space="preserve">
+    <value>Delete selection (F8)</value>
+  </data>
+  <data name="ContextMenu_ItemsSelected" xml:space="preserve">
+    <value>{0} items selected</value>
+  </data>
+  <data name="ContextMenu_TagChipHint" xml:space="preserve">
+    <value>Click to add or remove this tag</value>
+  </data>
+  <data name="ContextMenu_MoreOptions" xml:space="preserve">
+    <value>More options</value>
+  </data>
+  <data name="Toast_OneItem" xml:space="preserve">
+    <value>“{0}”</value>
+  </data>
+  <data name="Toast_ManyItems" xml:space="preserve">
+    <value>{0} items</value>
+  </data>
+  <data name="Toast_Copied" xml:space="preserve">
+    <value>{0} copied to the clipboard</value>
+  </data>
+  <data name="Toast_Cut" xml:space="preserve">
+    <value>{0} cut — paste it where you want it</value>
+  </data>
+  <data name="Toast_Pasting" xml:space="preserve">
+    <value>Pasting {0} into {1}</value>
+  </data>
+  <data name="Toast_Moving" xml:space="preserve">
+    <value>Moving {0} into {1}</value>
+  </data>
+  <data name="Toast_TextCopied" xml:space="preserve">
+    <value>Copied to the clipboard</value>
   </data>
 </root>

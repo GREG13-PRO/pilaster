@@ -11,6 +11,7 @@ import {
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  MessageFlags,
 } from 'discord.js';
 
 // A Pilaster asztali alkalmazás (DiscordBugReportService) ezt a customId-t
@@ -55,7 +56,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.error('A "Kész" gomb kezelése sikertelen:', error);
 
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: 'Hiba történt az archiválás közben.', ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: 'Hiba történt az archiválás közben.', flags: MessageFlags.Ephemeral }).catch(() => {});
     }
   }
 });
@@ -245,8 +246,26 @@ app.post(
 
 const port = Number(process.env.PORT ?? 3000);
 
-app.listen(port, () => {
+// A Discord-bejelentkezés CSAK a port sikeres lefoglalása UTÁN történik:
+// ha már fut egy példány (pl. az Indítópult start-bot.vbs-e ÉS egy kézi
+// `npm start`), a második itt kilép, MIELŐTT ugyanazzal a tokennel
+// bejelentkezne. Két bejelentkezett példány ugyanarra a gombnyomásra
+// mindkettő válaszolni próbált — innen jöttek a bot.log
+// "Interaction has already been acknowledged" (40060) hibái.
+const server = app.listen(port, () => {
   console.log(`HTTP szerver figyel a ${port} porton.`);
+  client.login(process.env.DISCORD_BOT_TOKEN).catch((error) => {
+    console.error('A Discord-bejelentkezés sikertelen (DISCORD_BOT_TOKEN?):', error);
+    process.exit(1);
+  });
 });
 
-client.login(process.env.DISCORD_BOT_TOKEN);
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`A ${port} port foglalt — valószínűleg már fut egy bot-példány. Ez a példány kilép.`);
+    process.exit(0);
+  }
+
+  console.error('A HTTP szerver nem indult el:', error);
+  process.exit(1);
+});

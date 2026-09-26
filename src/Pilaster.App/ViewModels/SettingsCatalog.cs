@@ -124,6 +124,7 @@ public static class SettingsCatalog
         new("appearance.theme", Appearance, "Settings_Theme", "Settings_ThemeHint", "téma theme sötét dark világos light"),
         new("appearance.accent", Appearance, "Settings_Accent", "Settings_AccentHint", "akcentus accent szín colour color"),
         new("appearance.animations", Appearance, "Settings_Animations", "Settings_AnimationsHint", "animáció animation mozgás motion"),
+        new("appearance.performance", Appearance, "Settings_PerformanceMode", "Settings_PerformanceModeHint", "gyenge lassú gép teljesítmény performance slow animáció animation átlátszó"),
         new("appearance.glass", Appearance, "Settings_LiquidGlass", "Settings_LiquidGlassHint", "átlátszó transparent glass mica acrylic"),
         new("appearance.density", Appearance, "Settings_Density", "Settings_DensityHint", "sűrűség density kompakt compact"),
 
@@ -139,6 +140,7 @@ public static class SettingsCatalog
         new("filelist.system", FileList, "Settings_ShowSystem", "Settings_ShowSystemHint", "rendszerfájl system"),
         new("filelist.extensions", FileList, "Settings_ShowExtensions", "Settings_ShowExtensionsHint", "kiterjesztés extension"),
         new("filelist.foldersFirst", FileList, "Settings_FoldersFirst", "Settings_FoldersFirstHint", "mappa folder rendezés sort"),
+        new("filelist.columns", FileList, "Settings_ExtraColumns", "Settings_ExtraColumnsHint", "oszlop column létrehozva created hozzáférés accessed dátum date rendezés sort"),
         new("filelist.sizeUnits", FileList, "Settings_BinarySizeUnits", "Settings_BinarySizeUnitsHint", "méret size kb kib mb mib"),
 
         // Billentyűzet

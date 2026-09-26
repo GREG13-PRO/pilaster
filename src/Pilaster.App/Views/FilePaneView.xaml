@@ -35,8 +35,13 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Height" Value="26" />
+            <!--
+                A bal 16 DIP a sorok tartalmának kezdetéhez igazít (sormargó 4 +
+                sorpadding 8 + cellamargó) — 8-cal a fejlécek a cellák előtt
+                kezdődtek, és elcsúszottnak tűnt az egész.
+            -->
+            <Setter Property="Padding" Value="16,0,8,0" />
+            <Setter Property="Height" Value="28" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="GridViewColumnHeader">
@@ -87,6 +92,7 @@
             gyűjteményt kövessék.
         -->
         <Style x:Key="PaneRowStyle" TargetType="ListViewItem">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource RoundedRowFocusVisual}" />
             <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
             <Setter Property="Height" Value="{DynamicResource TokenRowHeight}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -171,6 +177,53 @@
             </Setter>
         </Style>
 
+        <!--  A kétpaneles Kezdőlap egy sora: valódi Windows-ikon (ha van) vagy glyph, név, és meghajtónál a szabad hely.  -->
+        <DataTemplate x:Key="PaneHomeItemTemplate" DataType="{x:Type vm:SidebarItemViewModel}">
+            <ui:Button
+                Margin="0,0,0,1"
+                Padding="8,5"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                Appearance="Transparent"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                Click="OnHomeFallbackItemClick"
+                Tag="{Binding Path}"
+                Visibility="{Binding IsDashboardTile, Converter={StaticResource BoolToVisibility}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ui:SymbolIcon
+                        HorizontalAlignment="Left"
+                        FontSize="16"
+                        Symbol="{Binding Icon}"
+                        Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                    <Image
+                        Width="18"
+                        Height="18"
+                        HorizontalAlignment="Left"
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        Source="{Binding CustomIcon}"
+                        Visibility="{Binding HasCustomIcon, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Text="{Binding Label}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Grid.Column="2"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        FontSize="11"
+                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                        Text="{Binding Detail}" />
+                </Grid>
+            </ui:Button>
+        </DataTemplate>
+
         <DataTemplate x:Key="PaneNameEditTemplate" DataType="{x:Type fs:FileSystemItem}">
             <ui:TextBox
                 x:Name="RenameBox"
@@ -212,6 +265,15 @@
                     </ui:SymbolIcon>
                 </Grid>
                 <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                <!--  Rekurzív keresés találatánál: hol van (a keresett mappához képest).  -->
+                <TextBlock
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                    Text="{Binding SearchLocationDisplay}"
+                    TextTrimming="CharacterEllipsis"
+                    Visibility="{Binding SearchLocationDisplay, Converter={StaticResource NullToCollapsed}}" />
 
                 <!--  Címke-színminták — ugyanaz a vezérlő, mint a fő fájllistán (lásd Controls/TagSwatch.cs).  -->
                 <ItemsControl Margin="6,0,0,0" VerticalAlignment="Center" ItemsSource="{Binding Tags}">
@@ -345,7 +407,7 @@
     -->
     <Border
         x:Name="RootBorder"
-        Background="{DynamicResource TokenBgSurface}"
+        Background="{DynamicResource GlassSurfaceBrush}"
         CornerRadius="10"
         PreviewMouseDown="OnRootPreviewMouseDown">
         <Border.Style>
@@ -405,6 +467,8 @@
                                         <ui:Button
                                             Padding="8,3"
                                             Appearance="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="0"
                                             Command="{Binding DataContext.SelectTabCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
                                             FontSize="12"
@@ -418,6 +482,8 @@
                                             Padding="3"
                                             VerticalAlignment="Center"
                                             Appearance="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="0"
                                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
                                             ToolTip="{loc:Loc Cmd_CloseTab}">
@@ -436,6 +502,8 @@
                     Height="26"
                     Padding="0"
                     Appearance="Transparent"
+                    BorderBrush="Transparent"
+                    BorderThickness="0"
                     Command="{Binding NewTabCommand}"
                     ToolTip="{loc:Loc Cmd_NewTab}">
                     <ui:SymbolIcon FontSize="13" Symbol="Add24" />
@@ -462,6 +530,8 @@
                         Height="28"
                         Padding="0"
                         Appearance="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
                         Command="{Binding GoBackCommand}"
                         IsEnabled="{Binding CanGoBack}"
                         ToolTip="{loc:Loc Cmd_Back}">
@@ -472,6 +542,8 @@
                         Height="28"
                         Padding="0"
                         Appearance="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
                         Command="{Binding GoForwardCommand}"
                         IsEnabled="{Binding CanGoForward}"
                         ToolTip="{loc:Loc Cmd_Forward}">
@@ -482,6 +554,8 @@
                         Height="28"
                         Padding="0"
                         Appearance="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
                         Command="{Binding GoUpCommand}"
                         IsEnabled="{Binding CanGoUp}"
                         ToolTip="{loc:Loc Cmd_Up}">
@@ -493,6 +567,8 @@
                         Margin="0,0,4,0"
                         Padding="0"
                         Appearance="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
                         Command="{Binding RefreshCommand}"
                         ToolTip="{loc:Loc Cmd_Refresh}">
                         <ui:SymbolIcon FontSize="14" Symbol="ArrowClockwise24" />
@@ -519,10 +595,20 @@
                                         <ui:Button
                                             Padding="4,0"
                                             Appearance="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="0"
                                             Click="OnBreadcrumbClick"
-                                            Content="{Binding Label}"
                                             FontSize="12"
-                                            Tag="{Binding Path}" />
+                                            Tag="{Binding Path}">
+                                            <Grid>
+                                                <ui:SymbolIcon
+                                                    FontSize="13"
+                                                    Symbol="Home24"
+                                                    ToolTip="{Binding Label}"
+                                                    Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Text="{Binding Label}" Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                            </Grid>
+                                        </ui:Button>
                                         <TextBlock
                                             VerticalAlignment="Center"
                                             FontSize="11"
@@ -539,6 +625,7 @@
             <Grid Grid.Row="2" DataContext="{Binding ActiveTab}">
                 <ListView
                     x:Name="List"
+                    controls:SmoothScroll.IsEnabled="True"
                     AllowDrop="True"
                     AlternationCount="2"
                     Background="Transparent"
@@ -552,12 +639,15 @@
                     MouseDoubleClick="OnItemDoubleClick"
                     PreviewMouseLeftButtonDown="OnItemPreviewMouseDown"
                     PreviewMouseMove="OnItemPreviewMouseMove"
+                    PreviewKeyDown="OnListPreviewKeyDown"
                     PreviewMouseRightButtonDown="OnItemPreviewRightButtonDown"
                     SelectionChanged="OnListSelectionChanged"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                     SelectionMode="Extended"
                     VirtualizingPanel.IsVirtualizing="True"
                     VirtualizingPanel.ScrollUnit="Pixel"
-                    VirtualizingPanel.VirtualizationMode="Recycling">
+                    VirtualizingPanel.VirtualizationMode="Recycling"
+                    Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                     <!--
                         Oszlopfejlécek (spec K1/K2, v1.0.1): Név/Méret/Típus/
                         Módosítva, kattintással rendezhető, húzással
@@ -600,8 +690,9 @@
                     </ListView.View>
                 </ListView>
 
+                <!--  A 26 DIP-es oszlopfejléc ALATT — korábban rácsúszott.  -->
                 <TextBlock
-                    Margin="0,20,0,0"
+                    Margin="12,44,12,0"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Top"
                     Foreground="{DynamicResource TokenTextMuted}"
@@ -626,30 +717,31 @@
                     munkamenetből), itt legalább a gyorselérés-lista
                     látszik — nem üres felület.
                 -->
+                <!--
+                    Kezdőlap-állapotban a ListView el van rejtve (különben az
+                    oszlopfejléce a lista alatt látszott, és a kettő egymásra
+                    csúszott) — helyette a gyorselérés mappái és a meghajtók.
+                -->
                 <ScrollViewer
-                    Padding="4"
+                    Padding="4,2"
                     VerticalScrollBarVisibility="Auto"
                     Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding DataContext.Sections[0].Items, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:SidebarItemViewModel}">
-                                <ui:Button
-                                    Margin="0,0,0,2"
-                                    Padding="8,6"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Appearance="Transparent"
-                                    Click="OnHomeFallbackItemClick"
-                                    Tag="{Binding Path}"
-                                    Visibility="{Binding IsDashboardTile, Converter={StaticResource BoolToVisibility}}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Margin="0,0,8,0" FontSize="15" Symbol="{Binding Icon}" />
-                                        <TextBlock Text="{Binding Label}" />
-                                    </StackPanel>
-                                </ui:Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <StackPanel>
+                        <TextBlock
+                            Margin="8,4,0,4"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="{loc:Loc Nav_QuickAccess}" />
+                        <ItemsControl ItemTemplate="{StaticResource PaneHomeItemTemplate}" ItemsSource="{Binding DataContext.HomeQuickAccessItems, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}" />
+                        <TextBlock
+                            Margin="8,12,0,4"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="{loc:Loc Nav_Drives}" />
+                        <ItemsControl ItemTemplate="{StaticResource PaneHomeItemTemplate}" ItemsSource="{Binding DataContext.HomeDriveItems, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}" />
+                    </StackPanel>
                 </ScrollViewer>
             </Grid>
         </Grid>

@@ -4,7 +4,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
+using Pilaster.Core.Settings;
 using System.Windows.Navigation;
 using Pilaster.App.Diagnostics;
 using Pilaster.App.Localization;
@@ -24,8 +27,331 @@ public partial class SettingsWindow : FluentWindow
         viewModel.AnimationHost = this;
 
         viewModel.NavigateToSettingRequested += OnNavigateToSettingRequested;
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         InitializeComponent();
+
+        Loaded += OnLoaded;
+        Closed += (_, _) =>
+        {
+            StopScrollAnimation();
+            viewModel.NavigateToSettingRequested -= OnNavigateToSettingRequested;
+            viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        };
+    }
+
+    // ================= Egyoldalas elrendezés: tartalomjegyzék ↔ görgetés =================
+
+    private const string CategoryTagPrefix = "category:";
+
+    /// <summary>A kategória címe fölött ennyi DIP hely marad odaugráskor.</summary>
+    private const double CategoryTopGap = 8;
+
+    /// <summary>Egy egérgörgő-lépés (120 delta) ennyi DIP-et görget — a böngészők nagyságrendje.</summary>
+    private const double WheelStep = 90;
+
+    /// <summary>A kategóriák tartalomblokkjai azonosító szerint — egyszer gyűjtjük be (lásd <see cref="OnLoaded"/>).</summary>
+    private readonly Dictionary<string, FrameworkElement> _sections = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Igaz, amíg a kijelölést a GÖRGETÉS állítja (lásd <see cref="SyncSelectionToScroll"/>)
+    /// — ilyenkor a kijelölés-változás nem indíthat újabb odagörgetést, különben
+    /// a kettő egymást rángatná.
+    /// </summary>
+    private bool _selectionFromScroll;
+
+    /// <summary>A sima görgetés célpozíciója — az animáció ehhez közelít képkockánként.</summary>
+    private double _scrollTarget;
+
+    private bool _scrollAnimating;
+
+    /// <summary>
+    /// Igaz, amíg egy kattintásra indított odagörgetés tart — közben a
+    /// görgetés-követés nem írja felül a kiválasztott kategóriát az átsuhanó
+    /// köztes kategóriákkal.
+    /// </summary>
+    private bool _suppressScrollSpy;
+
+    private TimeSpan _lastFrameTime;
+
+    private AnimationLevel CurrentAnimationLevel =>
+        DataContext is SettingsViewModel viewModel ? viewModel.SelectedAnimationLevel : AnimationLevel.Full;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel viewModel)
+        {
+            foreach (var category in viewModel.Categories)
+            {
+                if (FindByTag(ContentScroll, CategoryTagPrefix + category.Id) is { } section)
+                {
+                    _sections[category.Id] = section;
+                }
+            }
+        }
+
+        ContentScroll.PreviewMouseWheel += OnContentPreviewMouseWheel;
+        CategoryList.SizeChanged += (_, _) => MoveSelectionIndicator(animate: false);
+
+        MoveSelectionIndicator(animate: false);
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Keresés közben a lista szűkül (csak a találatos kategóriák látszanak),
+        // így a sorok helye is változik — a jelölő a következő elrendezés után
+        // igazodik hozzájuk.
+        if (e.PropertyName == nameof(SettingsViewModel.IsSearching))
+        {
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => MoveSelectionIndicator(animate: false));
+        }
+    }
+
+    private void OnCategorySelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Az InitializeComponent közben a SelectedItem-kötés már kijelöl, de a
+        // tartalomterület ekkor még nem létezik — az első megnyitáskor úgyis a
+        // lap tetején (az első kategóriánál) állunk, lásd OnLoaded.
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        MoveSelectionIndicator(animate: true);
+
+        if (_selectionFromScroll
+            || DataContext is not SettingsViewModel { IsSearching: false }
+            || CategoryList.SelectedItem is not SettingsCategoryViewModel category)
+        {
+            return;
+        }
+
+        ScrollToCategory(category.Id);
+    }
+
+    /// <summary>
+    /// A csúszó kijelölés-jelölő a kijelölt sorhoz igazítása — animálva
+    /// (lassuló csúszás), vagy azonnal (megnyitáskor, átméretezéskor).
+    /// </summary>
+    private void MoveSelectionIndicator(bool animate)
+    {
+        if (CategoryList.SelectedItem is null
+            || CategoryList.ItemContainerGenerator.ContainerFromItem(CategoryList.SelectedItem) is not ListBoxItem { IsVisible: true, ActualHeight: > 0 } container)
+        {
+            SelectionIndicator.Opacity = 0;
+            return;
+        }
+
+        var position = container.TranslatePoint(new Point(0, 0), IndicatorLayer);
+
+        SelectionIndicator.Width = container.ActualWidth;
+        SelectionIndicator.Height = container.ActualHeight;
+        Canvas.SetLeft(SelectionIndicator, position.X);
+
+        var wasHidden = SelectionIndicator.Opacity == 0;
+        SelectionIndicator.Opacity = 1;
+
+        var level = CurrentAnimationLevel;
+
+        if (!animate || wasHidden || level == AnimationLevel.Off)
+        {
+            SelectionIndicatorOffset.BeginAnimation(TranslateTransform.YProperty, null);
+            SelectionIndicatorOffset.Y = position.Y;
+            return;
+        }
+
+        var slide = new DoubleAnimation(position.Y, TimeSpan.FromMilliseconds(level == AnimationLevel.Reduced ? 120 : 240))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+
+        // A „From" nélküli animáció az aktuális (akár épp csúszó) pozícióból
+        // indul — egy gyors görgetés közbeni több váltás így folyamatos marad.
+        SelectionIndicatorOffset.BeginAnimation(TranslateTransform.YProperty, slide, HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private void ScrollToCategory(string categoryId)
+    {
+        if (!_sections.TryGetValue(categoryId, out var section) || ContentScroll.Content is not Visual content)
+        {
+            return;
+        }
+
+        // A kategória CÍMÉHEZ igazítunk (a blokk első eleme), nem a blokk
+        // felső széléhez — a címsor feletti térköz különben üresen maradna.
+        var anchor = section is Panel { Children.Count: > 0 } panel && panel.Children[0] is FrameworkElement header
+            ? header
+            : section;
+        var target = anchor.TransformToAncestor(content).Transform(new Point(0, 0)).Y - CategoryTopGap;
+
+        ScrollSmoothlyTo(target, suppressScrollSpy: true);
+    }
+
+    /// <summary>
+    /// Egérgörgő: a WPF alapértelmezett, lépcsős (egyszerre 48 DIP-et ugró)
+    /// görgetése helyett sima, lassuló csúszás. Több gyors görgetés a célt
+    /// tolja tovább, a mozgás közben nem áll meg.
+    /// </summary>
+    private void OnContentPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (CurrentAnimationLevel == AnimationLevel.Off || IsInsideNestedScroller(e.OriginalSource as DependencyObject, e.Delta))
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var from = _scrollAnimating ? _scrollTarget : ContentScroll.VerticalOffset;
+        ScrollSmoothlyTo(from - (e.Delta / 120.0 * WheelStep), suppressScrollSpy: false);
+    }
+
+    /// <summary>
+    /// Igaz, ha a görgetés egy BELSŐ, a görgetés irányában még görgethető
+    /// területen (pl. a billentyűkiosztás táblázata) történik — azt nem
+    /// vehetjük el tőle.
+    /// </summary>
+    private bool IsInsideNestedScroller(DependencyObject? source, int delta)
+    {
+        for (var node = source;
+             node is not null && !ReferenceEquals(node, ContentScroll);
+             node = node is Visual ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node))
+        {
+            if (node is ScrollViewer { ScrollableHeight: > 0 } inner)
+            {
+                var canScroll = delta > 0 ? inner.VerticalOffset > 0 : inner.VerticalOffset < inner.ScrollableHeight;
+
+                if (canScroll)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Sima görgetés a célpontig. Képkockánként exponenciálisan közelít
+    /// (a képkocka-időből számolva, így gyors és lassú gépen is ugyanolyan
+    /// tempójú) — egy új cél menet közben egyszerűen átveszi a régit.
+    /// </summary>
+    private void ScrollSmoothlyTo(double target, bool suppressScrollSpy)
+    {
+        _scrollTarget = Math.Clamp(target, 0, ContentScroll.ScrollableHeight);
+        _suppressScrollSpy = suppressScrollSpy;
+
+        if (CurrentAnimationLevel == AnimationLevel.Off)
+        {
+            ContentScroll.ScrollToVerticalOffset(_scrollTarget);
+            _suppressScrollSpy = false;
+            return;
+        }
+
+        if (!_scrollAnimating)
+        {
+            _scrollAnimating = true;
+            _lastFrameTime = TimeSpan.Zero;
+            CompositionTarget.Rendering += OnScrollFrame;
+        }
+    }
+
+    private void OnScrollFrame(object? sender, EventArgs e)
+    {
+        var now = e is RenderingEventArgs rendering ? rendering.RenderingTime : TimeSpan.Zero;
+
+        // Az első képkockánál még nincs előző időpont — egy átlagos (60 Hz-es)
+        // képkockával számolunk.
+        var dt = _lastFrameTime == TimeSpan.Zero || now <= _lastFrameTime
+            ? 1.0 / 60
+            : Math.Min((now - _lastFrameTime).TotalSeconds, 0.05);
+        _lastFrameTime = now;
+
+        var current = ContentScroll.VerticalOffset;
+        var remaining = _scrollTarget - current;
+
+        if (Math.Abs(remaining) < 0.5)
+        {
+            ContentScroll.ScrollToVerticalOffset(_scrollTarget);
+            StopScrollAnimation();
+            return;
+        }
+
+        // Kb. 0,25 mp alatt teszi meg a táv 98%-át — lendületes, de nem ugrik.
+        var speed = CurrentAnimationLevel == AnimationLevel.Reduced ? 28.0 : 16.0;
+        ContentScroll.ScrollToVerticalOffset(current + (remaining * (1 - Math.Exp(-dt * speed))));
+    }
+
+    /// <summary>A futó sima görgetés leállítása.</summary>
+    private void StopScrollAnimation()
+    {
+        if (_scrollAnimating)
+        {
+            CompositionTarget.Rendering -= OnScrollFrame;
+            _scrollAnimating = false;
+        }
+
+        _suppressScrollSpy = false;
+    }
+
+    private void OnContentScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.VerticalChange != 0 || e.ExtentHeightChange != 0)
+        {
+            SyncSelectionToScroll();
+        }
+    }
+
+    /// <summary>
+    /// Görgetés-követés: az a kategória a kijelölt, amelyiknek a címe utoljára
+    /// haladt át a látható terület tetején. Az oldal legaljára érve az utolsó
+    /// kategória — a rövid utolsó kategória (Névjegy) címe különben sosem érné
+    /// el a tetejét. Sima görgetés közben képkockánként fut, így a bal oldali
+    /// jelölő a görgetéssel együtt csúszik át a következő kategóriára.
+    /// </summary>
+    private void SyncSelectionToScroll()
+    {
+        if (_suppressScrollSpy
+            || _sections.Count == 0
+            || DataContext is not SettingsViewModel { IsSearching: false } viewModel
+            || ContentScroll.Content is not Visual content)
+        {
+            return;
+        }
+
+        var atBottom = ContentScroll.ScrollableHeight > 0
+            && ContentScroll.VerticalOffset >= ContentScroll.ScrollableHeight - 1;
+        SettingsCategoryViewModel? current = null;
+
+        foreach (var category in viewModel.Categories)
+        {
+            if (!_sections.TryGetValue(category.Id, out var section))
+            {
+                continue;
+            }
+
+            var top = section.TransformToAncestor(content).Transform(new Point(0, 0)).Y;
+
+            if (atBottom || top <= ContentScroll.VerticalOffset + 24)
+            {
+                current = category;
+            }
+        }
+
+        if (current is null || ReferenceEquals(current, viewModel.SelectedCategory))
+        {
+            return;
+        }
+
+        _selectionFromScroll = true;
+
+        try
+        {
+            viewModel.SelectedCategory = current;
+        }
+        finally
+        {
+            _selectionFromScroll = false;
+        }
     }
 
     /// <summary>A legutóbbi naplófájl megnyitása a társított programmal.</summary>
@@ -42,9 +368,13 @@ public partial class SettingsWindow : FluentWindow
     }
 
     /// <summary>A konfigurációs mappa megnyitása (settings.json, metadata.json, quickaccess.json).</summary>
+    /// <remarks>
+    /// Az <see cref="Services.AppDataLocator"/>-t kérdezi: hordozható módban az
+    /// adatok a program melletti <c>config</c> mappában vannak — a korábbi,
+    /// fixen <c>%APPDATA%\Pilaster</c>-t nyitó gomb ott rossz helyre vitt.
+    /// </remarks>
     private void OnOpenConfigFolderClick(object sender, RoutedEventArgs e) =>
-        OpenWithShell(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Pilaster"));
+        OpenWithShell(Services.AppDataLocator.Directory);
 
     private static void OpenWithShell(string path)
     {
@@ -75,6 +405,10 @@ public partial class SettingsWindow : FluentWindow
                 return;
             }
 
+            // A kategóriaváltás odagörgető animációja még futhat — le kell
+            // állítani, különben a konkrét beállítás helyett a kategória
+            // tetejére húzná vissza a nézetet.
+            StopScrollAnimation();
             target.BringIntoView();
             Flash(target);
         });

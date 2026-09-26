@@ -55,6 +55,33 @@ public sealed class FolderSizeService
         _ = ComputeAsync(item, cancellationToken);
     }
 
+    /// <summary>
+    /// A <paramref name="path"/> alatti ÉS feletti mappák gyorsítótárazott
+    /// méretének eldobása — frissítéskor és fájlművelet után. Enélkül egy
+    /// mappába másolás után a régi méret az alkalmazás teljes élettartamára
+    /// megmaradt, az F5 sem számolta újra.
+    /// </summary>
+    public void InvalidateTree(string path)
+    {
+        var normalized = Path.TrimEndingDirectorySeparator(path);
+
+        foreach (var key in _cache.Keys)
+        {
+            var normalizedKey = Path.TrimEndingDirectorySeparator(key);
+
+            if (IsSameOrUnder(normalizedKey, normalized) || IsSameOrUnder(normalized, normalizedKey))
+            {
+                _cache.TryRemove(key, out _);
+            }
+        }
+    }
+
+    private static bool IsSameOrUnder(string candidate, string folder) =>
+        string.Equals(candidate, folder, StringComparison.OrdinalIgnoreCase)
+        || candidate.StartsWith(
+            Path.EndsInDirectorySeparator(folder) ? folder : folder + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase);
+
     private async Task ComputeAsync(FileSystemItem item, CancellationToken cancellationToken)
     {
         try

@@ -69,6 +69,12 @@ public sealed partial class FileOperationJob : ObservableObject
 
     public required string DestinationDirectory { get; init; }
 
+    /// <summary>
+    /// A művelet forrás-útvonalai — áthelyezés/törlés után ezek SZÜLŐMAPPÁIT
+    /// mutató füleket is frissíteni kell, nem csak a célmappát.
+    /// </summary>
+    public IReadOnlyList<string> SourcePaths { get; init; } = [];
+
     public required int TotalFiles { get; init; }
 
     [ObservableProperty]

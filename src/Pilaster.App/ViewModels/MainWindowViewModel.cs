@@ -62,11 +62,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // A v0.9-es, settings.json-ben tárolt gyorselérés átvétele az új,
         // önálló fájlba — egyszer fut le, az első v1.0-s indításkor.
         _quickAccess.MigrateFromLegacyPins(_settings.Current.QuickAccessPins);
-        _quickAccess.Changed += (_, _) =>
-        {
-            RefreshQuickAccess();
-            RefreshRecent();
-        };
+        _quickAccess.Changed += (_, _) => RefreshQuickAccess();
 
         Sections = [];
 
@@ -193,15 +189,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public bool ShowTabStrip => !DualPaneEnabled && Tabs.Count > 1;
 
-    /// <summary>
-    /// Az „Új fül" felugró menüpont csak EGYPANELES nézetben jelenik meg,
-    /// pontosan akkor, amikor a fülsáv rejtve van (lásd <see cref="ShowTabStrip"/>).
-    /// Kétpaneles nézetben nem kell, mert ott mindkét panelnek megvan a saját,
-    /// mindig látható „Új fül" gombja (lásd FilePaneView.xaml) — ide téve csak
-    /// felesleges duplikáció lenne.
-    /// </summary>
-    public bool ShowNewTabMenuEntry => !DualPaneEnabled && !ShowTabStrip;
-
     partial void OnIsLeftPaneActiveChanged(bool value)
     {
         LeftPane.IsActive = !DualPaneEnabled || value;
@@ -224,7 +211,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedTab));
         OnPropertyChanged(nameof(CanEjectCurrentDrive));
         OnPropertyChanged(nameof(ShowTabStrip));
-        OnPropertyChanged(nameof(ShowNewTabMenuEntry));
 
         UpdateActiveSidebarItem();
         SyncTagFilterHighlight();
@@ -432,6 +418,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<SidebarSection> Sections { get; }
 
+    /// <summary>A Kezdőlap „Gyors elérés" csempéi — szekciókulcs, nem pozíció szerint.</summary>
+    public IReadOnlyList<SidebarItemViewModel> HomeQuickAccessItems => SectionItems("Nav_QuickAccess");
+
+    /// <summary>
+    /// A Kezdőlap „Meghajtók" csempéi — a helyi meghajtók ÉS a betűjeles
+    /// felhőszinkron-meghajtók (Google Drive), mint az Intéző „Ez a gép" nézetében.
+    /// </summary>
+    public IReadOnlyList<SidebarItemViewModel> HomeDriveItems =>
+        [.. SectionItems("Nav_Drives"), .. SectionItems("Nav_CloudDrives").Where(i => i.IsDrive)];
+
+    private IReadOnlyList<SidebarItemViewModel> SectionItems(string headerKey) =>
+        Sections.FirstOrDefault(s => s.HeaderKey == headerKey)?.Items ?? [];
+
+    private void RaiseHomeItemsChanged()
+    {
+        OnPropertyChanged(nameof(HomeQuickAccessItems));
+        OnPropertyChanged(nameof(HomeDriveItems));
+    }
+
     /// <summary>Az oldalsáv Címkék szekciója — külön listaként, mert nem navigál, hanem szűr.</summary>
     public ObservableCollection<TagFilterItemViewModel> TagFilters { get; } = [];
 
@@ -508,6 +513,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>Akkor jelez, ha a nézetnek meg kell nyitnia a Beállításokat.</summary>
     public event EventHandler? SettingsRequested;
+
+    /// <summary>
+    /// Rövid visszajelzés a felhasználónak (pl. „3 elem vágólapra másolva") —
+    /// a főablak egy magától eltűnő buborékban mutatja meg.
+    /// </summary>
+    public event EventHandler<(string Message, Wpf.Ui.Controls.SymbolRegular Icon)>? ToastRequested;
+
+    public void ShowToast(string message, Wpf.Ui.Controls.SymbolRegular icon) => ToastRequested?.Invoke(this, (message, icon));
+
+    /// <summary>„„név"" egy elemnél, különben „N elem" — a visszajelzések szövegéhez.</summary>
+    private static string DescribeItems(IReadOnlyList<string> paths) =>
+        paths.Count == 1
+            ? string.Format(TranslationSource.Instance["Toast_OneItem"], Path.GetFileName(Path.TrimEndingDirectorySeparator(paths[0])))
+            : string.Format(TranslationSource.Instance["Toast_ManyItems"], paths.Count);
 
     /// <summary>Egy Kiadás-kísérlet lezárult — a nézet ez alapján mutat visszajelzést.</summary>
     public event EventHandler<EjectOutcome>? EjectCompleted;
@@ -624,23 +643,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Az oldalsáv Meghajtók szekciójának újraépítése — pl. kiadás vagy médiaváltás után.</summary>
     public void RefreshDrives()
     {
-        var driveSection = Sections.FirstOrDefault(s => s.HeaderKey == "Nav_Drives");
+        ReplaceSection("Nav_Drives", BuildDrives);
 
-        if (driveSection is null)
-        {
-            return;
-        }
-
-        var index = Sections.IndexOf(driveSection);
-
-        Sections[index] = new SidebarSection
-        {
-            HeaderKey = "Nav_Drives",
-            Header = TranslationSource.Instance["Nav_Drives"],
-            Items = BuildDrives(),
-        };
-
-        UpdateActiveSidebarItem();
+        // A felhőszinkron-meghajtók (Google Drive) a Felhő meghajtók
+        // szekcióban élnek, de ugyanúgy csatlakozhatnak/leválhatnak.
+        ReplaceSection("Nav_CloudDrives", BuildCloudDrives);
     }
 
     private DriveType? GetCurrentDriveType() =>
@@ -721,6 +728,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Pilaster Classic F7 — új mappa a MEGADOTT (aktív egy- vagy kétablakos) panelben, nem feltétlenül a fülrendszer aktuális fülében.</summary>
     public async Task CreateNewFolderInTabAsync(TabViewModel tab) => await CreateNewItemAsync(QuickActionKind.Folder, tab);
 
+    /// <summary>Shift+F4 — új (szöveg)fájl a megadott panelben, azonnali átnevezéssel.</summary>
+    public async Task CreateNewFileInTabAsync(TabViewModel tab) => await CreateNewItemAsync(QuickActionKind.File, tab);
+
     private async Task CreateNewItemAsync(QuickActionKind kind, TabViewModel? tab)
     {
         if (tab is null || tab.IsHome || tab.IsRecycleBin)
@@ -765,6 +775,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (paths is { Count: > 0 })
         {
             ClipboardFileService.SetClipboard(paths, isCut: false);
+            ShowToast(string.Format(TranslationSource.Instance["Toast_Copied"], DescribeItems(paths)), Wpf.Ui.Controls.SymbolRegular.Copy24);
         }
     }
 
@@ -775,6 +786,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (paths is { Count: > 0 })
         {
             ClipboardFileService.SetClipboard(paths, isCut: true);
+            ShowToast(string.Format(TranslationSource.Instance["Toast_Cut"], DescribeItems(paths)), Wpf.Ui.Controls.SymbolRegular.Cut24);
         }
     }
 
@@ -793,17 +805,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (!ClipboardFileService.TryGetClipboardFiles(out var paths, out var isCut))
         {
-            tab.EmptyMessage = TranslationSource.Instance["Paste_NoFiles"];
+            ShowToast(TranslationSource.Instance["Paste_NoFiles"], Wpf.Ui.Controls.SymbolRegular.ClipboardError24);
             return;
         }
 
-        // Nincs értelme egy elemet önmagába másolni/áthelyezni.
-        var filtered = paths.Where(p => !string.Equals(Path.GetDirectoryName(p), targetDirectory, StringComparison.OrdinalIgnoreCase)).ToList();
+        // Kivágás+beillesztés ugyanabba a mappába: nincs mit áthelyezni. Másolásnál
+        // viszont — mint az Intézőben — másolat készül új néven (a motor
+        // ugyanabba a mappába másoláskor sosem ír rá az eredetire).
+        var filtered = isCut
+            ? paths.Where(p => !string.Equals(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(p)), Path.TrimEndingDirectorySeparator(targetDirectory), StringComparison.OrdinalIgnoreCase)).ToList()
+            : paths.ToList();
 
         if (filtered.Count == 0)
         {
             return;
         }
+
+        var folderName = Path.GetFileName(Path.TrimEndingDirectorySeparator(targetDirectory)) is { Length: > 0 } name ? name : targetDirectory;
+        ShowToast(
+            string.Format(TranslationSource.Instance[isCut ? "Toast_Moving" : "Toast_Pasting"], DescribeItems(filtered), folderName),
+            Wpf.Ui.Controls.SymbolRegular.ClipboardPaste24);
 
         if (isCut)
         {
@@ -848,10 +869,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // áthelyezésnél csak a tényleges célmappát mutató fület. MINDKÉT
         // panel minden füle sorra kerül, mert egy panelek közti átvitel
         // egyszerre két helyen is változást okoz.
-        foreach (var tab in AllTabs())
+        // Áthelyezésnél a FORRÁS mappája is változik (onnan eltűnnek az
+        // elemek) — korábban csak a célmappa frissült, a forrásfülön a már
+        // elmozgatott elemek „szellemként" ott maradtak.
+        var sourceParents = job.Kind == FileOperationKind.Move
+            ? job.SourcePaths
+                .Select(p => Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(p)))
+                .OfType<string>()
+                .Select(Path.TrimEndingDirectorySeparator)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : [];
+
+        foreach (var tab in AllTabs().ToList())
         {
             var affected = job.Kind == FileOperationKind.Delete
-                || string.Equals(tab.CurrentPath, job.DestinationDirectory, StringComparison.OrdinalIgnoreCase);
+                || string.Equals(tab.CurrentPath, job.DestinationDirectory, StringComparison.OrdinalIgnoreCase)
+                || (tab.CurrentPath is { } current && sourceParents.Contains(Path.TrimEndingDirectorySeparator(current)));
 
             if (affected)
             {
@@ -897,6 +930,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ShowHiddenItems = _settings.Current.ShowHiddenItems,
         ShowSystemItems = _settings.Current.ShowSystemItems,
         ShowExtensions = _settings.Current.ShowExtensions,
+        FoldersFirst = _settings.Current.FoldersFirst,
         ViewMode = _settings.Current.LastViewMode,
     };
 
@@ -916,6 +950,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // csak akkor fut, ha ténylegesen változott az érték.
             tab.ShowSystemItems = current.ShowSystemItems;
             tab.ShowExtensions = current.ShowExtensions;
+            tab.FoldersFirst = current.FoldersFirst;
         }
     }
 
@@ -928,14 +963,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         tab.PropertyChanged += OnTabPropertyChanged;
         OnPropertyChanged(nameof(ShowTabStrip));
-        OnPropertyChanged(nameof(ShowNewTabMenuEntry));
     }
 
     private void OnPaneTabClosed(object? sender, TabViewModel tab)
     {
         tab.PropertyChanged -= OnTabPropertyChanged;
         OnPropertyChanged(nameof(ShowTabStrip));
-        OnPropertyChanged(nameof(ShowNewTabMenuEntry));
         SaveSession();
     }
 
@@ -970,7 +1003,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
             {
                 UpdateActiveSidebarItem();
                 OnPropertyChanged(nameof(CanEjectCurrentDrive));
-                RecordRecent(tab.CurrentPath);
             }
 
             SaveSession();
@@ -1000,10 +1032,36 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        foreach (var tab in saved.Tabs)
+        // A korábbi verziók több Kezdőlap-fület is engedtek — ezek közül csak
+        // egy marad meg (az aktív, ha az is Kezdőlap), különben a fülsávon
+        // kétszer szerepelne a „Kezdőlap" felirat.
+        var activeIndex = Math.Clamp(saved.ActiveTabIndex, 0, saved.Tabs.Count - 1);
+        var activeIsHome = IsHomeSession(saved.Tabs[activeIndex]);
+        var kept = new List<TabSession>();
+        TabSession? activeTab = null;
+
+        for (var i = 0; i < saved.Tabs.Count; i++)
+        {
+            var tab = saved.Tabs[i];
+            var isHome = IsHomeSession(tab);
+
+            if (isHome && (activeIsHome ? i != activeIndex : kept.Any(IsHomeSession)))
+            {
+                continue;
+            }
+
+            kept.Add(tab);
+
+            if (i == activeIndex)
+            {
+                activeTab = tab;
+            }
+        }
+
+        foreach (var tab in kept)
         {
             pane.AddTab(
-                string.IsNullOrWhiteSpace(tab.Path) ? TabViewModel.HomeMarker : tab.Path,
+                IsHomeSession(tab) ? TabViewModel.HomeMarker : tab.Path!,
                 tab.ViewMode,
                 tab.ShowHiddenItems,
                 activate: false);
@@ -1011,13 +1069,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         // A rendezés csak a fül létrejötte UTÁN állítható be, mert az
         // ApplySort azonnal újrarendez — a betöltés viszont még fut.
-        for (var i = 0; i < saved.Tabs.Count && i < pane.Tabs.Count; i++)
+        for (var i = 0; i < kept.Count && i < pane.Tabs.Count; i++)
         {
-            pane.Tabs[i].ApplySort(saved.Tabs[i].SortKey, saved.Tabs[i].SortDescending);
+            pane.Tabs[i].ApplySort(kept[i].SortKey, kept[i].SortDescending);
         }
 
-        pane.ActiveTab = pane.Tabs[Math.Clamp(saved.ActiveTabIndex, 0, pane.Tabs.Count - 1)];
+        pane.ActiveTab = pane.Tabs[Math.Clamp(activeTab is null ? 0 : kept.IndexOf(activeTab), 0, pane.Tabs.Count - 1)];
     }
+
+    private static bool IsHomeSession(TabSession tab) =>
+        string.IsNullOrWhiteSpace(tab.Path) || tab.Path == TabViewModel.HomeMarker;
 
     /// <summary>
     /// Igaz, amint a visszaállítás lefutott. Enélkül a visszaállítás közben
@@ -1069,13 +1130,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Sections.Add(new SidebarSection
         {
-            HeaderKey = "QuickAccess_Recent",
-            Header = TranslationSource.Instance["QuickAccess_Recent"],
-            Items = BuildRecent(),
-        });
-
-        Sections.Add(new SidebarSection
-        {
             HeaderKey = "Nav_Drives",
             Header = TranslationSource.Instance["Nav_Drives"],
             Items = BuildDrives(),
@@ -1098,10 +1152,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Header = TranslationSource.Instance["Nav_Favorites"],
             Items = BuildFavorites(),
         });
-    }
 
-    /// <summary>A „Legutóbbi" szekció újraépítése.</summary>
-    private void RefreshRecent() => ReplaceSection("QuickAccess_Recent", BuildRecent);
+        RaiseHomeItemsChanged();
+    }
 
     /// <summary>A „Felhő meghajtók" szekció újraépítése — hozzáadás/eltávolítás után.</summary>
     private void RefreshCloudDrives() => ReplaceSection("Nav_CloudDrives", BuildCloudDrives);
@@ -1115,6 +1168,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// </summary>
     private List<SidebarItemViewModel> BuildCloudDrives() =>
     [
+        // A felhőszinkron-kliensek (Google Drive stb.) betűjeles meghajtói —
+        // helyi meghajtóként látszanak a Windowsnak, de a felhasználó számára
+        // felhőtárhelyek. Nem kapnak IsCloudDrive-ot: az a WebDAV-bejegyzések
+        // „Eltávolítás" menüjét kapcsolja, ami itt értelmetlen lenne.
+        .. DriveEnumerator.GetDrives().Where(d => d.IsCloudSync).Select(BuildDriveItem),
+
+        // A mappaként szinkronizáló kliensek (OneDrive, Nextcloud, Dropbox,
+        // iCloud, Box …) — ugyanabból a regisztrációból, amiből az Intéző
+        // navigációs panelje is, lásd CloudStorageDiscovery.
+        .. Pilaster.Shell.Network.CloudStorageDiscovery.Discover().Select(BuildCloudStorageItem),
         .. _cloudDrives.Entries.Select(entry => new SidebarItemViewModel
         {
             EntryId = entry.Id,
@@ -1126,6 +1189,43 @@ public sealed partial class MainWindowViewModel : ObservableObject
             IsCloudDrive = true,
         }),
     ];
+
+    private SidebarItemViewModel BuildCloudStorageItem(Pilaster.Shell.Network.CloudStorageRoot root)
+    {
+        var item = new SidebarItemViewModel
+        {
+            Label = root.Name,
+            Path = root.Path,
+            Icon = SymbolRegular.CloudSync24,
+            IconColorHex = QuickAccessService.CloudDriveIconColor,
+        };
+
+        // A kliens saját, regisztrált ikonja (OneDrive-felhő, Nextcloud-logó …),
+        // amint megjön — híján a mappa shell-ikonja.
+        _ = LoadCloudStorageIconAsync(item, root.IconResource);
+        return item;
+    }
+
+    private async Task LoadCloudStorageIconAsync(SidebarItemViewModel item, string? iconResource)
+    {
+        var size = QuickAccessIconPixelSize;
+        var image = await Task.Run(() => Pilaster.Shell.Imaging.IconResourceLoader.Load(iconResource, size)).ConfigureAwait(true);
+
+        if (image is not null)
+        {
+            item.CustomIcon = image;
+            return;
+        }
+
+        // Ha a kliens regisztrált ugyan ikont, de az (pl. egy eltávolított
+        // OneDrive.exe) nem olvasható, a mappa desktop.ini-je is ugyanarra
+        // mutat — a shell ilyenkor egy üres lap ikont adna. Marad a saját
+        // felhő-glyph.
+        if (iconResource is null)
+        {
+            await LoadQuickAccessIconAsync(item);
+        }
+    }
 
     /// <summary>Egy oldalsáv-szekció cseréje friss tartalommal, a kiemelés újraszámolásával.</summary>
     private void ReplaceSection(string headerKey, Func<List<SidebarItemViewModel>> build)
@@ -1142,12 +1242,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Items = build(),
 
             // A csukott/nyitott állapot a tartalomtól független — egy
-            // frissítés (pl. új elem a Legutóbbiban) ne nyissa vissza
+            // frissítés ne nyissa vissza
             // magától azt a szekciót, amit a felhasználó szándékosan becsukott.
             IsExpanded = section.IsExpanded,
             AlwaysVisible = section.AlwaysVisible,
         };
 
+        RaiseHomeItemsChanged();
         UpdateActiveSidebarItem();
     }
 
@@ -1179,26 +1280,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>Az oldalsáv Kedvencek szekciójának újraépítése — kedvenc hozzáadása/eltávolítása után.</summary>
-    public void RefreshFavorites()
-    {
-        var favoritesSection = Sections.FirstOrDefault(s => s.HeaderKey == "Nav_Favorites");
-
-        if (favoritesSection is null)
-        {
-            return;
-        }
-
-        var index = Sections.IndexOf(favoritesSection);
-
-        Sections[index] = new SidebarSection
-        {
-            HeaderKey = "Nav_Favorites",
-            Header = TranslationSource.Instance["Nav_Favorites"],
-            Items = BuildFavorites(),
-        };
-
-        UpdateActiveSidebarItem();
-    }
+    // A ReplaceSection megőrzi a csukott/nyitott állapotot — korábban egy
+    // kedvenc-váltás vagy meghajtó-változás magától kinyitotta a szándékosan
+    // becsukott szekciót.
+    public void RefreshFavorites() => ReplaceSection("Nav_Favorites", BuildFavorites);
 
     /// <summary>
     /// A Gyors elérés szekció (benne a Lomtár „üres" jelzésének) frissítése —
@@ -1206,18 +1291,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// után a sáv ne mutasson elavult állapotot.
     /// </summary>
     public void RefreshQuickAccess() => ReplaceSection("Nav_QuickAccess", BuildQuickAccess);
-
-    /// <summary>
-    /// Egy megnyitott mappa felvétele a „Legutóbbi" szekcióba — az aktív
-    /// panel navigációjára hívva.
-    /// </summary>
-    private void RecordRecent(string? path)
-    {
-        if (!string.IsNullOrWhiteSpace(path))
-        {
-            _quickAccess.RecordRecent(path);
-        }
-    }
 
     [RelayCommand]
     private void RemoveFavorite(SidebarItemViewModel? item)
@@ -1227,9 +1300,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        // A Kedvencek szekcióban ez metaadat-törlés, a Legutóbbi szekcióban
-        // viszont a gyorselérés-bejegyzés eldobása — az „x" gomb mindkét
-        // helyen ugyanezt a parancsot hívja.
+        // Gyorselérés-bejegyzésnél a bejegyzés eldobása, a Kedvencek
+        // szekcióban metaadat-törlés — az „x" gomb mindkettőt ezen hívja.
         if (item.EntryId is { } entryId)
         {
             _quickAccess.Remove(entryId);
@@ -1380,10 +1452,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // TabViewModel.HomeMarker/IsHome), nem egy valódi mappára — ezért
         // ez itt, a rögzített mappáktól külön, elsőként kerül be, és nem
         // távolítható el.
-        // A Kezdőlap SZÁNDÉKOSAN a Fluent házikó-glyphöt kapja, nem a
-        // Sajátgép valódi Windows-ikonját — az utóbbi (monitor-forma)
-        // felhasználói visszajelzés szerint nem egyértelmű, hogy a
-        // Kezdőlapra mutat.
+        // A Kezdőlap a Windows 11 Intéző SAJÁT „Kezdőlap" ikonját kapja
+        // (narancs tetős házikó, lásd HomeParsingName) — NEM a Sajátgépét,
+        // amelyet (monitor-forma) a felhasználók nem ismertek fel Kezdőlapként.
+        // Amíg betölt (vagy régebbi Windowson, ahol nincs ilyen mappa), a
+        // Fluent házikó-glyph látszik.
         var homeItem = new SidebarItemViewModel
         {
             LabelKey = "Nav_Home",
@@ -1393,6 +1466,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             IsHomeEntry = true,
         };
         var items = new List<SidebarItemViewModel> { homeItem };
+        _ = LoadQuickAccessIconAsync(homeItem, HomeParsingName);
 
         foreach (var entry in _quickAccess.Pinned.Where(e => e.Visible))
         {
@@ -1466,6 +1540,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private const string RecycleBinParsingName = "::{645FF040-5081-101B-9F08-00AA002F954E}";
 
+    /// <summary>A Windows 11 Intéző „Kezdőlap" virtuális mappájának CLSID-je — innen jön a saját ikonja.</summary>
+    private const string HomeParsingName = "::{f874310e-b6b7-47dc-bc84-b9e6b38f5903}";
+
+    /// <summary>A Gyorselérés valódi ikonjainak megjelenő mérete (DIP) — a MainWindow.xaml Image-ével egyezzen.</summary>
+    private const double QuickAccessIconSize = 20;
+
+    /// <summary>
+    /// <see cref="QuickAccessIconSize"/> a rendszer DPI-jén, fizikai pixelben —
+    /// így a kép 1:1-ben, átméretezés nélkül rajzolódik ki (100%: 20 px, 150%: 30 px).
+    /// </summary>
+    private static int QuickAccessIconPixelSize =>
+        (int)Math.Round(QuickAccessIconSize * System.Windows.Media.VisualTreeHelper.GetDpi(new System.Windows.Media.DrawingVisual()).DpiScaleX);
+
     /// <summary>
     /// A Gyorselérés egy sorának lecserélése a valódi Windows shell-ikonjára
     /// (spec: „az ikonok legyenek olyanok, mint a Windows 11-ben"). Ugyanazt
@@ -1485,13 +1572,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 Kind = FileSystemItemKind.Directory,
             };
 
-            // 32 px-et kérünk, nem a ténylegesen megjelenő 18-at: a Windows
-            // ikongyorsítótára a szabványos méreteknél (16/32/48…) a
-            // legélesebb, egy „furcsa" 20 px-es kérésnél gyakran csak egy
-            // kisebb (16 px-es) változatot nagyított fel, ami pixelesnek
-            // hatott. Innentől a WPF kicsinyíti le — az sokkal simább, mint
-            // a szoftveres nagyítás.
-            var image = await _shellImages.GetImageAsync(probe, 32).ConfigureAwait(true);
+            // PONTOSAN a megjelenő fizikai pixelméretet kérjük (lásd
+            // QuickAccessIconPixelSize) — a korábbi fix 32 px-es kép 100%-os
+            // skálázáson 18 px-re kicsinyítve elmosódott. A Windows 11 ikonjai
+            // 16/20/24/32 px-en mind kézzel rajzolt, éles változattal bírnak.
+            var image = await _shellImages.GetImageAsync(probe, QuickAccessIconPixelSize).ConfigureAwait(true);
 
             if (image is not null)
             {
@@ -1505,69 +1590,46 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// A „Legutóbbi" szekció — automatikus, a program tartja karban. Az „x"
-    /// gomb (<see cref="SidebarItemViewModel.IsRemovable"/>) SZÁNDÉKOSAN csak
-    /// itt jelenik meg: a rögzített elemeket a szerkesztőből lehet
-    /// eltávolítani, hogy egy félrekattintás ne tüntessen el egy kézzel
-    /// felvett mappát (spec F5).
+    /// A helyi meghajtók — a felhőszinkron-kliensek virtuális meghajtói
+    /// (pl. Google Drive, lásd <see cref="DriveEntry.IsCloudSync"/>) NEM ide,
+    /// hanem a Felhő meghajtók szekcióba kerülnek.
     /// </summary>
-    private List<SidebarItemViewModel> BuildRecent() =>
-    [
-        .. _quickAccess.Recent.Select(entry => new SidebarItemViewModel
-        {
-            EntryId = entry.Id,
-            // Meghajtógyökérnél (pl. "C:\") a GetFileName üres stringet ad —
-            // ilyenkor a teljes útvonal a címke, ugyanaz a minta, mint a
-            // Kedvenceknél (lásd BuildFavorites feljebb).
-            Label = Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.Path)) is { Length: > 0 } name
-                ? name
-                : entry.Path,
-            Path = entry.Path,
-            Icon = SymbolRegular.History24,
-            IsMissing = !_quickAccess.IsReachable(entry.Path),
-            IsRemovable = true,
-        }),
-    ];
+    private static List<SidebarItemViewModel> BuildDrives() =>
+        [.. DriveEnumerator.GetDrives().Where(d => !d.IsCloudSync).Select(BuildDriveItem)];
 
-    private static List<SidebarItemViewModel> BuildDrives()
+    private static SidebarItemViewModel BuildDriveItem(DriveEntry drive)
     {
-        var items = new List<SidebarItemViewModel>();
-
-        foreach (var drive in DriveEnumerator.GetDrives())
+        var icon = drive.IsCloudSync ? SymbolRegular.CloudSync24 : drive.DriveType switch
         {
-            var icon = drive.DriveType switch
-            {
-                DriveType.Removable => SymbolRegular.UsbStick24,
-                DriveType.Network => SymbolRegular.CloudArrowUp24,
-                DriveType.CDRom => SymbolRegular.Cd16,
+            DriveType.Removable => SymbolRegular.UsbStick24,
+            DriveType.Network => SymbolRegular.CloudArrowUp24,
+            DriveType.CDRom => SymbolRegular.Cd16,
 
-                // A HardDrive24 kódpontja (U+F0386) a Segoe Fluent Icons
-                // rendszerbetűkészletben nem létezik — a rendszer helyette egy
-                // ártalmatlannak tűnő, de félrevezető apró jelet rajzol ki
-                // helyette. A Storage24-et lemérve (közvetlen glyph-teszttel)
-                // valódi, jól felismerhető meghajtó-ikont ad.
-                _ => SymbolRegular.Storage24,
-            };
+            // A HardDrive24 kódpontja (U+F0386) a Segoe Fluent Icons
+            // rendszerbetűkészletben nem létezik — a rendszer helyette egy
+            // ártalmatlannak tűnő, de félrevezető apró jelet rajzol ki
+            // helyette. A Storage24-et lemérve (közvetlen glyph-teszttel)
+            // valódi, jól felismerhető meghajtó-ikont ad.
+            _ => SymbolRegular.Storage24,
+        };
 
-            // Csak akkor van értelme lemezikont keresni, ha ténylegesen van
-            // beolvasható lemez — üres tálcánál marad az általános CD-glyph.
-            var customIcon = drive.DriveType == DriveType.CDRom && drive.TotalBytes > 0
-                ? DiscIconResolver.TryResolve(drive.Item.FullPath)
-                : null;
+        // Csak akkor van értelme lemezikont keresni, ha ténylegesen van
+        // beolvasható lemez — üres tálcánál marad az általános CD-glyph.
+        var customIcon = drive.DriveType == DriveType.CDRom && drive.TotalBytes > 0
+            ? DiscIconResolver.TryResolve(drive.Item.FullPath)
+            : null;
 
-            items.Add(new SidebarItemViewModel
-            {
-                Label = drive.Label,
-                Path = drive.Item.FullPath,
-                Icon = icon,
-                CustomIcon = customIcon,
-                Drive = drive,
-                Detail = FormatDriveDetail(drive),
-                UsedFraction = drive.UsedFraction,
-            });
-        }
-
-        return items;
+        return new SidebarItemViewModel
+        {
+            Label = drive.Label,
+            Path = drive.Item.FullPath,
+            Icon = icon,
+            IconColorHex = drive.IsCloudSync ? QuickAccessService.CloudDriveIconColor : null,
+            CustomIcon = customIcon,
+            Drive = drive,
+            Detail = FormatDriveDetail(drive),
+            UsedFraction = drive.UsedFraction,
+        };
     }
 
     private static string? FormatDriveDetail(DriveEntry drive) =>
@@ -1643,7 +1705,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return true;
         }
 
-        var prefix = normalizedAncestor + Path.DirectorySeparatorChar;
+        if (normalizedAncestor.Length == 0)
+        {
+            return false;
+        }
+
+        // Meghajtógyökérnél ("C:\") a TrimEndingDirectorySeparator megtartja a
+        // záró elválasztót — egy újabb hozzáfűzése ("C:\\") miatt a meghajtó-
+        // sor korábban sosem emelődött ki, amint egy almappájába léptünk.
+        var prefix = Path.EndsInDirectorySeparator(normalizedAncestor)
+            ? normalizedAncestor
+            : normalizedAncestor + Path.DirectorySeparatorChar;
 
         return normalizedCurrent.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }

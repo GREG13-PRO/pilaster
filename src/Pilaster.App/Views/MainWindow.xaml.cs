@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
@@ -79,6 +80,7 @@ public partial class MainWindow : FluentWindow
         DataContext = viewModel;
 
         viewModel.SettingsRequested += OnSettingsRequested;
+        viewModel.ToastRequested += (_, toast) => ShowToast(toast.Message, toast.Icon);
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.Updates.RestartRequested += OnUpdateRestartRequested;
         viewModel.EjectCompleted += OnEjectCompleted;
@@ -95,6 +97,32 @@ public partial class MainWindow : FluentWindow
         var workArea = SystemParameters.WorkArea;
         Width = Math.Min(Width, workArea.Width);
         Height = Math.Min(Height, workArea.Height);
+        ApplyOptionalColumns();
+        _settings.Changed += (_, _) => Dispatcher.Invoke(ApplyOptionalColumns);
+
+        foreach (var job in viewModel.FileOperationJobs)
+        {
+            job.PropertyChanged += OnActivityJobPropertyChanged;
+        }
+
+        viewModel.FileOperationJobs.CollectionChanged += (_, e) =>
+        {
+            foreach (var job in e.NewItems?.OfType<Services.FileOperations.FileOperationJob>() ?? [])
+            {
+                job.PropertyChanged += OnActivityJobPropertyChanged;
+            }
+
+            // Az első művelettel megjelenő panel alulról beúszik.
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && viewModel.FileOperationJobs.Count == 1)
+            {
+                _services.GetRequiredService<AnimationService>().PlayEntrance(ActivityPanel, offsetY: 24, milliseconds: 280);
+            }
+
+            foreach (var job in e.OldItems?.OfType<Services.FileOperations.FileOperationJob>() ?? [])
+            {
+                job.PropertyChanged -= OnActivityJobPropertyChanged;
+            }
+        };
 
         // A rendszertéma figyelése: „rendszerkövető" módban a Windows
         // világos/sötét váltása menet közben is átszínezi a felületet.
@@ -351,12 +379,58 @@ public partial class MainWindow : FluentWindow
         {
             TrackTab(_viewModel.SelectedTab);
             SyncViewModeVisuals(_viewModel.SelectedTab);
+
+            // Fülváltáskor ugyanaz a csúszó átmenet, mint mappaváltáskor.
+            if (!_viewModel.DualPaneEnabled)
+            {
+                PlayContentTransition();
+            }
         }
         else if (e.PropertyName == nameof(MainWindowViewModel.DualPaneVertical))
         {
             ApplyDualPaneOrientation(_viewModel.DualPaneVertical);
         }
+        else if (e.PropertyName == nameof(MainWindowViewModel.DualPaneEnabled))
+        {
+            // Nézetváltás: az újonnan megjelenő elrendezés beúszik. Az
+            // egypaneles terület saját TranslateTransformját a mappaváltás
+            // csúszása használja, ezért ott csak az átlátszóság animál.
+            var animations = _services.GetRequiredService<AnimationService>();
+
+            if (_viewModel.DualPaneEnabled)
+            {
+                animations.PlayEntrance(DualPaneHost, offsetX: 0, offsetY: 12, milliseconds: 240);
+            }
+            else if (animations.AreAnimationsEnabled)
+            {
+                FileAreaBorder.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)));
+            }
+        }
     }
+
+    /// <summary>Címsorbeli fül „x" gombja.</summary>
+    private void OnTitleTabCloseClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: TabViewModel tab })
+        {
+            e.Handled = true;
+            _viewModel.CloseTabCommand.Execute(tab);
+        }
+    }
+
+    /// <summary>Középső kattintás a fülön: bezárás — mint a böngészőkben és az Intézőben.</summary>
+    private void OnTitleTabMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == System.Windows.Input.MouseButton.Middle && sender is FrameworkElement { DataContext: TabViewModel tab })
+        {
+            e.Handled = true;
+            _viewModel.CloseTabCommand.Execute(tab);
+        }
+    }
+
+    /// <summary>Új fül megjelenésekor rövid beúszás.</summary>
+    private void OnTitleTabLoaded(object sender, RoutedEventArgs e) =>
+        _services.GetRequiredService<AnimationService>().PlayEntrance(sender as FrameworkElement, offsetX: -10, offsetY: 0, milliseconds: 200);
 
     private void OnToggleDualPaneClick(object sender, RoutedEventArgs e) =>
         _viewModel.DualPaneEnabled = !_viewModel.DualPaneEnabled;
@@ -597,6 +671,127 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
+    /// Aktivitás-központ: egy befejezett művelet rövid idő múlva magától,
+    /// animációval eltűnik (korábban a Pilaster bezárásáig ott maradt).
+    /// Sikeres műveletnél 1,5 mp, hibásnál 6 mp — azt legyen idő elolvasni.
+    /// </summary>
+    private void OnActivityJobPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Services.FileOperations.FileOperationJob.State)
+            || sender is not Services.FileOperations.FileOperationJob { IsActive: false } job)
+        {
+            return;
+        }
+
+        var delay = job.State == Services.FileOperations.FileOperationState.CompletedWithErrors
+            ? TimeSpan.FromSeconds(6)
+            : TimeSpan.FromSeconds(1.5);
+
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = delay };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            DismissActivityJob(job);
+        };
+        timer.Start();
+    }
+
+    private void DismissActivityJob(Services.FileOperations.FileOperationJob job)
+    {
+        var jobs = _viewModel.FileOperationJobs;
+
+        if (!jobs.Contains(job) || job.IsActive)
+        {
+            return;
+        }
+
+        var animate = _services.GetRequiredService<AnimationService>().AreAnimationsEnabled;
+        var duration = TimeSpan.FromMilliseconds(320);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+        // Az utolsó elemnél az EGÉSZ panel úszik ki és halványul el; egyébként
+        // csak az adott sor, a magasságát is összecsukva.
+        FrameworkElement? target = jobs.Count == 1
+            ? ActivityPanel
+            : ActivityJobsList.ItemContainerGenerator.ContainerFromItem(job) as FrameworkElement;
+
+        if (!animate || target is null)
+        {
+            jobs.Remove(job);
+            return;
+        }
+
+        var slide = new TranslateTransform();
+        target.RenderTransform = slide;
+        var fade = new DoubleAnimation(1, 0, duration) { EasingFunction = ease };
+        fade.Completed += (_, _) =>
+        {
+            jobs.Remove(job);
+
+            // A panel visszaáll alapállapotba a következő művelethez.
+            target.BeginAnimation(OpacityProperty, null);
+            target.RenderTransform = null;
+            ActivityPanel.Opacity = 1;
+        };
+
+        slide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, 40, duration) { EasingFunction = ease });
+
+        if (!ReferenceEquals(target, ActivityPanel) && target.ActualHeight > 0)
+        {
+            target.BeginAnimation(HeightProperty, new DoubleAnimation(target.ActualHeight, 0, duration) { EasingFunction = ease, BeginTime = TimeSpan.FromMilliseconds(120) });
+        }
+
+        target.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private System.Windows.Threading.DispatcherTimer? _toastTimer;
+
+    /// <summary>
+    /// Rövid visszajelző buborék a fájlterület alján (másolás, kivágás,
+    /// beillesztés…): beúszik, kb. 2 mp-ig látszik, majd elhalványul. Egy
+    /// újabb üzenet a régit azonnal lecseréli.
+    /// </summary>
+    private void ShowToast(string message, SymbolRegular icon)
+    {
+        ToastText.Text = message;
+        ToastIcon.Symbol = icon;
+        Toast.Visibility = Visibility.Visible;
+
+        var animate = _services.GetRequiredService<AnimationService>().AreAnimationsEnabled;
+        Toast.BeginAnimation(OpacityProperty, null);
+        Toast.Opacity = 1;
+
+        if (animate)
+        {
+            _services.GetRequiredService<AnimationService>().PlayEntrance(Toast, offsetY: 14, milliseconds: 220);
+        }
+
+        _toastTimer?.Stop();
+        _toastTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2.2) };
+        _toastTimer.Tick += (_, _) =>
+        {
+            _toastTimer?.Stop();
+
+            if (!animate)
+            {
+                Toast.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(260));
+            fade.Completed += (_, _) =>
+            {
+                if (Toast.Opacity == 0)
+                {
+                    Toast.Visibility = Visibility.Collapsed;
+                }
+            };
+            Toast.BeginAnimation(OpacityProperty, fade);
+        };
+        _toastTimer.Start();
+    }
+
+    /// <summary>
     /// Csúszó-elhalványuló átmenet lejátszása a fájlterületen, valahányszor a
     /// megnyitott mappa változik — gyorselérésre kattintás, breadcrumb,
     /// vissza/előre, vagy dupla kattintás egy mappára.
@@ -615,21 +810,177 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// Az overflow („több") gomb bal kattintásra nyissa a menüjét.
+    /// A Részletes nézet opcionális oszlopai (Létrehozva, Utolsó hozzáférés):
+    /// a GridView-nak nincs oszlop-láthatósága, ezért a beállítás szerint
+    /// kivesszük/visszatesszük őket — a végén, a sorrendjüket megtartva.
     /// </summary>
-    /// <remarks>
-    /// A <c>ContextMenu</c> alapból csak jobb gombra nyílik, itt viszont a
-    /// gomb egyetlen funkciója a menü megnyitása — a felhasználó bal kattintást
-    /// várna, és jobb kattintással sosem próbálkozna.
-    /// </remarks>
-    private void OnOverflowMenuClick(object sender, RoutedEventArgs e)
+    private void ApplyOptionalColumns()
     {
-        if (sender is FrameworkElement { ContextMenu: { } menu } element)
+        var current = _settings.Current;
+
+        foreach (var (column, visible) in new[] { (CreatedColumn, current.ShowCreatedColumn), (AccessedColumn, current.ShowAccessedColumn) })
         {
-            menu.PlacementTarget = element;
-            menu.Placement = PlacementMode.Bottom;
-            menu.IsOpen = true;
+            var present = DetailsGridView.Columns.Contains(column);
+
+            if (visible && !present)
+            {
+                DetailsGridView.Columns.Add(column);
+            }
+            else if (!visible && present)
+            {
+                DetailsGridView.Columns.Remove(column);
+            }
         }
+    }
+
+    /// <summary>
+    /// Legördülő menü egy eszköztár-gomb alatt, a gomb JOBB széléhez igazítva
+    /// (a sima Bottom elhelyezés a bal széléhez igazított, és a menü kilógott
+    /// az ablakból). Minden megnyitáskor frissen épül, így a pipák mindig az
+    /// aktuális állapotot mutatják.
+    /// </summary>
+    private void OpenToolbarMenu(FrameworkElement anchor, System.Windows.Controls.ContextMenu menu)
+    {
+        menu.PlacementTarget = anchor;
+        menu.Placement = PlacementMode.Custom;
+        menu.CustomPopupPlacementCallback = (popupSize, targetSize, _) =>
+        [
+            new CustomPopupPlacement(new Point(targetSize.Width - popupSize.Width, targetSize.Height + 4), PopupPrimaryAxis.Horizontal),
+            new CustomPopupPlacement(new Point(targetSize.Width - popupSize.Width, -popupSize.Height - 4), PopupPrimaryAxis.Horizontal),
+        ];
+        menu.Opened += OnGlassContextMenuOpened;
+        menu.IsOpen = true;
+    }
+
+    private static System.Windows.Controls.MenuItem MenuEntry(string header, SymbolRegular? icon, bool isChecked, Action onClick)
+    {
+        var item = new System.Windows.Controls.MenuItem
+        {
+            Header = header,
+            IsChecked = isChecked,
+            Icon = icon is { } symbol ? new SymbolIcon { Symbol = symbol, FontSize = 15 } : null,
+        };
+        item.Click += (_, _) => onClick();
+        return item;
+    }
+
+    /// <summary>Rendezés ▾ — szempont és irány egy lapos menüben (almenü nélkül).</summary>
+    private void OnSortMenuClick(object sender, RoutedEventArgs e)
+    {
+        var tab = _viewModel.SelectedTab;
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        foreach (var (key, label) in SortMenuEntries())
+        {
+            menu.Items.Add(MenuEntry(strings[label], null, tab?.SortKey == key, () =>
+            {
+                if (_viewModel.SelectedTab is { } current)
+                {
+                    current.ApplySort(key, current.SortKey == key ? current.SortDescending : false);
+                    SyncColumnHeaderIndicators();
+                }
+            }));
+        }
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
+
+        foreach (var descending in new[] { false, true })
+        {
+            menu.Items.Add(MenuEntry(
+                strings[descending ? "Sort_Descending" : "Sort_Ascending"],
+                descending ? SymbolRegular.ArrowDown24 : SymbolRegular.ArrowUp24,
+                tab is not null && tab.SortDescending == descending,
+                () =>
+                {
+                    if (_viewModel.SelectedTab is { } current)
+                    {
+                        current.ApplySort(current.SortKey, descending);
+                        SyncColumnHeaderIndicators();
+                    }
+                }));
+        }
+
+        OpenToolbarMenu((FrameworkElement)sender, menu);
+    }
+
+    /// <summary>
+    /// Nézet ▾ — nézetmód (csak egypaneles nézetben; a panelek mindig
+    /// Részletes nézetűek) és a rejtett elemek kapcsolója, egy lapos menüben.
+    /// </summary>
+    private void OnViewMenuClick(object sender, RoutedEventArgs e)
+    {
+        var tab = _viewModel.SelectedTab;
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        if (!_viewModel.DualPaneEnabled)
+        {
+            menu.Items.Add(MenuEntry(strings["View_Details"], SymbolRegular.TextBulletListLtr24, tab?.ViewMode == ViewMode.Details, () => ApplyViewMode(ViewMode.Details)));
+            menu.Items.Add(MenuEntry(strings["View_Grid"], SymbolRegular.GridDots24, tab?.ViewMode == ViewMode.Grid, () => ApplyViewMode(ViewMode.Grid)));
+            menu.Items.Add(MenuEntry(strings["View_Columns"], SymbolRegular.ColumnTriple24, tab?.ViewMode == ViewMode.Columns, () => ApplyViewMode(ViewMode.Columns)));
+            menu.Items.Add(new System.Windows.Controls.Separator());
+        }
+
+        menu.Items.Add(MenuEntry(strings["Cmd_ToggleHidden"], SymbolRegular.Eye24, tab?.ShowHiddenItems == true, () =>
+        {
+            if (_viewModel.SelectedTab is { } current)
+            {
+                current.ShowHiddenItems = !current.ShowHiddenItems;
+            }
+        }));
+
+        menu.Items.Add(MenuEntry(strings["Settings_ShowExtensions"], SymbolRegular.DocumentText24, _settings.Current.ShowExtensions, () =>
+        {
+            _settings.Current.ShowExtensions = !_settings.Current.ShowExtensions;
+            _settings.NotifyChanged();
+        }));
+
+        OpenToolbarMenu((FrameworkElement)sender, menu);
+    }
+
+    private void OnDualNewFolderClick(object sender, RoutedEventArgs e) => CreateFolderInActivePane();
+
+    private void OnDualNewFileClick(object sender, RoutedEventArgs e)
+    {
+        if (GetActiveTab() is { } tab)
+        {
+            _ = _viewModel.CreateNewFileInTabAsync(tab);
+        }
+    }
+
+    private void OnDualCopyClick(object sender, RoutedEventArgs e) => _ = StartTcTransferAsync(isMove: false);
+
+    private void OnDualMoveClick(object sender, RoutedEventArgs e) => _ = StartTcTransferAsync(isMove: true);
+
+    private void OnDualDeleteClick(object sender, RoutedEventArgs e) => DeleteActiveSelection(permanent: false);
+
+    private void OnSwapPanesClick(object sender, RoutedEventArgs e) => SwapPanesAnimated();
+
+    /// <summary>
+    /// Panelcsere animációval: a csere UTÁN a két panel a másik oldalról
+    /// úszik be, így látszik, hogy helyet cseréltek.
+    /// </summary>
+    private void SwapPanesAnimated()
+    {
+        _viewModel.SwapPanesCommand.Execute(null);
+
+        var animations = _services.GetRequiredService<AnimationService>();
+        var distance = _viewModel.DualPaneVertical ? 0 : 60;
+        var distanceY = _viewModel.DualPaneVertical ? 40 : 0;
+        animations.PlayEntrance(LeftPaneView, offsetX: distance, offsetY: distanceY, milliseconds: 280);
+        animations.PlayEntrance(RightPaneView, offsetX: -distance, offsetY: -distanceY, milliseconds: 280);
+    }
+
+    /// <summary>A rendezési szempontok a menükhöz — a beállításokban bekapcsolt extra oszlopokkal együtt.</summary>
+    private IEnumerable<(SortKey Key, string Label)> SortMenuEntries()
+    {
+        yield return (SortKey.Name, "Col_Name");
+        yield return (SortKey.Modified, "Col_Modified");
+        yield return (SortKey.Type, "Col_Type");
+        yield return (SortKey.Size, "Col_Size");
+        yield return (SortKey.Created, "Col_Created");
+        yield return (SortKey.Accessed, "Col_Accessed");
     }
 
     /// <summary>
@@ -749,7 +1100,9 @@ public partial class MainWindow : FluentWindow
             BuildFileMenuEntries(item, selectedPaths, extendedVerbs),
             (timeout, blacklist) => preloaded ?? ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
             _settings.Current,
-            item.FullPath);
+            item.FullPath,
+            header: BuildFileMenuHeader(item, SelectedItemsFor(container, item), selectedPaths, extendedVerbs),
+            footer: BuildFileMenuFooter(item));
 
         await Task.CompletedTask;
     }
@@ -897,7 +1250,9 @@ public partial class MainWindow : FluentWindow
                     BuildFileMenuEntries(item, selectedPaths, extendedVerbs),
                     (timeout, blacklist) => ShellMenuSession.QueryItemsAsync(selectedPaths, extendedVerbs, timeout, blacklist),
                     _settings.Current,
-                    item.FullPath);
+                    item.FullPath,
+                    header: BuildFileMenuHeader(item, [item], selectedPaths, extendedVerbs),
+                    footer: BuildFileMenuFooter(item));
                 return;
             }
 
@@ -945,7 +1300,7 @@ public partial class MainWindow : FluentWindow
             ("QuickAccess_OpenOther", SymbolRegular.DualScreen24,
                 () => _ = _viewModel.InactivePane.NavigateAsync(item.FullPath), item.IsNavigable && dual),
             ("Cmd_EditWithPilaster", SymbolRegular.Code24,
-                () => OpenInEditor(item.FullPath), true),
+                () => OpenInEditor(item.FullPath), !item.IsNavigable),
             ("Cmd_CopyPath", SymbolRegular.Copy24,
                 () => CopyTextToClipboard(item.FullPath), true),
             ("Cmd_CopyName", SymbolRegular.Copy24,
@@ -988,54 +1343,122 @@ public partial class MainWindow : FluentWindow
         bool shiftHeld)
     {
         var dual = _viewModel.DualPaneEnabled;
-        var single = selectedPaths.Count == 1;
 
+        // A+C terv: a Kivágás/Másolás/Átnevezés/Törlés a fejléc ikonsorában
+        // van, a címkék chipként — a lista így rövid marad. A ritkábban
+        // használt parancsok a „Továbbiak" almenübe kerültek, a Tulajdonságok
+        // pedig a menü aljára, a telepített programok alá (lásd BuildFileMenuFooter).
         return
         [
-            new("Cmd_Open", SymbolRegular.Open24, () => _ = OpenItemAsync(item)),
-            // J4 (v1.0.1): fájlon (nem navigálható elemen) ez a két parancs
-            // ELVILEG sem értelmezhető — IsVisible-lel tűnnek el, nem
-            // IsEnabled-del szürkülnek, mert egy letiltott saját elem azt
-            // sugallja, hogy elromlott valami. "Megnyitás a másik panelen"
-            // ráadásul csak akkor van értelme, ha TÉNYLEG van másik,
-            // aktív panel (kétpaneles nézet) — egypaneles nézetben ugyanígy
-            // eltűnik, nem szürkén áll ott.
+            new("Cmd_Open", SymbolRegular.Open24, () => _ = OpenItemAsync(item), Gesture: "Enter", IsDefault: true),
+            // Mappán/fájlon értelmetlen parancsok EL SEM jelennek meg (J4).
             new("Cmd_OpenNewTab", SymbolRegular.TabAdd24, () => _viewModel.ActivePane.AddTab(item.FullPath),
                 IsVisible: item.IsNavigable),
-            new("QuickAccess_OpenOther", SymbolRegular.DualScreen24,
+            new("QuickAccess_OpenOther", SymbolRegular.SplitVertical24,
                 () => _ = _viewModel.InactivePane.NavigateAsync(item.FullPath),
                 IsVisible: item.IsNavigable && dual),
-            new("Cmd_OpenWith", SymbolRegular.AppGeneric24, () => OpenWithDialog(item.FullPath), !item.IsNavigable),
-
-            new("Cmd_EditWithPilaster", SymbolRegular.Code24, () => OpenInEditor(item.FullPath), !item.IsNavigable),
-
-            PilasterMenuEntry.Separator,
-
-            new("Cmd_Cut", SymbolRegular.Cut24, () => _viewModel.CutSelectionCommand.Execute(selectedPaths)),
-            new("Cmd_Copy", SymbolRegular.DocumentCopy24, () => _viewModel.CopySelectionCommand.Execute(selectedPaths)),
-            new("Cmd_Paste", SymbolRegular.ClipboardPaste24, () => _viewModel.PasteCommand.Execute(null)),
-            new("Cmd_CreateShortcut", SymbolRegular.Link24, () => CreateShortcutsHere(selectedPaths)),
+            new("Cmd_OpenWith", SymbolRegular.AppGeneric24, () => OpenWithDialog(item.FullPath),
+                IsVisible: !item.IsNavigable),
+            new("Cmd_EditWithPilaster", SymbolRegular.Code24, () => OpenInEditor(item.FullPath),
+                IsVisible: !item.IsNavigable, Gesture: "F4"),
 
             PilasterMenuEntry.Separator,
 
-            new("Keymap_Rename", SymbolRegular.Rename24, () => GetActiveTab()?.BeginRename(item), single),
-            new(shiftHeld ? "Cmd_DeletePermanently" : "Cmd_Delete", SymbolRegular.Delete24,
-                () => _viewModel.DeleteSelectionCommand.Execute((selectedPaths, shiftHeld))),
-
-            PilasterMenuEntry.Separator,
-
-            new("Cmd_CopyPath", SymbolRegular.Copy24, () => CopyTextToClipboard(item.FullPath)),
-            new("Cmd_CopyName", SymbolRegular.Copy24, () => CopyTextToClipboard(item.Name)),
-            new("Cmd_OpenTerminal", SymbolRegular.WindowConsole20, () => OpenTerminalAt(item)),
+            new("Cmd_CopyPath", SymbolRegular.Link24, () => CopyTextToClipboard(string.Join(Environment.NewLine, selectedPaths))),
             new("Cmd_PinToQuickAccess", SymbolRegular.Pin24,
                 () => _viewModel.PinToQuickAccessCommand.Execute(item.FullPath), IsVisible: item.IsNavigable),
-            new("Cmd_Tags", SymbolRegular.Tag24, () => ShowTagPickerFor(item, null)),
-
-            PilasterMenuEntry.Separator,
-
-            new("Cmd_ShowInExplorer", SymbolRegular.Folder24, () => ShowInExplorer(item.FullPath)),
-            new("Cmd_Properties", SymbolRegular.Info24, () => ShowProperties(item.FullPath)),
+            new("ContextMenu_MoreOptions", SymbolRegular.MoreHorizontal24, SubItems:
+            [
+                new("Cmd_CopyName", SymbolRegular.Copy24, () => CopyTextToClipboard(item.Name)),
+                new("Cmd_CreateShortcut", SymbolRegular.Link24, () => CreateShortcutsHere(selectedPaths)),
+                new("Cmd_OpenTerminal", SymbolRegular.WindowConsole20, () => OpenTerminalAt(item)),
+                new("Cmd_ShowInExplorer", SymbolRegular.Folder24, () => ShowInExplorer(item.FullPath)),
+                new("Cmd_Tags", SymbolRegular.Tag24, () => ShowTagPickerFor(item, null)),
+            ]),
         ];
+    }
+
+    /// <summary>A jobbklikkelt elemet tartalmazó lista teljes kijelölése (elemekként) — a menü fejlécéhez.</summary>
+    private static IReadOnlyList<FileSystemItem> SelectedItemsFor(FrameworkElement container, FileSystemItem item) =>
+        ItemsControl.ItemsControlFromItemContainer(container) is System.Windows.Controls.ListBox list && list.SelectedItems.Contains(item)
+            ? [.. list.SelectedItems.OfType<FileSystemItem>()]
+            : [item];
+
+    /// <summary>A menü alja — a telepített programok („Egyéb alkalmazások") ALATT.</summary>
+    private IReadOnlyList<PilasterMenuEntry> BuildFileMenuFooter(FileSystemItem item) =>
+    [
+        new("Cmd_Properties", SymbolRegular.Info24, () => ShowProperties(item.FullPath), Gesture: "Alt+Enter"),
+    ];
+
+    /// <summary>
+    /// A menü fejléce (A+C terv): a kijelölés adatai, ikonsor a leggyakoribb
+    /// műveletekkel, és a címkék kattintható chipként.
+    /// </summary>
+    private PilasterMenuHeader BuildFileMenuHeader(FileSystemItem item, IReadOnlyList<FileSystemItem> selected, IReadOnlyList<string> selectedPaths, bool shiftHeld)
+    {
+        var metadata = _services.GetRequiredService<FileMetadataService>();
+        var strings = TranslationSource.Instance;
+        var single = selected.Count <= 1;
+
+        string title;
+        string detail;
+
+        if (single)
+        {
+            title = item.Name;
+            var date = item.ModifiedUtc.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
+            var type = new FileTypeConverter().Convert(item, typeof(string), null, System.Globalization.CultureInfo.CurrentCulture) as string ?? string.Empty;
+            var size = item.Kind == FileSystemItemKind.File
+                ? Pilaster.Core.Formatting.ByteSize.Format(item.SizeBytes)
+                : item.ComputedFolderSize > 0 ? Pilaster.Core.Formatting.ByteSize.Format(item.ComputedFolderSize) : null;
+            detail = string.Join(" · ", new[] { size, type, date }.Where(p => !string.IsNullOrEmpty(p)));
+        }
+        else
+        {
+            title = string.Format(strings["ContextMenu_ItemsSelected"], selected.Count);
+            var bytes = selected.Sum(i => i.Kind == FileSystemItemKind.File ? Math.Max(0, i.SizeBytes) : Math.Max(0, i.ComputedFolderSize));
+            detail = Pilaster.Core.Formatting.ByteSize.Format(bytes);
+        }
+
+        var allFavorite = selectedPaths.Count > 0 && selectedPaths.All(metadata.IsFavorite);
+
+        List<PilasterQuickAction> actions =
+        [
+            new("Cmd_Cut", SymbolRegular.Cut24, () => _viewModel.CutSelectionCommand.Execute(selectedPaths)),
+            new("Cmd_Copy", SymbolRegular.Copy24, () => _viewModel.CopySelectionCommand.Execute(selectedPaths)),
+            new("Keymap_Rename", SymbolRegular.Rename24, () => GetActiveTab()?.BeginRename(item), IsEnabled: single),
+            new(allFavorite ? "Cmd_RemoveFavorite" : "Cmd_AddFavorite", SymbolRegular.Heart24, () =>
+            {
+                foreach (var path in selectedPaths)
+                {
+                    metadata.SetFavorite(path, !allFavorite);
+                }
+            }, IsActive: allFavorite),
+            new(shiftHeld ? "Cmd_DeletePermanently" : "Cmd_Delete", SymbolRegular.Delete24,
+                () => _viewModel.DeleteSelectionCommand.Execute((selectedPaths, shiftHeld))),
+        ];
+
+        var tags = metadata.Tags
+            .Select(tag => new PilasterTagChip(
+                tag,
+                selectedPaths.Count > 0 && selectedPaths.All(path => metadata.GetTags(path).Any(t => t.Id == tag.Id)),
+                on =>
+                {
+                    foreach (var path in selectedPaths)
+                    {
+                        if (on)
+                        {
+                            metadata.AddTag(path, tag.Id);
+                        }
+                        else
+                        {
+                            metadata.RemoveTag(path, tag.Id);
+                        }
+                    }
+                }))
+            .ToList();
+
+        return new PilasterMenuHeader(selected.Count == 0 ? [item] : selected, title, detail, actions, tags);
     }
 
     private void CopyTextToClipboard(string text)
@@ -1043,6 +1466,7 @@ public partial class MainWindow : FluentWindow
         try
         {
             Clipboard.SetText(text);
+            ShowToast(TranslationSource.Instance["Toast_TextCopied"], SymbolRegular.Copy24);
         }
         catch (System.Runtime.InteropServices.COMException)
         {
@@ -1495,7 +1919,27 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        if (_settings.Current.Keymap != KeymapPreset.PilasterClassic)
+        // F9 — kétpaneles nézet be/ki, mindkét kiosztásban.
+        if (e.Key == System.Windows.Input.Key.F9 && !ctrl && !alt)
+        {
+            e.Handled = true;
+            _viewModel.DualPaneEnabled = !_viewModel.DualPaneEnabled;
+            return;
+        }
+
+        if (_viewModel.DualPaneEnabled && HandleDualPaneKey(e, ctrl, shift, alt))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Kétpaneles nézetben a Total Commander-billentyűk (F3–F8, Tab,
+        // Insert, Ctrl+U …) a Modern kiosztás mellett is élnek — a
+        // kétpaneles nézetet pont ezekért kapcsolja be az ember. Egypaneles
+        // nézetben a Modern kiosztás marad az Intéző-konvenció.
+        var modern = _settings.Current.Keymap != KeymapPreset.PilasterClassic;
+
+        if (modern && !_viewModel.DualPaneEnabled)
         {
             // Pilaster Modern: az Explorer/böngésző konvenció. A Ctrl+R és az
             // F5 is FRISSÍT — a Classic ág panel-műveletei (F5 másolás,
@@ -1540,7 +1984,7 @@ public partial class MainWindow : FluentWindow
                 _ = ViewActiveSelectionAsync();
                 break;
 
-            case System.Windows.Input.Key.F4:
+            case System.Windows.Input.Key.F4 when !shift:
                 e.Handled = true;
                 EditActiveSelection();
                 break;
@@ -1551,7 +1995,7 @@ public partial class MainWindow : FluentWindow
                 _ = StartTcTransferAsync(isMove: false);
                 break;
 
-            case System.Windows.Input.Key.F6:
+            case System.Windows.Input.Key.F6 when !shift:
                 e.Handled = true;
                 _ = StartTcTransferAsync(isMove: true);
                 break;
@@ -1581,9 +2025,30 @@ public partial class MainWindow : FluentWindow
                 MarkCurrentAndAdvance();
                 break;
 
-            case System.Windows.Input.Key.Space:
+            // Csak a fájllistán — egy gombon/kapcsolón a Space a saját dolgát végzi.
+            case System.Windows.Input.Key.Space when System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.ListBoxItem or System.Windows.Controls.ListBox:
                 e.Handled = true;
                 ToggleCurrentSelection();
+                break;
+
+            case System.Windows.Input.Key.F4 when shift:
+                e.Handled = true;
+
+                if (GetActiveTab() is { } newFileTab)
+                {
+                    _ = _viewModel.CreateNewFileInTabAsync(newFileTab);
+                }
+
+                break;
+
+            case System.Windows.Input.Key.F6 when shift:
+                e.Handled = true;
+                RenameActiveSelection();
+                break;
+
+            case System.Windows.Input.Key.Add:
+                e.Handled = true;
+                SelectByMask(select: true);
                 break;
 
             case System.Windows.Input.Key.A when ctrl:
@@ -1592,9 +2057,13 @@ public partial class MainWindow : FluentWindow
                 break;
 
             case System.Windows.Input.Key.D when ctrl:
-            case System.Windows.Input.Key.Subtract:
                 e.Handled = true;
                 GetActiveList()?.UnselectAll();
+                break;
+
+            case System.Windows.Input.Key.Subtract:
+                e.Handled = true;
+                SelectByMask(select: false);
                 break;
 
             case System.Windows.Input.Key.Multiply:
@@ -1609,7 +2078,7 @@ public partial class MainWindow : FluentWindow
             // a Ctrl+R változatlanul frissít (lásd fentebb, spec K2).
             case System.Windows.Input.Key.U when ctrl:
                 e.Handled = true;
-                _viewModel.SwapPanesCommand.Execute(null);
+                SwapPanesAnimated();
                 break;
 
             case System.Windows.Input.Key.L when ctrl:
@@ -1618,6 +2087,11 @@ public partial class MainWindow : FluentWindow
                 break;
 
             case System.Windows.Input.Key.R when ctrl && shift:
+                e.Handled = true;
+                RefreshActiveTab();
+                break;
+
+            case System.Windows.Input.Key.R when ctrl && modern:
                 e.Handled = true;
                 RefreshActiveTab();
                 break;
@@ -1647,6 +2121,143 @@ public partial class MainWindow : FluentWindow
                 e.Handled = true;
                 _viewModel.NextTabCommand.Execute(null);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Kétpaneles nézet billentyűi, kiosztástól függetlenül: vágólap
+    /// (Ctrl+C/X/V — korábban csak az egypaneles listán éltek), Alt+F1/F2
+    /// meghajtóválasztó, Ctrl+←/→ a kurzor alatti mappa megnyitása a
+    /// bal/jobb panelben, Ctrl+PgUp szülőmappa. Igaz, ha kezelte.
+    /// </summary>
+    private bool HandleDualPaneKey(System.Windows.Input.KeyEventArgs e, bool ctrl, bool shift, bool alt)
+    {
+        if (alt && !ctrl)
+        {
+            switch (e.SystemKey)
+            {
+                case System.Windows.Input.Key.F1:
+                    ShowDriveMenu(left: true);
+                    return true;
+
+                case System.Windows.Input.Key.F2:
+                    ShowDriveMenu(left: false);
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (!ctrl || GetActiveTab() is not { IsHome: false, IsRecycleBin: false } tab)
+        {
+            return false;
+        }
+
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.C:
+                _viewModel.CopySelectionCommand.Execute(GetActivePaneSelectedPaths());
+                return true;
+
+            case System.Windows.Input.Key.X:
+                _viewModel.CutSelectionCommand.Execute(GetActivePaneSelectedPaths());
+                return true;
+
+            case System.Windows.Input.Key.V:
+                _viewModel.PasteCommand.Execute(null);
+                return true;
+
+            case System.Windows.Input.Key.PageUp:
+                _ = tab.GoUpCommand.ExecuteAsync(null);
+                return true;
+
+            case System.Windows.Input.Key.Left or System.Windows.Input.Key.Right when !shift:
+                if (GetActiveList() is { } list && GetFocusedItem(list) is { IsNavigable: true } folder)
+                {
+                    var target = e.Key == System.Windows.Input.Key.Left ? _viewModel.LeftPane : _viewModel.RightPane;
+                    _ = target.NavigateAsync(folder.FullPath);
+                }
+
+                return true;
+        }
+
+        return false;
+    }
+
+    private List<string> GetActivePaneSelectedPaths() =>
+        GetActiveList() is { } list ? [.. list.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath)] : [];
+
+    /// <summary>Alt+F1 / Alt+F2 — meghajtóválasztó menü a bal/jobb panel tetején (mint a Total Commanderben).</summary>
+    private void ShowDriveMenu(bool left)
+    {
+        var paneView = left ? LeftPaneView : RightPaneView;
+        var pane = left ? _viewModel.LeftPane : _viewModel.RightPane;
+        var menu = new System.Windows.Controls.ContextMenu
+        {
+            PlacementTarget = paneView,
+            Placement = PlacementMode.Relative,
+            HorizontalOffset = 12,
+            VerticalOffset = 44,
+        };
+
+        foreach (var drive in _viewModel.HomeDriveItems)
+        {
+            var item = new System.Windows.Controls.MenuItem
+            {
+                Header = drive.Label,
+                InputGestureText = drive.Detail ?? string.Empty,
+                Icon = new SymbolIcon { Symbol = drive.Icon, FontSize = 15 },
+            };
+            var path = drive.Path;
+            item.Click += (_, _) =>
+            {
+                _viewModel.IsLeftPaneActive = left;
+                _ = pane.NavigateAsync(path);
+                FocusActivePaneList();
+            };
+            menu.Items.Add(item);
+        }
+
+        menu.Opened += OnGlassContextMenuOpened;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Num+ / Num− — kijelölés (vagy a kijelölés megszüntetése) névmaszkkal
+    /// (pl. <c>*.jpg</c>), mint a Total Commanderben.
+    /// </summary>
+    private void SelectByMask(bool select)
+    {
+        if (GetActiveList() is not { } list)
+        {
+            return;
+        }
+
+        var strings = TranslationSource.Instance;
+        var mask = MaskInputWindow.Ask(this, strings[select ? "Mask_SelectTitle" : "Mask_UnselectTitle"], strings["Mask_Hint"]);
+
+        if (string.IsNullOrWhiteSpace(mask))
+        {
+            return;
+        }
+
+        var patterns = mask.Split([';', ' '], StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var item in list.Items.OfType<FileSystemItem>())
+        {
+            if (!patterns.Any(p => System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(p, item.Name)))
+            {
+                continue;
+            }
+
+            if (select && !list.SelectedItems.Contains(item))
+            {
+                list.SelectedItems.Add(item);
+            }
+            else if (!select)
+            {
+                list.SelectedItems.Remove(item);
+            }
         }
     }
 
@@ -2125,13 +2736,39 @@ public partial class MainWindow : FluentWindow
 
         _dragStartPoint = null;
 
-        if (sender is not FrameworkElement { DataContext: FileSystemItem { IsNavigable: true } item } container)
+        if (sender is not FrameworkElement { DataContext: FileSystemItem item } container)
         {
             return;
         }
 
-        var data = new System.Windows.DataObject(System.Windows.DataFormats.FileDrop, new[] { item.FullPath });
-        DragDrop.DoDragDrop(container, data, DragDropEffects.Link);
+        // Fájl és mappa egyaránt húzható — a kijelölés részeként megfogva az
+        // EGÉSZ kijelölés. Korábban csak egyetlen mappa, és csak „hivatkozás"
+        // effekttel: így az oldalsáv mappáira (pl. Dokumentumok) semmit nem
+        // lehetett behúzni.
+        var paths = ItemsControl.ItemsControlFromItemContainer(container) is System.Windows.Controls.ListBox { SelectedItems.Count: > 1 } list
+            && list.SelectedItems.Contains(item)
+                ? list.SelectedItems.OfType<FileSystemItem>().Select(i => i.FullPath).ToArray()
+                : [item.FullPath];
+
+        var data = new System.Windows.DataObject(System.Windows.DataFormats.FileDrop, paths);
+        DragDrop.DoDragDrop(container, data, DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link);
+    }
+
+    /// <summary>Rámutatásos jobbklikk-előtöltés — lásd <see cref="ShellMenuPreloadCoordinator.NotifyHover"/>.</summary>
+    private void OnFileItemMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed
+            || sender is not FrameworkElement { DataContext: FileSystemItem { IsRecycled: false } item } container
+            || _services.GetService(typeof(ShellMenuPreloadCoordinator)) is not ShellMenuPreloadCoordinator preload)
+        {
+            return;
+        }
+
+        var selection = ItemsControl.ItemsControlFromItemContainer(container) is System.Windows.Controls.ListBox list
+            ? list.SelectedItems.OfType<FileSystemItem>().Select(i => i.FullPath).ToList()
+            : [];
+
+        preload.NotifyHover(item.FullPath, selection);
     }
 
     private void OnSidebarItemPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -2313,7 +2950,7 @@ public partial class MainWindow : FluentWindow
             ResizeMode = ResizeMode.NoResize,
             Owner = this,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            WindowBackdropType = WindowBackdropType.Mica,
+            WindowBackdropType = Services.GlassEffectService.CurrentBackdrop,
             Content = panel,
         };
 
@@ -2377,22 +3014,46 @@ public partial class MainWindow : FluentWindow
 
     private void OnSidebarDragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(QuickAccessReorderFormat) || e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
-            ? DragDropEffects.Move
-            : DragDropEffects.None;
-
         e.Handled = true;
+
+        if (e.Data.GetDataPresent(QuickAccessReorderFormat))
+        {
+            SetSidebarDropHighlight(null);
+            e.Effects = DragDropEffects.Move;
+            return;
+        }
+
+        if (sender is not ListBox listBox || e.Data.GetData(System.Windows.DataFormats.FileDrop) is not string[] { Length: > 0 } paths)
+        {
+            SetSidebarDropHighlight(null);
+            e.Effects = DragDropEffects.None;
+            return;
+        }
+
+        var container = FindSidebarContainerAt(listBox, e.GetPosition(listBox));
+        var (effect, highlight) = ResolveSidebarDrop(container?.DataContext as SidebarItemViewModel, paths, e.KeyStates, e.AllowedEffects);
+        SetSidebarDropHighlight(highlight ? container : null);
+        e.Effects = effect;
     }
 
+    private void OnSidebarDragLeave(object sender, DragEventArgs e) => SetSidebarDropHighlight(null);
+
     /// <summary>
-    /// Ejtés az oldalsávon: mappa(k) rögzítése a gyorselérésbe (külső húzás
-    /// a fájllistából), vagy egy meglévő gyorselérés-sor átrendezése (belső
-    /// húzás). A cél sort a leejtés pontjának vizuálisfa-bejárásával
-    /// találjuk meg — virtualizált listánál is működik, mert a húzás alatt
-    /// a látható konténerek már realizálva vannak.
+    /// Ejtés az oldalsávon:
+    /// <list type="bullet">
+    /// <item>gyorselérés-sor átrendezése (belső húzás);</item>
+    /// <item>fájlok/mappák egy oldalsáv-MAPPÁRA (Dokumentumok, meghajtó, felhő):
+    /// másolás vagy áthelyezés oda — ugyanaz a szabály, mint a kétpaneles
+    /// nézetben (azonos kötet: áthelyezés, különben másolás; Ctrl/Shift/Alt
+    /// felülírja);</item>
+    /// <item>a Lomtárra: törlés a Lomtárba;</item>
+    /// <item>mappa a sorok közé / üres helyre: rögzítés a gyorselérésbe.</item>
+    /// </list>
     /// </summary>
     private void OnSidebarDrop(object sender, DragEventArgs e)
     {
+        SetSidebarDropHighlight(null);
+
         if (sender is not ListBox listBox)
         {
             return;
@@ -2409,18 +3070,145 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] paths)
+        if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is not string[] { Length: > 0 } paths)
         {
-            foreach (var path in paths)
+            return;
+        }
+
+        e.Handled = true;
+        var target = FindSidebarItemAt(listBox, e.GetPosition(listBox));
+
+        if (target is { IsRecycleBin: true })
+        {
+            _viewModel.StartPaneDelete(paths, permanent: false);
+            return;
+        }
+
+        if (GetSidebarDropFolder(target) is { } folder)
+        {
+            if (!IsValidDropInto(paths, folder))
             {
-                _viewModel.PinToQuickAccessCommand.Execute(path);
+                return;
             }
 
-            e.Handled = true;
+            var action = FilePaneView.ResolveDropEffect(paths, folder, ToModifierKeys(e.KeyStates));
+            OnPaneFilesDropped(this, (paths, folder, action));
+            return;
+        }
+
+        foreach (var path in paths.Where(Directory.Exists))
+        {
+            _viewModel.PinToQuickAccessCommand.Execute(path);
         }
     }
 
-    private static SidebarItemViewModel? FindSidebarItemAt(ListBox listBox, System.Windows.Point position)
+    /// <summary>A húzás effektje és az, hogy a célsor kiemelést kap-e — lásd <see cref="OnSidebarDrop"/>.</summary>
+    private static (DragDropEffects Effect, bool Highlight) ResolveSidebarDrop(
+        SidebarItemViewModel? target, string[] paths, DragDropKeyStates keys, DragDropEffects allowed)
+    {
+        if (target is { IsRecycleBin: true })
+        {
+            return ((allowed & DragDropEffects.Move) != 0 ? DragDropEffects.Move : DragDropEffects.None, true);
+        }
+
+        if (GetSidebarDropFolder(target) is { } folder)
+        {
+            if (!IsValidDropInto(paths, folder))
+            {
+                return (DragDropEffects.None, false);
+            }
+
+            var wanted = FilePaneView.ResolveDropEffect(paths, folder, ToModifierKeys(keys)) switch
+            {
+                PaneDropAction.Move => DragDropEffects.Move,
+                PaneDropAction.Shortcut => DragDropEffects.Link,
+                _ => DragDropEffects.Copy,
+            };
+
+            return ((allowed & wanted) != 0 ? wanted : allowed & DragDropEffects.Copy, true);
+        }
+
+        // Nem mappa-sor fölött: mappák rögzítése a gyorselérésbe.
+        return (paths.All(Directory.Exists) && (allowed & DragDropEffects.Link) != 0 ? DragDropEffects.Link : DragDropEffects.None, false);
+    }
+
+    /// <summary>Az oldalsáv-sor célmappája, ha oda lehet fájlt ejteni (létező mappa, nem a Kezdőlap/Lomtár).</summary>
+    private static string? GetSidebarDropFolder(SidebarItemViewModel? item) =>
+        item is { IsRecycleBin: false, IsHomeEntry: false, IsMissing: false, Path: { Length: > 0 } path } && Directory.Exists(path)
+            ? path
+            : null;
+
+    /// <summary>Egy mappa önmagába vagy a saját almappájába nem húzható, és a már ott lévő elem sem.</summary>
+    private static bool IsValidDropInto(IEnumerable<string> paths, string folder)
+    {
+        var target = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+
+        foreach (var path in paths)
+        {
+            var source = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+            if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase)
+                || target.StartsWith(source + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Path.GetDirectoryName(source), target, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static System.Windows.Input.ModifierKeys ToModifierKeys(DragDropKeyStates keys)
+    {
+        var modifiers = System.Windows.Input.ModifierKeys.None;
+
+        if (keys.HasFlag(DragDropKeyStates.ControlKey))
+        {
+            modifiers |= System.Windows.Input.ModifierKeys.Control;
+        }
+
+        if (keys.HasFlag(DragDropKeyStates.ShiftKey))
+        {
+            modifiers |= System.Windows.Input.ModifierKeys.Shift;
+        }
+
+        if (keys.HasFlag(DragDropKeyStates.AltKey))
+        {
+            modifiers |= System.Windows.Input.ModifierKeys.Alt;
+        }
+
+        return modifiers;
+    }
+
+    /// <summary>Az a sor, amelyik fölött épp húzunk — a sablonja a <c>Tag="DropTarget"</c> értékre kiemelést kap.</summary>
+    private System.Windows.Controls.ListBoxItem? _sidebarDropHighlight;
+
+    private void SetSidebarDropHighlight(System.Windows.Controls.ListBoxItem? item)
+    {
+        if (ReferenceEquals(item, _sidebarDropHighlight))
+        {
+            return;
+        }
+
+        if (_sidebarDropHighlight is not null)
+        {
+            _sidebarDropHighlight.Tag = null;
+        }
+
+        _sidebarDropHighlight = item;
+
+        if (item is not null)
+        {
+            item.Tag = SidebarDropTargetTag;
+        }
+    }
+
+    private const string SidebarDropTargetTag = "DropTarget";
+
+    private static SidebarItemViewModel? FindSidebarItemAt(ListBox listBox, System.Windows.Point position) =>
+        FindSidebarContainerAt(listBox, position)?.DataContext as SidebarItemViewModel;
+
+    private static System.Windows.Controls.ListBoxItem? FindSidebarContainerAt(ListBox listBox, System.Windows.Point position)
     {
         if (listBox.InputHitTest(position) is not DependencyObject hit)
         {
@@ -2434,7 +3222,7 @@ public partial class MainWindow : FluentWindow
             current = VisualTreeHelper.GetParent(current);
         }
 
-        return (current as System.Windows.Controls.ListBoxItem)?.DataContext as SidebarItemViewModel;
+        return current as System.Windows.Controls.ListBoxItem;
     }
 
     /// <summary>
@@ -2572,12 +3360,6 @@ public partial class MainWindow : FluentWindow
 
         System.Windows.MessageBox.Show(message, "Pilaster", System.Windows.MessageBoxButton.OK, icon);
     }
-
-    private void OnSetViewDetails(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Details);
-
-    private void OnSetViewGrid(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Grid);
-
-    private void OnSetViewColumns(object sender, RoutedEventArgs e) => ApplyViewMode(ViewMode.Columns);
 
     private void ApplyViewMode(ViewMode mode)
     {

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using Pilaster.App.Localization;
 using Pilaster.Shell.Recycle;
 using Serilog;
 
@@ -29,11 +30,52 @@ public sealed class FileOperationEngine
 
     public ObservableCollection<FileOperationJob> Jobs { get; } = [];
 
+    // Háttérszálon indul: a RunAsync első, szinkron szakasza (Directory.Exists,
+    // könyvtárbejárás, ugyanazon kötetes File.Move) különben a UI-szálon
+    // futna, és egy lassú/hálózati meghajtón befagyasztaná az ablakot. A
+    // Jobs-gyűjtemény és a job-állapot módosítása OnUiAsync-on át marad a
+    // UI-szálon.
     public void StartCopy(IReadOnlyList<string> sourcePaths, string destinationDirectory) =>
-        _ = RunAsync(FileOperationKind.Copy, sourcePaths, destinationDirectory);
+        _ = Task.Run(() => RunAsync(FileOperationKind.Copy, [.. sourcePaths], destinationDirectory));
 
     public void StartMove(IReadOnlyList<string> sourcePaths, string destinationDirectory) =>
-        _ = RunAsync(FileOperationKind.Move, sourcePaths, destinationDirectory);
+        _ = Task.Run(() => RunAsync(FileOperationKind.Move, [.. sourcePaths], destinationDirectory));
+
+    /// <summary>
+    /// Két útvonal ugyanarra az elemre mutat-e (kis-/nagybetű- és záró
+    /// elválasztó-függetlenül).
+    /// </summary>
+    internal static bool IsSamePath(string a, string b) =>
+        string.Equals(NormalizePath(a), NormalizePath(b), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Igaz, ha <paramref name="candidate"/> maga <paramref name="folder"/>, vagy
+    /// annak (akármilyen mély) almappája — egy mappát önmagába másolni/áthelyezni
+    /// végtelen rekurzió lenne.
+    /// </summary>
+    internal static bool IsSameOrInside(string candidate, string folder)
+    {
+        var normalizedCandidate = NormalizePath(candidate);
+        var normalizedFolder = NormalizePath(folder);
+
+        return string.Equals(normalizedCandidate, normalizedFolder, StringComparison.OrdinalIgnoreCase)
+            || normalizedCandidate.StartsWith(normalizedFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path)
+    {
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return Path.TrimEndingDirectorySeparator(path);
+        }
+    }
+
+    private static bool IsSameVolume(string a, string b) =>
+        string.Equals(Path.GetPathRoot(NormalizePath(a)), Path.GetPathRoot(NormalizePath(b)), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Törlés — alapból Lomtárba, <paramref name="permanent"/> esetén azonnal véglegesen.</summary>
     public void StartDelete(IReadOnlyList<string> sourcePaths, bool permanent) =>
@@ -46,6 +88,7 @@ public sealed class FileOperationEngine
             Id = Guid.NewGuid(),
             Kind = FileOperationKind.Delete,
             DestinationDirectory = string.Empty,
+            SourcePaths = [.. sourcePaths],
             TotalFiles = sourcePaths.Count,
         };
 
@@ -113,13 +156,14 @@ public sealed class FileOperationEngine
 
     private async Task RunAsync(FileOperationKind kind, IReadOnlyList<string> sourcePaths, string destinationDirectory)
     {
-        var (totalFiles, totalBytes) = await Task.Run(() => CountFilesAndBytes(sourcePaths));
+        var (totalFiles, totalBytes) = CountFilesAndBytes(sourcePaths);
 
         var job = new FileOperationJob
         {
             Id = Guid.NewGuid(),
             Kind = kind,
             DestinationDirectory = destinationDirectory,
+            SourcePaths = sourcePaths,
             TotalFiles = totalFiles,
         };
         job.TotalBytes = totalBytes;
@@ -129,6 +173,7 @@ public sealed class FileOperationEngine
         var errors = new List<string>();
         FileConflictAction? applyToAllAction = null;
         var speedTracker = new SpeedTracker();
+        var context = new CopyContext(job, errors, speedTracker, () => applyToAllAction, v => applyToAllAction = v, kind == FileOperationKind.Move);
 
         try
         {
@@ -143,13 +188,50 @@ public sealed class FileOperationEngine
 
                 await OnUiAsync(() => job.CurrentFileName = name);
 
-                if (kind == FileOperationKind.Move)
+                if (!isDirectory && !File.Exists(sourcePath))
+                {
+                    // Közben törölték/átnevezték — egy hiányzó forrás ne állítsa
+                    // le a teljes műveletet, csak ez az egy elem hiúsuljon meg.
+                    errors.Add($"{name}: {TranslationSource.Instance["FileOp_SourceMissing"]}");
+                    continue;
+                }
+
+                // Egy mappa önmagába/saját almappájába másolása vagy áthelyezése
+                // végtelen rekurzió lenne (áthelyezésnél ráadásul a forrás
+                // törlésével) — az Intéző is megtagadja.
+                if (isDirectory && IsSameOrInside(destinationDirectory, sourcePath))
+                {
+                    errors.Add($"{name}: {TranslationSource.Instance["FileOp_IntoItself"]}");
+                    continue;
+                }
+
+                if (IsSamePath(sourcePath, destPath))
+                {
+                    if (kind == FileOperationKind.Move)
+                    {
+                        // Ugyanoda áthelyezni: nincs mit tenni. Korábban ez a
+                        // másolás+forrástörlés útra esett, és ELVESZÍTETTE a fájlt.
+                        var (sameFiles, sameBytes) = CountFilesAndBytes([sourcePath]);
+                        await OnUiAsync(() =>
+                        {
+                            job.FilesCompleted += sameFiles;
+                            job.BytesCompleted += sameBytes;
+                        });
+                        continue;
+                    }
+
+                    // Ugyanabba a mappába másolás: másolat új néven, mint az
+                    // Intézőben — sosem önmagára írás.
+                    destPath = MakeUniqueDestination(destPath);
+                }
+
+                if (kind == FileOperationKind.Move && IsSameVolume(sourcePath, destinationDirectory))
                 {
                     // A méretet/fájlszámot a mozgatás ELŐTT kell megállapítani —
                     // egy sikeres File.Move/Directory.Move után a forrás már
                     // nem létezik azon az útvonalon, egy utólagos FileInfo
                     // lekérdezés FileNotFoundException-t dobna.
-                    var (fastMoveFiles, fastMoveBytes) = isDirectory ? CountFilesAndBytes([sourcePath]) : (1, new FileInfo(sourcePath).Length);
+                    var (fastMoveFiles, fastMoveBytes) = CountFilesAndBytes([sourcePath]);
 
                     if (TryFastMove(sourcePath, destPath, isDirectory))
                     {
@@ -162,20 +244,17 @@ public sealed class FileOperationEngine
                     }
                 }
 
+                // Kötetek közti (vagy ütköző) áthelyezés: másolás, majd a forrás
+                // FÁJLONKÉNTI törlése — csak az sikeresen átmásolt fájloké. Egy
+                // kihagyott/hibás fájl forrása így megmarad (korábban a teljes
+                // forrásmappa rekurzívan törlődött, a kihagyott fájlokkal együtt).
                 if (isDirectory)
                 {
-                    await CopyDirectoryAsync(sourcePath, destPath, job, errors, speedTracker, () => applyToAllAction,
-                        v => applyToAllAction = v).ConfigureAwait(false);
+                    await CopyDirectoryAsync(sourcePath, destPath, context).ConfigureAwait(false);
                 }
                 else
                 {
-                    await CopySingleFileAsync(sourcePath, destPath, job, errors, speedTracker, () => applyToAllAction,
-                        v => applyToAllAction = v).ConfigureAwait(false);
-                }
-
-                if (kind == FileOperationKind.Move)
-                {
-                    TryDeleteSourceAfterMove(sourcePath, isDirectory, errors);
+                    await CopySingleFileAsync(sourcePath, destPath, context).ConfigureAwait(false);
                 }
             }
         }
@@ -248,37 +327,36 @@ public sealed class FileOperationEngine
         }
     }
 
-    private static void TryDeleteSourceAfterMove(string sourcePath, bool isDirectory, List<string> errors)
+    /// <summary>Egy másolás/áthelyezés futás közbeni, fájlokon átívelő állapota.</summary>
+    private sealed record CopyContext(
+        FileOperationJob Job,
+        List<string> Errors,
+        SpeedTracker SpeedTracker,
+        Func<FileConflictAction?> GetApplyToAll,
+        Action<FileConflictAction?> SetApplyToAll,
+        bool DeleteSourceAfterCopy);
+
+    private async Task CopyDirectoryAsync(string sourceDir, string destDir, CopyContext context)
     {
+        var job = context.Job;
+        string[] entries;
+
+        // Egy olvashatatlan almappa (jogosultság, közben törölt mappa) csak
+        // saját magát hiúsítsa meg — korábban a kivétel a teljes műveletet
+        // leállította a legfelső szintű catch-ben.
         try
         {
-            if (isDirectory)
-            {
-                Directory.Delete(sourcePath, recursive: true);
-            }
-            else
-            {
-                File.Delete(sourcePath);
-            }
+            Directory.CreateDirectory(destDir);
+            entries = Directory.GetFileSystemEntries(sourceDir);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            errors.Add($"{Path.GetFileName(sourcePath)}: a forrás törlése sikertelen áthelyezés után ({ex.Message})");
+            context.Errors.Add($"{Path.GetFileName(sourceDir)}: {ex.Message}");
+            Log.Warning(ex, "Mappa másolása sikertelen: {Source} -> {Dest}", sourceDir, destDir);
+            return;
         }
-    }
 
-    private async Task CopyDirectoryAsync(
-        string sourceDir,
-        string destDir,
-        FileOperationJob job,
-        List<string> errors,
-        SpeedTracker speedTracker,
-        Func<FileConflictAction?> getApplyToAll,
-        Action<FileConflictAction?> setApplyToAll)
-    {
-        Directory.CreateDirectory(destDir);
-
-        foreach (var entry in Directory.EnumerateFileSystemEntries(sourceDir))
+        foreach (var entry in entries)
         {
             job.Cancellation.Token.ThrowIfCancellationRequested();
             await job.PauseGate.WaitIfPausedAsync().WaitAsync(job.Cancellation.Token).ConfigureAwait(false);
@@ -288,33 +366,41 @@ public sealed class FileOperationEngine
 
             if (Directory.Exists(entry))
             {
-                await CopyDirectoryAsync(entry, childDest, job, errors, speedTracker, getApplyToAll, setApplyToAll).ConfigureAwait(false);
+                await CopyDirectoryAsync(entry, childDest, context).ConfigureAwait(false);
             }
             else
             {
-                await CopySingleFileAsync(entry, childDest, job, errors, speedTracker, getApplyToAll, setApplyToAll).ConfigureAwait(false);
+                await CopySingleFileAsync(entry, childDest, context).ConfigureAwait(false);
+            }
+        }
+
+        if (context.DeleteSourceAfterCopy)
+        {
+            // Csak ha már üres: ha bármelyik fájl kimaradt/hibára futott, a
+            // forrásmappa (benne az a fájl) megmarad.
+            try
+            {
+                Directory.Delete(sourceDir, recursive: false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
             }
         }
     }
 
-    private async Task CopySingleFileAsync(
-        string sourcePath,
-        string destPath,
-        FileOperationJob job,
-        List<string> errors,
-        SpeedTracker speedTracker,
-        Func<FileConflictAction?> getApplyToAll,
-        Action<FileConflictAction?> setApplyToAll)
+    private async Task CopySingleFileAsync(string sourcePath, string destPath, CopyContext context)
     {
+        var job = context.Job;
+
         await OnUiAsync(() => job.CurrentFileName = Path.GetFileName(sourcePath));
 
         if (File.Exists(destPath))
         {
-            var action = getApplyToAll() ?? await ResolveConflictAsync(job, sourcePath, destPath).ConfigureAwait(false);
+            var action = context.GetApplyToAll() ?? await ResolveConflictAsync(job, sourcePath, destPath).ConfigureAwait(false);
 
             if (job.PendingConflict is { ApplyToAll: true })
             {
-                setApplyToAll(action);
+                context.SetApplyToAll(action);
             }
 
             await OnUiAsync(() => job.PendingConflict = null);
@@ -335,15 +421,38 @@ public sealed class FileOperationEngine
             }
         }
 
+        var copied = false;
+
         try
         {
-            await CopyFileChunkedAsync(sourcePath, destPath, job, speedTracker).ConfigureAwait(false);
+            await CopyFileChunkedAsync(sourcePath, destPath, job, context.SpeedTracker).ConfigureAwait(false);
+            copied = true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            errors.Add($"{Path.GetFileName(sourcePath)}: {ex.Message}");
+            context.Errors.Add($"{Path.GetFileName(sourcePath)}: {ex.Message}");
             Log.Warning(ex, "Másolás sikertelen: {Source} -> {Dest}", sourcePath, destPath);
-            TryDeletePartialFile(destPath);
+
+            // Csak akkor töröljük, ha MI hoztuk létre (a célfájl már írásra
+            // meg volt nyitva) — egy a forrás megnyitásánál elbukó másolás
+            // korábban a célhelyen lévő, érintetlen régi fájlt törölte.
+            if (job.CurrentDestinationPath is { } partial)
+            {
+                job.CurrentDestinationPath = null;
+                TryDeletePartialFile(partial);
+            }
+        }
+
+        if (copied && context.DeleteSourceAfterCopy)
+        {
+            try
+            {
+                File.Delete(sourcePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                context.Errors.Add($"{Path.GetFileName(sourcePath)}: {string.Format(TranslationSource.Instance["FileOp_SourceDeleteFailed"], ex.Message)}");
+            }
         }
 
         await OnUiAsync(() => job.FilesCompleted++);
@@ -372,34 +481,54 @@ public sealed class FileOperationEngine
     private async Task CopyFileChunkedAsync(string sourcePath, string destPath, FileOperationJob job, SpeedTracker speedTracker)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
-        job.CurrentDestinationPath = destPath;
 
-        await using var source = new FileStream(
-            sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.SequentialScan | FileOptions.Asynchronous);
-        await using var destination = new FileStream(
-            destPath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, FileOptions.Asynchronous);
+        var sourceInfo = new FileInfo(sourcePath);
 
-        var buffer = new byte[BufferSize];
-        int bytesRead;
-
-        while ((bytesRead = await source.ReadAsync(buffer, job.Cancellation.Token).ConfigureAwait(false)) > 0)
+        await using (var source = new FileStream(
+            sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.SequentialScan | FileOptions.Asynchronous))
         {
-            job.Cancellation.Token.ThrowIfCancellationRequested();
-            await job.PauseGate.WaitIfPausedAsync().WaitAsync(job.Cancellation.Token).ConfigureAwait(false);
+            await using var destination = new FileStream(
+                destPath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, FileOptions.Asynchronous);
 
-            await destination.WriteAsync(buffer.AsMemory(0, bytesRead), job.Cancellation.Token).ConfigureAwait(false);
+            // Csak a célfájl sikeres megnyitása UTÁN számít „félbemaradtnak" —
+            // lásd CopySingleFileAsync hibaágát.
+            job.CurrentDestinationPath = destPath;
 
-            var speed = speedTracker.RecordAndGetRate(bytesRead);
+            var buffer = new byte[BufferSize];
+            int bytesRead;
 
-            await OnUiAsync(() =>
+            while ((bytesRead = await source.ReadAsync(buffer, job.Cancellation.Token).ConfigureAwait(false)) > 0)
             {
-                job.BytesCompleted += bytesRead;
+                job.Cancellation.Token.ThrowIfCancellationRequested();
+                await job.PauseGate.WaitIfPausedAsync().WaitAsync(job.Cancellation.Token).ConfigureAwait(false);
 
-                if (speed is { } bps)
+                await destination.WriteAsync(buffer.AsMemory(0, bytesRead), job.Cancellation.Token).ConfigureAwait(false);
+
+                var speed = speedTracker.RecordAndGetRate(bytesRead);
+
+                await OnUiAsync(() =>
                 {
-                    job.BytesPerSecond = bps;
-                }
-            });
+                    job.BytesCompleted += bytesRead;
+
+                    if (speed is { } bps)
+                    {
+                        job.BytesPerSecond = bps;
+                    }
+                });
+            }
+        }
+
+        // Az Intéző megőrzi a módosítás dátumát és az attribútumokat — enélkül
+        // minden másolat „most módosított" lenne, ami a dátum szerinti
+        // rendezést és a biztonsági mentéseket is összezavarja.
+        try
+        {
+            File.SetLastWriteTimeUtc(destPath, sourceInfo.LastWriteTimeUtc);
+            File.SetAttributes(destPath, sourceInfo.Attributes);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Debug(ex, "Időbélyeg/attribútum átvitele sikertelen: {Dest}", destPath);
         }
 
         // Sikeresen befejeződött — a fájl teljes, nem "félbemaradt" többé.
@@ -446,28 +575,37 @@ public sealed class FileOperationEngine
         var files = 0;
         long bytes = 0;
 
+        // Az IgnoreInaccessible nélkül egyetlen olvashatatlan almappa
+        // UnauthorizedAccessException-t dobott, és a művelet még el sem
+        // indult — a felhasználó csak annyit látott, hogy semmi sem történik.
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = 0,
+        };
+
         foreach (var path in sourcePaths)
         {
-            if (Directory.Exists(path))
+            try
             {
-                foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+                if (Directory.Exists(path))
                 {
-                    files++;
-
-                    try
+                    foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", options))
                     {
-                        bytes += new FileInfo(file).Length;
-                    }
-                    catch (IOException)
-                    {
-                        // Fájl eltűnt a leltározás közben — a méret csak becslés, folytatjuk.
+                        files++;
+                        bytes += file.Length;
                     }
                 }
+                else if (File.Exists(path))
+                {
+                    files++;
+                    bytes += new FileInfo(path).Length;
+                }
             }
-            else if (File.Exists(path))
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                files++;
-                bytes += new FileInfo(path).Length;
+                // Közben eltűnt/elérhetetlenné vált — a méret csak becslés, folytatjuk.
             }
         }
 

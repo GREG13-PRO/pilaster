@@ -389,9 +389,11 @@ public sealed class ColorToBrushConverter : IValueConverter
 }
 
 /// <summary>
-/// <c>#RRGGBB</c> szöveg → ecset. Üres/érvénytelen értéknél a téma
-/// elsődleges szövegszínére esik vissza, hogy egy hiányzó egyedi szín
-/// sose tegye láthatatlanná az ikont.
+/// <c>#RRGGBB</c> szöveg → ecset. Üres/érvénytelen értéknél
+/// <see cref="DependencyProperty.UnsetValue"/>: a tulajdonság ilyenkor az
+/// örökölt (téma szerinti) színt veszi fel. Egy itt visszaadott téma-ecset
+/// a konvertálás pillanatában rögzülne, és témaváltás után láthatatlanná
+/// tenné az ikont (fehér ikon világos háttéren és fordítva).
 /// </summary>
 public sealed class HexToBrushConverter : IValueConverter
 {
@@ -414,7 +416,7 @@ public sealed class HexToBrushConverter : IValueConverter
             }
         }
 
-        return Application.Current?.Resources[Services.ThemeTokenService.TextPrimary] ?? Brushes.Gray;
+        return DependencyProperty.UnsetValue;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -523,5 +525,18 @@ public sealed class DriveFreeSpaceConverter : IValueConverter
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Igaz, ha a kötések összes értéke egyenlő — pl. a színválasztóban a
+/// paletta-szín és a címke jelenlegi színe (a kijelölt minta gyűrűjéhez).
+/// </summary>
+public sealed class AllEqualMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Length > 1 && values.Skip(1).All(v => Equals(v, values[0]));
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }

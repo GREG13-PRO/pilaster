@@ -18,7 +18,7 @@
     mc:Ignorable="d"
     Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica"
+    WindowBackdropType="{DynamicResource PilasterWindowBackdrop}"
     WindowCornerPreference="Round"
     WindowStartupLocation="CenterOwner">
 
@@ -106,6 +106,8 @@
                                 <ui:Button
                                     Padding="10,4"
                                     Appearance="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="0"
                                     Click="OnTabClick"
                                     FontSize="12"
                                     Tag="{Binding}"
@@ -119,6 +121,8 @@
                                     Padding="3"
                                     VerticalAlignment="Center"
                                     Appearance="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="0"
                                     Command="{Binding DataContext.CloseDocumentCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
                                     CommandParameter="{Binding}"
                                     ToolTip="{loc:Loc Cmd_CloseTab}">
@@ -266,6 +270,8 @@
                         Margin="0,0,6,0"
                         Padding="8,2"
                         Appearance="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
                         Click="OnEncodingClick"
                         Content="{Binding ActiveDocument.EncodingLabel}"
                         FontSize="12" />
@@ -274,6 +280,8 @@
                         Margin="0,0,6,0"
                         Padding="8,2"
                         Appearance="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
                         Click="OnLineEndingClick"
                         Content="{Binding ActiveDocument.LineEnding}"
                         FontSize="12" />

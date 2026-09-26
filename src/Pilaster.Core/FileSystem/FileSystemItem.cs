@@ -58,6 +58,17 @@ public sealed partial class FileSystemItem : ObservableObject
     public partial string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Rekurzív keresés találatánál a szülőmappa a keresés gyökeréhez képest
+    /// (üres: közvetlenül a gyökérben van) — a névoszlopban halványan
+    /// jelenik meg, hogy látsszon, HOL van a találat. Normál listázásnál
+    /// <c>null</c>.
+    /// </summary>
+    public string? SearchLocation { get; set; }
+
+    /// <summary>A <see cref="SearchLocation"/> megjeleníthető formában — üres helyett <c>null</c>, hogy a nézet elrejthesse.</summary>
+    public string? SearchLocationDisplay => string.IsNullOrEmpty(SearchLocation) ? null : SearchLocation;
+
+    /// <summary>
     /// A <see cref="DisplayName"/> újraszámolása.
     /// </summary>
     /// <param name="showExtensions">A „Kiterjesztések megjelenítése" beállítás.</param>

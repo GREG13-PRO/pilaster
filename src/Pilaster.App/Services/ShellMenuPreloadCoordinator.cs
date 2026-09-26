@@ -41,6 +41,13 @@ namespace Pilaster.App.Services;
 public sealed class ShellMenuPreloadCoordinator : IDisposable
 {
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// Ennyi ideig kell az egérnek egy elem fölött megállnia, hogy a menüje
+    /// előtöltődjön — rövidebbel a lista fölött átsuhanó egér is folyamatosan
+    /// shell-lekérdezéseket indítana.
+    /// </summary>
+    private static readonly TimeSpan HoverDwell = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan Expiry = TimeSpan.FromSeconds(30);
 
     private readonly ISettingsService _settings;
@@ -78,6 +85,14 @@ public sealed class ShellMenuPreloadCoordinator : IDisposable
 
         lock (_gate)
         {
+            // A rámutatásos előtöltés már pont erre készül (vagy kész) — egy
+            // új kör csak eldobná a félkész eredményt, amit a jobbklikk rögtön
+            // fel akar használni.
+            if (IsAlreadyCoveredLocked(paths))
+            {
+                return;
+            }
+
             _generation++;
             _pendingPaths = paths;
             _pendingExtendedVerbs = extendedVerbs;
@@ -91,6 +106,40 @@ public sealed class ShellMenuPreloadCoordinator : IDisposable
             _debounceTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
         }
     }
+
+    /// <summary>
+    /// Az egér egy fájllista-elem fölött áll meg: rövid várakozás után annak
+    /// a menüje töltődik elő (ha az elem a kijelölés része, a TELJES
+    /// kijelölésé) — a jobbklikk szinte mindig a kurzor alatti elemre esik,
+    /// így a menü nagy eséllyel azonnal, kész tartalommal nyílik. A shell
+    /// bővítményei egy lekérdezésre ~0,4–0,5 mp-et töltenek (MÉRVE), ez
+    /// rámutatás közben, a felhasználó számára észrevétlenül fut le.
+    /// </summary>
+    public void NotifyHover(string path, IReadOnlyList<string> selection)
+    {
+        if (!_settings.Current.ContextMenuPreloadEnabled)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> paths = selection.Contains(path, StringComparer.OrdinalIgnoreCase) ? selection : [path];
+
+        lock (_gate)
+        {
+            if (IsAlreadyCoveredLocked(paths) || (_pendingPaths is { } pending && PathsMatch(pending, paths)))
+            {
+                return;
+            }
+
+            _generation++;
+            _pendingPaths = paths;
+            _pendingExtendedVerbs = false;
+            _debounceTimer.Change(HoverDwell, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private bool IsAlreadyCoveredLocked(IReadOnlyList<string> paths) =>
+        paths.Count > 0 && _preloadTask is not null && _preloadPaths is not null && PathsMatch(_preloadPaths, paths);
 
     /// <summary>
     /// Ha van (kész vagy még folyamatban lévő) előretöltés PONTOSAN erre a

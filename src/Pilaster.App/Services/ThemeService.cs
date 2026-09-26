@@ -40,7 +40,17 @@ public sealed class ThemeService(ISettingsService settings)
     /// A rendszertéma figyelése, hogy a <see cref="ThemeMode.System"/> mód
     /// menet közben is kövesse a Windows beállítását.
     /// </summary>
-    public void WatchSystemTheme(Window window) => SystemThemeWatcher.Watch(window);
+    /// <remarks>
+    /// A figyelő a MEGADOTT háttértípust teszi vissza az ablakra minden
+    /// rendszertéma-váltáskor — a paraméter nélküli változat Micát tenne,
+    /// ami az üveghatás (Acrylic) beállítását azonnal felülírná.
+    /// </remarks>
+    public void WatchSystemTheme(Window window) => SystemThemeWatcher.Watch(window, Backdrop);
+
+    /// <summary>A beállított ablakháttér — lásd GlassEffectService.</summary>
+    private Wpf.Ui.Controls.WindowBackdropType Backdrop => settings.Current.LiquidGlassEnabled
+        ? Wpf.Ui.Controls.WindowBackdropType.Acrylic
+        : Wpf.Ui.Controls.WindowBackdropType.None;
 
     /// <summary>
     /// Téma beállítása, mentéssel és — ha engedélyezett — átúsztatással.
@@ -76,16 +86,16 @@ public sealed class ThemeService(ISettingsService settings)
     public Task ToggleAsync(Window? window) =>
         SetAsync(IsDark ? ThemeMode.Light : ThemeMode.Dark, window);
 
-    private static void ApplyCore(ThemeMode mode)
+    private void ApplyCore(ThemeMode mode)
     {
         switch (mode)
         {
             case ThemeMode.Light:
-                ApplicationThemeManager.Apply(ApplicationTheme.Light);
+                ApplicationThemeManager.Apply(ApplicationTheme.Light, Backdrop);
                 break;
 
             case ThemeMode.Dark:
-                ApplicationThemeManager.Apply(ApplicationTheme.Dark);
+                ApplicationThemeManager.Apply(ApplicationTheme.Dark, Backdrop);
                 break;
 
             default:

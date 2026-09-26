@@ -69,6 +69,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _selectedTheme = current.Theme;
         _selectedAnimationLevel = _animations.Current;
         _liquidGlassEnabled = current.LiquidGlassEnabled;
+        _glassIntensity = Math.Clamp(current.GlassIntensity, 0, 100);
         _selectedKeymap = current.Keymap;
         _externalEditorPath = current.ExternalEditorPath;
 
@@ -82,6 +83,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _showSystemItems = current.ShowSystemItems;
         _showExtensions = current.ShowExtensions;
         _foldersFirst = current.FoldersFirst;
+        _showCreatedColumn = current.ShowCreatedColumn;
+        _showAccessedColumn = current.ShowAccessedColumn;
         _binarySizeUnits = current.BinarySizeUnits;
         _contextMenuMode = current.ContextMenuMode;
         _shellExtensionsEnabled = current.ShellExtensionsEnabled;
@@ -201,11 +204,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    /// <summary>Az aktuális kategória beállításainak visszaállítása alapértelmezettre (spec F6).</summary>
+    /// <summary>
+    /// Egy kategória beállításainak visszaállítása alapértelmezettre (spec F6)
+    /// — a paraméter a kategória azonosítója (az egyoldalas elrendezésben
+    /// minden kategória fejlécében saját gomb ül), híján a kijelölt kategória.
+    /// </summary>
     [RelayCommand]
-    private void ResetCategory()
+    private void ResetCategory(string? categoryId)
     {
-        if (SelectedCategory is not { } category)
+        var category = categoryId is null
+            ? SelectedCategory
+            : Categories.FirstOrDefault(c => c.Id == categoryId);
+
+        if (category is null)
         {
             return;
         }
@@ -229,6 +240,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 SelectedTheme = defaults.Theme;
                 SelectedAnimationLevel = AnimationLevel.Full;
                 LiquidGlassEnabled = defaults.LiquidGlassEnabled;
+                GlassIntensity = defaults.GlassIntensity;
                 UseSystemAccent = true;
                 Density = defaults.Density;
                 break;
@@ -259,6 +271,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ShowSystemItems = defaults.ShowSystemItems;
                 ShowExtensions = defaults.ShowExtensions;
                 FoldersFirst = defaults.FoldersFirst;
+                ShowCreatedColumn = defaults.ShowCreatedColumn;
+                ShowAccessedColumn = defaults.ShowAccessedColumn;
                 BinarySizeUnits = defaults.BinarySizeUnits;
                 break;
 
@@ -385,6 +399,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _liquidGlassEnabled;
 
+    /// <summary>Az üveghatás erőssége (0–100) — lásd AppSettings.GlassIntensity.</summary>
+    [ObservableProperty]
+    private int _glassIntensity;
+
     [ObservableProperty]
     private KeymapPreset _selectedKeymap;
 
@@ -449,6 +467,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _foldersFirst;
 
     partial void OnFoldersFirstChanged(bool value) => Persist(s => s.FoldersFirst = value);
+
+    [ObservableProperty]
+    private bool _showCreatedColumn;
+
+    partial void OnShowCreatedColumnChanged(bool value) => Persist(s => s.ShowCreatedColumn = value);
+
+    [ObservableProperty]
+    private bool _showAccessedColumn;
+
+    partial void OnShowAccessedColumnChanged(bool value) => Persist(s => s.ShowAccessedColumn = value);
 
     [ObservableProperty]
     private bool _binarySizeUnits;
@@ -589,11 +617,38 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _externalEditorPath = "notepad.exe";
 
+    /// <summary>
+    /// Gyenge gép mód egy kattintással: animációk ki, üveghatás ki, jobbklikk-
+    /// előtöltés ki — ugyanaz, amit a telepítő „Gyengébb géphez" opciója állít.
+    /// A tulajdonságokon át, hogy a kapcsolók is azonnal frissüljenek.
+    /// </summary>
+    [RelayCommand]
+    private void EnablePerformanceMode()
+    {
+        SelectedAnimationLevel = AnimationLevel.Off;
+        LiquidGlassEnabled = false;
+        ContextMenuPreloadEnabled = false;
+    }
+
     [ObservableProperty]
     private string _newTagName = string.Empty;
 
     [ObservableProperty]
     private TagColor _newTagColor = TagColor.Blue;
+
+    /// <summary>Az új címke színválasztó felugrója nyitva van.</summary>
+    [ObservableProperty]
+    private bool _isNewTagPickerOpen;
+
+    [RelayCommand]
+    private void ToggleNewTagPicker() => IsNewTagPickerOpen = !IsNewTagPickerOpen;
+
+    [RelayCommand]
+    private void SelectNewTagColor(TagColor color)
+    {
+        NewTagColor = color;
+        IsNewTagPickerOpen = false;
+    }
 
     /// <summary>Az az ablak, amelyiken a témaváltás átúsztatása fusson.</summary>
     public System.Windows.Window? AnimationHost { get; set; }
@@ -774,6 +829,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (_loaded)
         {
             _glass.SetEnabled(value);
+        }
+    }
+
+    partial void OnGlassIntensityChanged(int value)
+    {
+        if (_loaded)
+        {
+            _glass.SetIntensity(value);
         }
     }
 

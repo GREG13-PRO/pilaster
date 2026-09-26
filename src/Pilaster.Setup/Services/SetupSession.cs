@@ -41,6 +41,13 @@ public sealed partial class SetupSession : ObservableObject
     [ObservableProperty]
     public partial bool MakeDefaultFileManager { get; set; }
 
+    /// <summary>
+    /// Gyengébb géphez: animációk, üveghatás és jobbklikk-előtöltés kikapcsolva
+    /// — ugyanaz, mint a Beállítások „Teljesítmény mód" gombja.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool PerformanceMode { get; set; }
+
     [ObservableProperty]
     public partial bool LaunchAfterFinish { get; set; } = true;
 

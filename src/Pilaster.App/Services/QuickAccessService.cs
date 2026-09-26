@@ -107,54 +107,12 @@ public sealed class QuickAccessService : IDisposable
     public IReadOnlyList<QuickAccessEntry> Pinned =>
         [.. _document.Entries.Where(e => e.Pinned).OrderBy(e => e.Order)];
 
-    /// <summary>A „Legutóbbi" szekció elemei, a legfrissebbel az élen.</summary>
-    public IReadOnlyList<QuickAccessEntry> Recent =>
-        _document.RecentEnabled
-            ? [.. _document.Entries
-                .Where(e => !e.Pinned && e.Kind == QuickAccessEntryKind.Folder)
-                .OrderByDescending(e => e.LastOpenedUtc ?? DateTimeOffset.MinValue)
-                .Take(_document.RecentLimit)]
-            : [];
-
-    public bool RecentEnabled
-    {
-        get => _document.RecentEnabled;
-        set
-        {
-            if (_document.RecentEnabled == value)
-            {
-                return;
-            }
-
-            _document.RecentEnabled = value;
-            NotifyChanged();
-        }
-    }
-
-    public int RecentLimit
-    {
-        get => _document.RecentLimit;
-        set
-        {
-            var clamped = Math.Clamp(value, 1, 40);
-
-            if (_document.RecentLimit == clamped)
-            {
-                return;
-            }
-
-            _document.RecentLimit = clamped;
-            NotifyChanged();
-        }
-    }
-
     /// <summary>
     /// A rögzített bejegyzések teljes cseréje — a szerkesztő „Mentés" gombja
-    /// ezt hívja. A „Legutóbbi" elemek érintetlenül maradnak.
+    /// ezt hívja.
     /// </summary>
     public void ReplacePinned(IEnumerable<QuickAccessEntry> entries)
     {
-        var recent = _document.Entries.Where(e => !e.Pinned).ToList();
         var pinned = entries.ToList();
 
         for (var i = 0; i < pinned.Count; i++)
@@ -163,7 +121,7 @@ public sealed class QuickAccessService : IDisposable
             pinned[i].Order = i;
         }
 
-        _document.Entries = [.. pinned, .. recent];
+        _document.Entries = [.. pinned];
         NotifyChanged();
     }
 
@@ -232,65 +190,10 @@ public sealed class QuickAccessService : IDisposable
         NotifyChanged();
     }
 
-    /// <summary>
-    /// Egy megnyitott mappa felvétele a „Legutóbbi" szekcióba. A már
-    /// rögzített mappák kimaradnak — nem lenne értelme kétszer szerepelniük.
-    /// </summary>
-    public void RecordRecent(string path)
-    {
-        if (!_document.RecentEnabled || string.IsNullOrWhiteSpace(path) || path.StartsWith("pilaster:", StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        if (_document.Entries.Any(e => e.Pinned && string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)))
-        {
-            return;
-        }
-
-        if (_document.Entries.FirstOrDefault(e => !e.Pinned && string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)) is { } existing)
-        {
-            existing.LastOpenedUtc = DateTimeOffset.UtcNow;
-        }
-        else
-        {
-            _document.Entries.Add(new QuickAccessEntry
-            {
-                Id = Guid.NewGuid().ToString("N"),
-                Path = path,
-                Pinned = false,
-                LastOpenedUtc = DateTimeOffset.UtcNow,
-            });
-        }
-
-        // A limiten túli, legrégebbi elemek eldobása, hogy a fájl ne hízzon.
-        var stale = _document.Entries
-            .Where(e => !e.Pinned)
-            .OrderByDescending(e => e.LastOpenedUtc ?? DateTimeOffset.MinValue)
-            .Skip(_document.RecentLimit)
-            .ToList();
-
-        foreach (var entry in stale)
-        {
-            _document.Entries.Remove(entry);
-        }
-
-        NotifyChanged();
-    }
-
-    /// <summary>A teljes „Legutóbbi" szekció ürítése.</summary>
-    public void ClearRecent()
-    {
-        if (_document.Entries.RemoveAll(e => !e.Pinned) > 0)
-        {
-            NotifyChanged();
-        }
-    }
-
     /// <summary>Az alapértelmezett gyorselérés visszaállítása — a szerkesztő gombja.</summary>
     public void ResetToDefaults()
     {
-        _document.Entries = [.. BuildDefaults(), .. _document.Entries.Where(e => !e.Pinned)];
+        _document.Entries = [.. BuildDefaults()];
         NotifyChanged();
     }
 
@@ -517,6 +420,9 @@ public sealed class QuickAccessService : IDisposable
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
+            // Lásd CorruptFileBackup — különben a következő mentés az üres
+            // alapdokumentummal írná felül a felhasználó rögzített mappáit.
+            CorruptFileBackup.Preserve(_filePath);
             return new QuickAccessDocument();
         }
     }

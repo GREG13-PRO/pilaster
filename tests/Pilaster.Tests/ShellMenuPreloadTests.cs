@@ -44,6 +44,13 @@ public class ShellMenuPreloadTests
 
         start.Environment["PILASTER_SELFTEST_PRELOAD"] = "1";
 
+        // Az eredményfájl PONTOS útvonala — a gyermekfolyamat Path.GetTempPath()-ja
+        // a VSTest futásonkénti ideiglenes-mappa elszigetelése miatt időnként
+        // MÁSHOVA mutatott, mint a tesztfolyamaté (lásd BindingErrorTests): az
+        // önteszt ilyenkor rendben lefutott, a teszt mégis „nincs eredményfájl"
+        // hibával bukott.
+        start.Environment["PILASTER_SELFTEST_RESULTS"] = resultsPath;
+
         using var process = Process.Start(start);
         Assert.NotNull(process);
 

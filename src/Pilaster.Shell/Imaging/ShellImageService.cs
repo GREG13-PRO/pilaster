@@ -259,12 +259,37 @@ public sealed class ShellImageService : IShellImageService
 
         EnsureVisibleAlpha(pixels);
 
+        var format = IsStraightAlpha(pixels) ? PixelFormats.Bgra32 : PixelFormats.Pbgra32;
+
         var source = BitmapSource.Create(
-            width, height, 96, 96, PixelFormats.Pbgra32, palette: null, pixels, stride);
+            width, height, 96, 96, format, palette: null, pixels, stride);
 
         // Fagyasztás nélkül a háttérszálon készült kép nem köthető a UI-hoz.
         source.Freeze();
         return source;
+    }
+
+    /// <summary>
+    /// Igaz, ha a bitmap NEM előszorzott alfájú. Előszorzott adatban egy
+    /// színcsatorna sosem lehet nagyobb az alfánál — ha mégis az, a shell
+    /// egyenes alfát adott vissza. MÉRVE: a Windows 11 ismert mappáinak
+    /// (Asztal, Dokumentumok, Letöltések) ikonjai egyenes alfájúak, a szín
+    /// akár 254-gyel is meghaladja az alfát. Ezek Pbgra32-ként értelmezve
+    /// túlvilágosított, „kicsipkézett" szélt kaptak.
+    /// </summary>
+    private static bool IsStraightAlpha(byte[] pixels)
+    {
+        for (var i = 0; i < pixels.Length; i += 4)
+        {
+            var alpha = pixels[i + 3];
+
+            if (pixels[i] > alpha || pixels[i + 1] > alpha || pixels[i + 2] > alpha)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

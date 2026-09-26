@@ -8,12 +8,17 @@ namespace Pilaster.Providers.Local;
 /// <param name="TotalBytes">Teljes kapacitás, vagy 0, ha ismeretlen.</param>
 /// <param name="FreeBytes">Szabad hely, vagy 0, ha ismeretlen.</param>
 /// <param name="DriveType">A meghajtó típusa (fix, cserélhető, hálózati…).</param>
+/// <param name="IsCloudSync">
+/// Igaz, ha a betűjelet egy felhőszinkron-kliens csatolta virtuális
+/// meghajtóként (pl. Google Drive for desktop) — lásd <see cref="DriveEnumerator.IsCloudSyncLabel"/>.
+/// </param>
 public sealed record DriveEntry(
     FileSystemItem Item,
     string Label,
     long TotalBytes,
     long FreeBytes,
-    DriveType DriveType)
+    DriveType DriveType,
+    bool IsCloudSync = false)
 {
     /// <summary>A kihasználtság 0 és 1 között, a sávdiagramhoz.</summary>
     public double UsedFraction => TotalBytes > 0
@@ -58,7 +63,8 @@ public static class DriveEnumerator
                     label,
                     ready ? drive.TotalSize : 0,
                     ready ? drive.AvailableFreeSpace : 0,
-                    drive.DriveType));
+                    drive.DriveType,
+                    ready && IsCloudSyncLabel(drive.VolumeLabel)));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -68,4 +74,19 @@ public static class DriveEnumerator
 
         return results;
     }
+
+    /// <summary>
+    /// Felhőszinkron-kliens virtuális meghajtója-e a kötetcímke alapján.
+    /// </summary>
+    /// <remarks>
+    /// A Google Drive for desktop a Windows felé egy sima, FIX (FAT32)
+    /// meghajtót mutat — sem a típusa, sem a fájlrendszere nem árulja el, hogy
+    /// valójában felhőtárhely; egyedül a kötetcímkéje ("Google Drive")
+    /// megbízható jel. Új szolgáltatás felvételéhez elég ezt a listát bővíteni.
+    /// </remarks>
+    public static bool IsCloudSyncLabel(string? volumeLabel) =>
+        volumeLabel is { Length: > 0 }
+        && CloudSyncLabels.Any(prefix => volumeLabel.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+    private static readonly string[] CloudSyncLabels = ["Google Drive"];
 }

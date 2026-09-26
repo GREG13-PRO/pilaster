@@ -98,8 +98,6 @@ public sealed partial class QuickAccessEditorViewModel : ObservableObject
     {
         _quickAccess = quickAccess;
         Rows = [.. quickAccess.Pinned.Select(e => new QuickAccessRowViewModel(e))];
-        RecentEnabled = quickAccess.RecentEnabled;
-        RecentLimit = quickAccess.RecentLimit;
     }
 
     public ObservableCollection<QuickAccessRowViewModel> Rows { get; }
@@ -121,12 +119,6 @@ public sealed partial class QuickAccessEditorViewModel : ObservableObject
 
     [ObservableProperty]
     public partial QuickAccessRowViewModel? SelectedRow { get; set; }
-
-    [ObservableProperty]
-    public partial bool RecentEnabled { get; set; }
-
-    [ObservableProperty]
-    public partial int RecentLimit { get; set; }
 
     /// <summary>Visszajelzés az import/export eredményéről; <c>null</c>, ha nincs mondanivaló.</summary>
     [ObservableProperty]
@@ -312,8 +304,6 @@ public sealed partial class QuickAccessEditorViewModel : ObservableObject
     private void Save()
     {
         _quickAccess.ReplacePinned(Rows.Select(r => r.ToEntry()));
-        _quickAccess.RecentEnabled = RecentEnabled;
-        _quickAccess.RecentLimit = RecentLimit;
         _quickAccess.Flush();
 
         CloseRequested?.Invoke(this, true);
@@ -322,13 +312,6 @@ public sealed partial class QuickAccessEditorViewModel : ObservableObject
     /// <summary>„Mégse" — a szerkesztés MÁSOLATOKON folyt, ezért itt tényleg nincs mit visszavonni.</summary>
     [RelayCommand]
     private void Cancel() => CloseRequested?.Invoke(this, false);
-
-    [RelayCommand]
-    private void ClearRecent()
-    {
-        _quickAccess.ClearRecent();
-        StatusMessage = TranslationSource.Instance["QuickAccess_RecentCleared"];
-    }
 
     /// <summary>Ikonnév feloldása a nézet számára; ismeretlen névnél általános mappaikon.</summary>
     public static SymbolRegular ParseIcon(string name) =>

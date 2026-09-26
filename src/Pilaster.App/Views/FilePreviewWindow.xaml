@@ -13,7 +13,7 @@
     Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
     ExtendsContentIntoTitleBar="True"
     PreviewKeyDown="OnPreviewKeyDown"
-    WindowBackdropType="Mica"
+    WindowBackdropType="{DynamicResource PilasterWindowBackdrop}"
     WindowCornerPreference="Round"
     WindowStartupLocation="CenterOwner">
 

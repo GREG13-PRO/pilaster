@@ -2,6 +2,59 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### New
+
+- **Tabs in the title bar**, Windows 11 Explorer style: always visible in the
+  single-pane view, with a close button, middle-click to close and a "+"
+  button for a new tab.
+- **Recursive search** — the search box now searches the current folder and
+  all of its subfolders; results stream in and show where each one is.
+- **New Pilaster context menu**: a header with the file's icon or rounded
+  thumbnail, name, size and date; an icon bar (cut, copy, rename, favorite,
+  delete); clickable tag chips; a short list below. Groups ("More options",
+  "Other apps", 7-Zip …) expand in place instead of opening sub-menus.
+- **Copy / cut / paste feedback**: a small notification at the bottom of the
+  file area.
+- **Drag files onto sidebar folders** (Documents, drives, cloud drives) to
+  copy or move them there; onto the Recycle Bin to delete.
+- **Context menu in Pilaster Editor** (undo, redo, cut, copy, paste, delete,
+  select all).
+- **Extra columns**: "Date created" and "Date accessed" (Settings → File
+  list), both sortable. The "Folders first" setting now actually works.
+- **Dual-pane view**: command bar with copy/move to the other pane, delete,
+  sync and swap; Enter, Backspace, Alt+F1/F2, Ctrl+←/→, Num+/Num−, Shift+F4,
+  Shift+F6 and F9; clipboard shortcuts work inside the panes.
+- **Performance mode** — one switch in Settings, and an installer option for
+  slower PCs (animations, glass effect and menu preloading off).
+- Glass effect strength slider; proper on/off.
+- Single instance: opening Pilaster again brings the running window forward.
+- OneDrive, Dropbox, Nextcloud and other sync clients appear under cloud
+  drives.
+
+### Changed
+
+- "Sort" and "View" drop-downs replace the old "More" menu.
+- The "Recent" sidebar section was removed.
+- Smooth scrolling in the sidebar, file lists and Home; more animations
+  (tab switch, pane swap, dual-pane toggle, menus, windows, sidebar
+  selection). All of them follow the animation setting.
+- The activity panel sits inside the file area, is clearly visible in both
+  themes and closes itself shortly after an operation finishes.
+- The context menu opens faster: it is prepared while the pointer rests on
+  an item.
+
+### Fixed
+
+- Sidebar drive icons were black in dark mode / invisible after a theme
+  switch.
+- Light theme with strong transparency looked grey and blotchy.
+- Dual-pane column headers were misaligned and the Home list overlapped them.
+- Tag color swatch was clipped in Settings; support e-mail link was
+  unreadable in dark mode.
+- Menus had square grey corners and double borders around sub-menus.
+- Discord bot: a second instance no longer logs in with the same token.
 ## v1.1.4 — 2026-09-05
 
 ### New — a completely custom installer

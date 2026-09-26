@@ -10,13 +10,16 @@ public enum SortKey
     Type,
     Modified,
     Created,
+    Accessed,
 }
 
 /// <summary>
-/// Fájllista-rendező. A mappák mindig a fájlok elé kerülnek — ez a Windows és
-/// a macOS közös konvenciója, és rendezési iránytól függetlenül érvényes.
+/// Fájllista-rendező. A mappák alapból a fájlok elé kerülnek — ez a Windows és
+/// a macOS közös konvenciója, és rendezési iránytól függetlenül érvényes. A
+/// „Mappák elöl" beállítás kikapcsolásával (<paramref name="foldersFirst"/>)
+/// a mappák és fájlok vegyesen, csak a szempont szerint rendeződnek.
 /// </summary>
-public sealed class FileSystemItemComparer(SortKey key, bool descending)
+public sealed class FileSystemItemComparer(SortKey key, bool descending, bool foldersFirst = true)
     : IComparer<FileSystemItem>
 {
     public int Compare(FileSystemItem? x, FileSystemItem? y)
@@ -42,7 +45,7 @@ public sealed class FileSystemItemComparer(SortKey key, bool descending)
         var xGroup = x.IsNavigable ? 0 : 1;
         var yGroup = y.IsNavigable ? 0 : 1;
 
-        if (xGroup != yGroup)
+        if (foldersFirst && xGroup != yGroup)
         {
             return xGroup - yGroup;
         }
@@ -53,6 +56,7 @@ public sealed class FileSystemItemComparer(SortKey key, bool descending)
             SortKey.Type => string.Compare(x.Extension, y.Extension, StringComparison.OrdinalIgnoreCase),
             SortKey.Modified => x.ModifiedUtc.CompareTo(y.ModifiedUtc),
             SortKey.Created => x.CreatedUtc.CompareTo(y.CreatedUtc),
+            SortKey.Accessed => x.AccessedUtc.CompareTo(y.AccessedUtc),
             _ => 0,
         };
 

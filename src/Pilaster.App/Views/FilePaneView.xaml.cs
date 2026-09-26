@@ -71,10 +71,11 @@ public partial class FilePaneView : UserControl
 
         var othersWidth = SizeColumn.ActualWidth + TypeColumn.ActualWidth + ModifiedColumn.ActualWidth;
 
-        // ~24 px a görgetősávnak és a sorok belső margójának — enélkül a Név
-        // oszlop pontosan a lista szélére érne, és a görgetősáv megjelenése
-        // vízszintes görgetést váltana ki.
-        NameColumn.Width = Math.Max(80, List.ActualWidth - othersWidth - 24);
+        // ~40 px a görgetősávnak és a sorok belső margójának (4+8 mindkét
+        // oldalon, plusz a cellák margója) — kevesebbel a sorok túllógtak a
+        // listán. A vízszintes görgetés ki van kapcsolva (XAML), így egy
+        // keskeny panelen legfeljebb a jobb szélső oszlop vágódik le.
+        NameColumn.Width = Math.Max(120, List.ActualWidth - othersWidth - 40);
     }
 
     /// <summary>A panel bármelyik pontjára kattintva jelez — a szülő ezzel dönti el, melyik panel az „aktív".</summary>
@@ -259,6 +260,38 @@ public partial class FilePaneView : UserControl
         if (List.SelectedItem is FileSystemItem item)
         {
             await OpenItemAsync(item);
+        }
+    }
+
+    /// <summary>
+    /// Enter: a kurzor alatti elem megnyitása (mappába lépés / fájl a
+    /// társított programmal), Backspace: szülőmappa — mint az Intézőben és a
+    /// Total Commanderben. Korábban a panelekben csak a dupla kattintás élt.
+    /// </summary>
+    private async void OnListPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.OriginalSource is System.Windows.Controls.TextBox || Keyboard.Modifiers != ModifierKeys.None)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                var item = (Keyboard.FocusedElement as FrameworkElement)?.DataContext as FileSystemItem ?? List.SelectedItem as FileSystemItem;
+
+                if (item is not null)
+                {
+                    e.Handled = true;
+                    await OpenItemAsync(item);
+                }
+
+                break;
+
+            case Key.Back when Tab is { CanGoUp: true } tab:
+                e.Handled = true;
+                await tab.GoUpCommand.ExecuteAsync(null);
+                break;
         }
     }
 

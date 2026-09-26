@@ -177,30 +177,7 @@ public sealed class QuickAccessServiceTests : IDisposable
         Assert.DoesNotContain(service.Pinned, e => e.Path == @"C:\Regi");
     }
 
-    [Fact]
-    public void RecordRecent_LegfrissebbElolEsLimitreVag()
-    {
-        using var service = Create();
-        service.ReplacePinned([]);
-        service.RecentLimit = 2;
 
-        service.RecordRecent(@"C:\A");
-        service.RecordRecent(@"C:\B");
-        service.RecordRecent(@"C:\C");
-
-        Assert.Equal([@"C:\C", @"C:\B"], service.Recent.Select(e => e.Path));
-    }
-
-    [Fact]
-    public void RecordRecent_MarRogzitettMappatNemVeszFel()
-    {
-        using var service = Create();
-        service.Pin(@"C:\Munka");
-
-        service.RecordRecent(@"C:\Munka");
-
-        Assert.Empty(service.Recent);
-    }
 
     [Fact]
     public void ExportImport_KorbeMegyEsMegorziASorrendet()

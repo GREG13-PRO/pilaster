@@ -82,10 +82,4 @@ public sealed class QuickAccessDocument
     public const int CurrentVersion = 1;
 
     public List<QuickAccessEntry> Entries { get; set; } = [];
-
-    /// <summary>Karbantartja-e a program a „Legutóbbi" szekciót.</summary>
-    public bool RecentEnabled { get; set; } = true;
-
-    /// <summary>Hány elem maradjon meg a „Legutóbbi" szekcióban.</summary>
-    public int RecentLimit { get; set; } = 8;
 }

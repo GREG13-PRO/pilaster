@@ -17,7 +17,7 @@
     mc:Ignorable="d"
     Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica"
+    WindowBackdropType="{DynamicResource PilasterWindowBackdrop}"
     WindowCornerPreference="Round"
     WindowStartupLocation="CenterOwner">
 
@@ -94,7 +94,7 @@
                                     Grid.Column="0"
                                     Grid.ColumnSpan="3"
                                     Visibility="{Binding IsSeparator, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
                                         <ui:SymbolIcon
                                             Margin="0,0,10,0"
                                             VerticalAlignment="Center"
@@ -237,6 +237,8 @@
                                     Margin="0,0,6,6"
                                     Padding="4"
                                     Appearance="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="0"
                                     Click="OnColorSwatchClick"
                                     Tag="{Binding}">
                                     <Border
@@ -263,39 +265,12 @@
             </ScrollViewer>
         </Grid>
 
-        <!--  Alsó sáv: Legutóbbi beállításai + Import/Export + Mentés/Mégse  -->
+        <!--  Alsó sáv: Import/Export + Mentés/Mégse  -->
         <Border
             Grid.Row="2"
             Margin="18,12,18,16"
             Padding="0">
             <StackPanel>
-                <Border
-                    Padding="14,10"
-                    Background="{DynamicResource TokenBgSurface}"
-                    BorderBrush="{DynamicResource TokenBorder}"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox
-                            VerticalAlignment="Center"
-                            Content="{loc:Loc QuickAccess_RecentEnabled}"
-                            IsChecked="{Binding RecentEnabled, Mode=TwoWay}" />
-                        <TextBlock
-                            Margin="18,0,6,0"
-                            VerticalAlignment="Center"
-                            Text="{loc:Loc QuickAccess_RecentLimit}" />
-                        <ui:NumberBox
-                            Width="90"
-                            VerticalAlignment="Center"
-                            Maximum="40"
-                            Minimum="1"
-                            Value="{Binding RecentLimit, Mode=TwoWay}" />
-                        <ui:Button
-                            Margin="18,0,0,0"
-                            Command="{Binding ClearRecentCommand}"
-                            Content="{loc:Loc QuickAccess_ClearRecent}" />
-                    </StackPanel>
-                </Border>
 
                 <TextBlock
                     Margin="2,8,0,0"

@@ -138,26 +138,38 @@ public sealed class JsonSettingsService : ISettingsService, IDisposable
 
     private AppSettings Load()
     {
-        try
+        if (!File.Exists(_filePath))
         {
-            if (!File.Exists(_filePath))
+            return new AppSettings();
+        }
+
+        // Induláskor egy víruskereső vagy szinkronkliens rövid ideig zárolhatja
+        // a fájlt — egy ilyen átmeneti hiba korábban alapértékekre állította
+        // az ÖSSZES beállítást, amit a következő mentés véglegesített.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
             {
+                var json = File.ReadAllText(_filePath);
+                var loaded = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.AppSettings) ?? new AppSettings();
+
+                // Séma-migrációk. Idempotensek: mindegyik felismeri, ha már lefutott.
+                loaded.MigrateKeymap();
+
+                return loaded;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                Thread.Sleep(100);
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+            {
+                // Sérült vagy olvashatatlan fájl: alapértékekkel indulunk, nem
+                // hibaüzenettel — de az eredetit félretesszük, mert a következő
+                // mentés felülírná, és vele a felhasználó összes beállítását.
+                CorruptFileBackup.Preserve(_filePath);
                 return new AppSettings();
             }
-
-            var json = File.ReadAllText(_filePath);
-            var loaded = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.AppSettings) ?? new AppSettings();
-
-            // Séma-migrációk. Idempotensek: mindegyik felismeri, ha már lefutott.
-            loaded.MigrateKeymap();
-
-            return loaded;
-        }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
-        {
-            // Sérült vagy olvashatatlan fájl: alapértékekkel indulunk, nem
-            // hibaüzenettel. A következő mentés úgyis felülírja.
-            return new AppSettings();
         }
     }
 

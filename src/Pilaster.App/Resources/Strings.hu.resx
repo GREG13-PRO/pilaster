@@ -59,9 +59,6 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
 
-  <data name="App_Name" xml:space="preserve">
-    <value>Pilaster</value>
-  </data>
 
   <data name="Nav_QuickAccess" xml:space="preserve">
     <value>Gyors elérés</value>
@@ -132,9 +129,6 @@
   <data name="CloudDrive_Connect" xml:space="preserve">
     <value>Kapcsolódás</value>
   </data>
-  <data name="CloudDrive_Connecting" xml:space="preserve">
-    <value>Kapcsolódás…</value>
-  </data>
   <data name="CloudDrive_ConnectFailed" xml:space="preserve">
     <value>Nem sikerült kapcsolódni — ellenőrizd a szervercímet és a hitelesítő adatokat.</value>
   </data>
@@ -188,17 +182,8 @@
   <data name="View_Grid" xml:space="preserve">
     <value>Ikonok</value>
   </data>
-  <data name="View_Tiles" xml:space="preserve">
-    <value>Csempék</value>
-  </data>
   <data name="View_Columns" xml:space="preserve">
     <value>Oszlopok</value>
-  </data>
-  <data name="View_Gallery" xml:space="preserve">
-    <value>Galéria</value>
-  </data>
-  <data name="View_Tree" xml:space="preserve">
-    <value>Fa</value>
   </data>
 
   <data name="Col_Name" xml:space="preserve">
@@ -232,7 +217,7 @@
   </data>
 
   <data name="Search_Placeholder" xml:space="preserve">
-    <value>Keresés ebben a mappában…</value>
+    <value>Keresés (almappákban is)…</value>
   </data>
 
   <data name="Status_Items" xml:space="preserve">
@@ -299,9 +284,6 @@
     <value>Váltás világos / sötét között</value>
   </data>
 
-  <data name="Settings_Appearance" xml:space="preserve">
-    <value>Megjelenés</value>
-  </data>
   <data name="Settings_ThemeHint" xml:space="preserve">
     <value>A rendszerbeállítás követése esetén a Windows váltásakor magától átvált.</value>
   </data>
@@ -392,8 +374,11 @@
   <data name="Settings_LiquidGlass" xml:space="preserve">
     <value>Áttetsző hatás</value>
   </data>
+  <data name="Settings_GlassIntensity" xml:space="preserve">
+    <value>Erősség</value>
+  </data>
   <data name="Settings_LiquidGlassHint" xml:space="preserve">
-    <value>Üveges, áttetsző oldalsáv, felső sáv, menük és Beállítások panel a Mica háttér felett. Gyengébb gépeken kikapcsolható.</value>
+    <value>Valódi, üveges áttetszőség: az ablak mögötti tartalom elmosódva átlátszik az oldalsávon, a felső sávon és a fájllistán. Az erősséggel állítható, mennyire. Kikapcsolva minden átlátszatlan.</value>
   </data>
   <data name="Settings_TagsHint" xml:space="preserve">
     <value>Fájlokhoz és mappákhoz rendelhető színes címkék — a fájlsoron megjelenő címke-ikonnal adhatók hozzá. Itt hozhatók létre, nevezhetők át és törölhetők.</value>
@@ -452,9 +437,6 @@
     <value>Már van ilyen nevű elem itt</value>
   </data>
 
-  <data name="Cmd_More" xml:space="preserve">
-    <value>Több</value>
-  </data>
 
   <data name="Settings_BugReport" xml:space="preserve">
     <value>Hibabejelentés</value>
@@ -527,35 +509,8 @@
   <data name="Cmd_Cut" xml:space="preserve">
     <value>Kivágás</value>
   </data>
-  <data name="Cmd_DeletePermanentlyShort" xml:space="preserve">
-    <value>Végleges törlés</value>
-  </data>
-  <data name="FileOps_Copying" xml:space="preserve">
-    <value>Másolás</value>
-  </data>
-  <data name="FileOps_Moving" xml:space="preserve">
-    <value>Áthelyezés</value>
-  </data>
-  <data name="FileOps_Deleting" xml:space="preserve">
-    <value>Törlés</value>
-  </data>
-  <data name="FileOps_Completed" xml:space="preserve">
-    <value>Kész</value>
-  </data>
-  <data name="FileOps_CompletedWithErrors" xml:space="preserve">
-    <value>Kész, hibákkal</value>
-  </data>
-  <data name="FileOps_Cancelled" xml:space="preserve">
-    <value>Megszakítva</value>
-  </data>
-  <data name="FileOps_Paused" xml:space="preserve">
-    <value>Szüneteltetve</value>
-  </data>
   <data name="FileOps_ConflictTitle" xml:space="preserve">
     <value>Már létezik egy elem ezzel a névvel</value>
-  </data>
-  <data name="FileOps_ConflictSource" xml:space="preserve">
-    <value>Másolandó</value>
   </data>
   <data name="FileOps_ConflictDestination" xml:space="preserve">
     <value>Már itt van</value>
@@ -571,9 +526,6 @@
   </data>
   <data name="FileOps_ApplyToAll" xml:space="preserve">
     <value>Alkalmazás az összesre</value>
-  </data>
-  <data name="FileOps_ClearCompleted" xml:space="preserve">
-    <value>Befejezettek törlése</value>
   </data>
   <data name="FileOps_ActivityCenter" xml:space="preserve">
     <value>Aktivitás</value>
@@ -602,9 +554,6 @@
 
   <data name="Paste_NoFiles" xml:space="preserve">
     <value>A vágólapon nincsenek fájlok.</value>
-  </data>
-  <data name="Paste_Failed" xml:space="preserve">
-    <value>Néhány elem beillesztése nem sikerült.</value>
   </data>
 
   <data name="Settings_Updates" xml:space="preserve">
@@ -669,9 +618,6 @@
   <data name="RecycleBin_EmptyState" xml:space="preserve">
     <value>A Lomtár üres</value>
   </data>
-  <data name="RecycleBin_OriginalLocation" xml:space="preserve">
-    <value>Eredeti hely</value>
-  </data>
   <data name="Cmd_Restore" xml:space="preserve">
     <value>Visszaállítás</value>
   </data>
@@ -698,6 +644,15 @@
   </data>
   <data name="RecycleBin_EmptyFailed" xml:space="preserve">
     <value>Nem sikerült üríteni a Lomtárat</value>
+  </data>
+  <data name="FileOp_SourceMissing" xml:space="preserve">
+    <value>a forrás már nem létezik</value>
+  </data>
+  <data name="FileOp_IntoItself" xml:space="preserve">
+    <value>egy mappa nem másolható vagy helyezhető át önmagába</value>
+  </data>
+  <data name="FileOp_SourceDeleteFailed" xml:space="preserve">
+    <value>átmásolva, de az eredetit nem sikerült törölni ({0})</value>
   </data>
 
   <data name="Cmd_Cancel" xml:space="preserve">
@@ -763,17 +718,11 @@
   <data name="Settings_RestoreSessionHint" xml:space="preserve">
     <value>Kilépéskor mindkét panel összes füle mentődik, és induláskor visszaáll.</value>
   </data>
-  <data name="Cmd_PaneLayout" xml:space="preserve">
-    <value>Elrendezés váltása</value>
-  </data>
   <data name="Settings_RestoreSession" xml:space="preserve">
     <value>Munkamenet visszaállítása</value>
   </data>
   <data name="Settings_DualPaneVertical" xml:space="preserve">
     <value>Vízszintes elrendezés (egymás alatt)</value>
-  </data>
-  <data name="Settings_Panes" xml:space="preserve">
-    <value>Panelek</value>
   </data>
   <data name="Cmd_SwapPanes" xml:space="preserve">
     <value>Panelek cseréje (Ctrl+U)</value>
@@ -808,9 +757,6 @@
   <data name="QuickAccess_ResetDefaults" xml:space="preserve">
     <value>Alapértelmezettek</value>
   </data>
-  <data name="QuickAccess_ClearRecent" xml:space="preserve">
-    <value>Legutóbbiak törlése</value>
-  </data>
   <data name="QuickAccess_ImportFailed" xml:space="preserve">
     <value>A fájl nem olvasható vagy nem érvényes.</value>
   </data>
@@ -832,12 +778,6 @@
   <data name="QuickAccess_AddFolder" xml:space="preserve">
     <value>Mappa hozzáadása</value>
   </data>
-  <data name="QuickAccess_RecentCleared" xml:space="preserve">
-    <value>A legutóbbi mappák törölve.</value>
-  </data>
-  <data name="QuickAccess_RecentEnabled" xml:space="preserve">
-    <value>Legutóbbi mappák gyűjtése</value>
-  </data>
   <data name="QuickAccess_EditTitle" xml:space="preserve">
     <value>Gyorselérés szerkesztése</value>
   </data>
@@ -853,17 +793,11 @@
   <data name="QuickAccess_ChangeIcon" xml:space="preserve">
     <value>Ikon módosítása</value>
   </data>
-  <data name="QuickAccess_RecentLimit" xml:space="preserve">
-    <value>Megjelenő elemek:</value>
-  </data>
   <data name="QuickAccess_Color" xml:space="preserve">
     <value>Szín</value>
   </data>
   <data name="QuickAccess_ImportDone" xml:space="preserve">
     <value>Az importálás sikerült.</value>
-  </data>
-  <data name="QuickAccess_Recent" xml:space="preserve">
-    <value>Legutóbbi</value>
   </data>
   <data name="QuickAccess_Rename" xml:space="preserve">
     <value>Átnevezés</value>
@@ -898,17 +832,11 @@
   <data name="Keymap_InvertSelectionHint" xml:space="preserve">
     <value>A kijelölt és nem kijelölt elemek helyet cserélnek.</value>
   </data>
-  <data name="Keymap_ColAction" xml:space="preserve">
-    <value>Művelet</value>
-  </data>
   <data name="Keymap_RefreshHint" xml:space="preserve">
     <value>Az aktív fül újratöltése.</value>
   </data>
   <data name="Keymap_ViewTable" xml:space="preserve">
     <value>Kiosztás megtekintése</value>
-  </data>
-  <data name="Keymap_ColKey" xml:space="preserve">
-    <value>Billentyű</value>
   </data>
   <data name="Keymap_ToggleMark" xml:space="preserve">
     <value>Kijelölés váltása</value>
@@ -948,9 +876,6 @@
   </data>
   <data name="Keymap_RightToLeftHint" xml:space="preserve">
     <value>A bal panel a jobb panel mappájára navigál.</value>
-  </data>
-  <data name="Keymap_HideTable" xml:space="preserve">
-    <value>Táblázat elrejtése</value>
   </data>
   <data name="Keymap_SwitchPane" xml:space="preserve">
     <value>Panelváltás</value>
@@ -1017,9 +942,6 @@
   </data>
   <data name="Keymap_LeftToRight" xml:space="preserve">
     <value>Bal útvonal a jobbra</value>
-  </data>
-  <data name="Keymap_ColDescription" xml:space="preserve">
-    <value>Leírás</value>
   </data>
   <data name="Keymap_NextTabHint" xml:space="preserve">
     <value>Körbeforgó fülváltás a panelen belül.</value>
@@ -1365,5 +1287,146 @@
   </data>
   <data name="Editor_LoadCancelled" xml:space="preserve">
     <value>A betöltés megszakítva.</value>
+  </data>
+  <data name="Col_Accessed" xml:space="preserve">
+    <value>Utolsó hozzáférés</value>
+  </data>
+  <data name="Sort_Ascending" xml:space="preserve">
+    <value>Növekvő</value>
+  </data>
+  <data name="Sort_Descending" xml:space="preserve">
+    <value>Csökkenő</value>
+  </data>
+  <data name="Cmd_ToggleDualPaneTooltip" xml:space="preserve">
+    <value>Két paneles nézet (F9)</value>
+  </data>
+  <data name="Cmd_Undo" xml:space="preserve">
+    <value>Visszavonás</value>
+  </data>
+  <data name="Cmd_Redo" xml:space="preserve">
+    <value>Újra</value>
+  </data>
+  <data name="Search_Running" xml:space="preserve">
+    <value>Keresés az almappákban is…</value>
+  </data>
+  <data name="Search_RunningCount" xml:space="preserve">
+    <value>Keresés… {0} találat eddig</value>
+  </data>
+  <data name="Search_Done" xml:space="preserve">
+    <value>{0} találat (almappákkal együtt)</value>
+  </data>
+  <data name="Search_DoneLimited" xml:space="preserve">
+    <value>Az első {0} találat — pontosítsd a keresést</value>
+  </data>
+  <data name="Search_NoResults" xml:space="preserve">
+    <value>Nincs találat ebben a mappában és az almappáiban.</value>
+  </data>
+  <data name="Settings_ExtraColumns" xml:space="preserve">
+    <value>Extra oszlopok</value>
+  </data>
+  <data name="Settings_ExtraColumnsHint" xml:space="preserve">
+    <value>További adatok a Részletes nézetben — az oszlopfejlécre kattintva ezek szerint is rendezhetsz.</value>
+  </data>
+  <data name="Mask_SelectTitle" xml:space="preserve">
+    <value>Csoport kijelölése</value>
+  </data>
+  <data name="Mask_UnselectTitle" xml:space="preserve">
+    <value>Csoport kijelölésének megszüntetése</value>
+  </data>
+  <data name="Mask_Hint" xml:space="preserve">
+    <value>Névminta, pl. *.jpg — több minta pontosvesszővel: *.jpg;*.png</value>
+  </data>
+  <data name="Keymap_ToggleDualPane" xml:space="preserve">
+    <value>Két paneles nézet</value>
+  </data>
+  <data name="Keymap_ToggleDualPaneHint" xml:space="preserve">
+    <value>Két paneles nézet be- és kikapcsolása</value>
+  </data>
+  <data name="Keymap_OpenItem" xml:space="preserve">
+    <value>Megnyitás</value>
+  </data>
+  <data name="Keymap_OpenItemHint" xml:space="preserve">
+    <value>A kurzor alatti mappa vagy fájl megnyitása</value>
+  </data>
+  <data name="Keymap_DriveMenu" xml:space="preserve">
+    <value>Meghajtóválasztó</value>
+  </data>
+  <data name="Keymap_DriveMenuHint" xml:space="preserve">
+    <value>Meghajtó választása a bal / jobb panelhez (két paneles nézet)</value>
+  </data>
+  <data name="Keymap_OpenInPane" xml:space="preserve">
+    <value>Megnyitás a bal / jobb panelen</value>
+  </data>
+  <data name="Keymap_OpenInPaneHint" xml:space="preserve">
+    <value>A kurzor alatti mappa megnyitása a bal / jobb panelen (két paneles nézet)</value>
+  </data>
+  <data name="Keymap_SelectMaskHint" xml:space="preserve">
+    <value>Kijelölés névmintával, pl. *.jpg</value>
+  </data>
+  <data name="Keymap_UnselectMaskHint" xml:space="preserve">
+    <value>Kijelölés megszüntetése névmintával</value>
+  </data>
+  <data name="Keymap_NewFileHint" xml:space="preserve">
+    <value>Új szövegfájl az aktív panelen</value>
+  </data>
+  <data name="ContextMenu_NoOtherApps" xml:space="preserve">
+    <value>Nincs további alkalmazás</value>
+  </data>
+  <data name="Settings_PerformanceMode" xml:space="preserve">
+    <value>Teljesítmény mód</value>
+  </data>
+  <data name="Settings_PerformanceModeHint" xml:space="preserve">
+    <value>Gyengébb géphez: kikapcsolja az animációkat, az üveghatást és a jobbklikk-menü előtöltését. Bármikor visszakapcsolhatók egyenként.</value>
+  </data>
+  <data name="Settings_PerformanceModeApply" xml:space="preserve">
+    <value>Bekapcsolás</value>
+  </data>
+  <data name="Cmd_NewTabTooltip" xml:space="preserve">
+    <value>Új lap (Ctrl+T)</value>
+  </data>
+  <data name="Dual_Copy" xml:space="preserve">
+    <value>Másolás</value>
+  </data>
+  <data name="Dual_CopyTooltip" xml:space="preserve">
+    <value>Kijelöltek másolása a másik panelre (F5)</value>
+  </data>
+  <data name="Dual_Move" xml:space="preserve">
+    <value>Áthelyezés</value>
+  </data>
+  <data name="Dual_MoveTooltip" xml:space="preserve">
+    <value>Kijelöltek áthelyezése a másik panelre (F6)</value>
+  </data>
+  <data name="Dual_DeleteTooltip" xml:space="preserve">
+    <value>Kijelöltek törlése (F8)</value>
+  </data>
+  <data name="ContextMenu_ItemsSelected" xml:space="preserve">
+    <value>{0} elem kijelölve</value>
+  </data>
+  <data name="ContextMenu_TagChipHint" xml:space="preserve">
+    <value>Kattints a címke hozzáadásához vagy eltávolításához</value>
+  </data>
+  <data name="ContextMenu_MoreOptions" xml:space="preserve">
+    <value>További lehetőségek</value>
+  </data>
+  <data name="Toast_OneItem" xml:space="preserve">
+    <value>„{0}”</value>
+  </data>
+  <data name="Toast_ManyItems" xml:space="preserve">
+    <value>{0} elem</value>
+  </data>
+  <data name="Toast_Copied" xml:space="preserve">
+    <value>{0} a vágólapra másolva</value>
+  </data>
+  <data name="Toast_Cut" xml:space="preserve">
+    <value>{0} kivágva — illeszd be a célhelyen</value>
+  </data>
+  <data name="Toast_Pasting" xml:space="preserve">
+    <value>{0} beillesztése ide: {1}</value>
+  </data>
+  <data name="Toast_Moving" xml:space="preserve">
+    <value>{0} áthelyezése ide: {1}</value>
+  </data>
+  <data name="Toast_TextCopied" xml:space="preserve">
+    <value>Vágólapra másolva</value>
   </data>
 </root>

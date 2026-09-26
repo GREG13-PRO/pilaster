@@ -35,7 +35,7 @@ public partial class EditorWindow : FluentWindow
     private readonly ISettingsService _settings;
     private EditorDocumentViewModel? _boundDocument;
 
-    public EditorWindow(EditorViewModel viewModel, ISettingsService settings)
+    public EditorWindow(EditorViewModel viewModel, ISettingsService settings, GlassEffectService glass)
     {
         _viewModel = viewModel;
         _settings = settings;
@@ -45,6 +45,7 @@ public partial class EditorWindow : FluentWindow
 
         SearchPanel.Install(Editor);
         ApplyEditorOptions();
+        Editor.TextArea.ContextMenu = BuildEditorContextMenu(glass);
 
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -67,6 +68,45 @@ public partial class EditorWindow : FluentWindow
         BindActiveDocument();
     }
 
+
+    /// <summary>
+    /// Jobbklikk-menü a szövegterületen: visszavonás/újra, kivágás, másolás,
+    /// beillesztés, törlés, összes kijelölése. Az AvalonEdit maga nem szállít
+    /// menüt, így korábban a jobb gomb semmit nem csinált.
+    /// </summary>
+    /// <remarks>
+    /// Az elemek a beépített <see cref="ApplicationCommands"/> parancsokra
+    /// kötődnek a <c>TextArea</c> célponttal — az AvalonEdit ezekhez saját
+    /// CommandBindingot ad, így a szürkítés (nincs kijelölés, üres vágólap,
+    /// nincs mit visszavonni) magától működik.
+    /// </remarks>
+    private System.Windows.Controls.ContextMenu BuildEditorContextMenu(GlassEffectService glass)
+    {
+        var strings = TranslationSource.Instance;
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        MenuItem Item(ICommand command, string labelKey, SymbolRegular icon, string gesture) => new()
+        {
+            Command = command,
+            CommandTarget = Editor.TextArea,
+            Header = strings[labelKey],
+            InputGestureText = gesture,
+            Icon = new SymbolIcon { Symbol = icon, FontSize = 15 },
+        };
+
+        menu.Items.Add(Item(ApplicationCommands.Undo, "Cmd_Undo", SymbolRegular.ArrowUndo24, "Ctrl+Z"));
+        menu.Items.Add(Item(ApplicationCommands.Redo, "Cmd_Redo", SymbolRegular.ArrowRedo24, "Ctrl+Y"));
+        menu.Items.Add(new System.Windows.Controls.Separator());
+        menu.Items.Add(Item(ApplicationCommands.Cut, "Cmd_Cut", SymbolRegular.Cut24, "Ctrl+X"));
+        menu.Items.Add(Item(ApplicationCommands.Copy, "Cmd_Copy", SymbolRegular.Copy24, "Ctrl+C"));
+        menu.Items.Add(Item(ApplicationCommands.Paste, "Cmd_Paste", SymbolRegular.ClipboardPaste24, "Ctrl+V"));
+        menu.Items.Add(Item(ApplicationCommands.Delete, "Cmd_Delete", SymbolRegular.Delete24, "Del"));
+        menu.Items.Add(new System.Windows.Controls.Separator());
+        menu.Items.Add(Item(ApplicationCommands.SelectAll, "Keymap_SelectAll", SymbolRegular.SelectAllOn24, "Ctrl+A"));
+
+        menu.Opened += (_, _) => glass.ApplyToContextMenu(menu);
+        return menu;
+    }
 
     private void ApplyEditorOptions()
     {
@@ -227,7 +267,7 @@ public partial class EditorWindow : FluentWindow
             ResizeMode = ResizeMode.NoResize,
             Owner = this,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            WindowBackdropType = WindowBackdropType.Mica,
+            WindowBackdropType = Services.GlassEffectService.CurrentBackdrop,
             Content = panel,
         };
 

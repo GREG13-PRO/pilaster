@@ -166,4 +166,27 @@ public class FileSystemItemComparerTests
 
         Assert.Equal(["kicsi", "nagy"], items.Select(i => i.Name));
     }
+
+    /// <summary>A „Mappák elöl" kikapcsolva: mappák és fájlok vegyesen, csak név szerint.</summary>
+    [Fact]
+    public void MappakElolKikapcsolva_VegyesRendezes()
+    {
+        var items = new List<FileSystemItem> { Folder("b"), File("a.txt"), File("c.txt") };
+        items.Sort(new FileSystemItemComparer(SortKey.Name, descending: false, foldersFirst: false));
+
+        Assert.Equal(["a.txt", "b", "c.txt"], items.Select(i => i.Name));
+    }
+
+    [Fact]
+    public void HozzaferesSzerintiRendezes()
+    {
+        var items = new List<FileSystemItem>
+        {
+            new() { FullPath = @"C:\uj", Name = "uj", Kind = FileSystemItemKind.File, AccessedUtc = new DateTime(2026, 1, 2) },
+            new() { FullPath = @"C:\regi", Name = "regi", Kind = FileSystemItemKind.File, AccessedUtc = new DateTime(2025, 1, 2) },
+        };
+        items.Sort(new FileSystemItemComparer(SortKey.Accessed, descending: false));
+
+        Assert.Equal(["regi", "uj"], items.Select(i => i.Name));
+    }
 }

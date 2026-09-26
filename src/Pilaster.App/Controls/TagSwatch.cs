@@ -7,8 +7,8 @@ using Pilaster.Core.Metadata;
 namespace Pilaster.App.Controls;
 
 /// <summary>
-/// Egy címke színmintája: lekerekített négyzet a címke SAJÁT színével
-/// kitöltve, mindig látható szegéllyel.
+/// Egy címke színmintája: kör a címke SAJÁT színével kitöltve, mindig
+/// látható szegéllyel.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -43,7 +43,7 @@ public sealed class TagSwatch : Border
     {
         Width = 14;
         Height = 14;
-        CornerRadius = new CornerRadius(4);
+        CornerRadius = new CornerRadius(7);
         BorderThickness = new Thickness(1);
         SnapsToDevicePixels = true;
 
@@ -63,6 +63,13 @@ public sealed class TagSwatch : Border
     {
         get => (string?)GetValue(ColorHexProperty);
         set => SetValue(ColorHexProperty, value);
+    }
+
+    /// <summary>Mindig kör, bármekkora méretben is használják (14–24 DIP).</summary>
+    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+    {
+        base.OnRenderSizeChanged(sizeInfo);
+        CornerRadius = new CornerRadius(Math.Min(ActualWidth, ActualHeight) / 2);
     }
 
     private static void OnColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>

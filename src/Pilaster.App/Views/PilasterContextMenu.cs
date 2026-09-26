@@ -34,13 +34,32 @@ public sealed record PilasterMenuEntry(
     Action? Action = null,
     bool IsEnabled = true,
     IReadOnlyList<PilasterMenuEntry>? SubItems = null,
-    bool IsVisible = true)
+    bool IsVisible = true,
+    string? Gesture = null,
+    bool IsDefault = false)
 {
     /// <summary>Elválasztó — a <see cref="LabelKey"/> üres.</summary>
     public static PilasterMenuEntry Separator { get; } = new(string.Empty, SymbolRegular.Empty);
 
     public bool IsSeparator => LabelKey.Length == 0;
 }
+
+/// <summary>Egy gomb a menü tetején lévő ikonsorban (Kivágás, Másolás, Átnevezés …).</summary>
+public sealed record PilasterQuickAction(string LabelKey, SymbolRegular Icon, Action Action, bool IsEnabled = true, bool IsActive = false);
+
+/// <summary>Egy kattintható címke-chip: <see cref="IsOn"/>, ha minden kijelölt elemen rajta van.</summary>
+public sealed record PilasterTagChip(Pilaster.Core.Metadata.TagDefinition Tag, bool IsOn, Action<bool> Toggle);
+
+/// <summary>
+/// A menü fejléce: a kijelölt elem(ek) adatai (ikon, név, méret, dátum —
+/// több elemnél darabszám és összméret), az ikonsor és a címke-chipek.
+/// </summary>
+public sealed record PilasterMenuHeader(
+    IReadOnlyList<Pilaster.Core.FileSystem.FileSystemItem> Items,
+    string Title,
+    string Detail,
+    IReadOnlyList<PilasterQuickAction> Actions,
+    IReadOnlyList<PilasterTagChip> Tags);
 
 /// <summary>
 /// A Pilaster saját jobbklikk-menüje: teljes egészében a mi designunk
@@ -62,7 +81,7 @@ public sealed record PilasterMenuEntry(
 /// </remarks>
 public sealed class PilasterContextMenu
 {
-    private readonly ContextMenu _menu = new();
+    private readonly ContextMenu _menu = new() { Name = AnimationService.SelfAnimatedMenuName };
     private readonly Wpf.Ui.Controls.TextBox _searchBox;
     private readonly AnimationService _animations;
     private ShellMenuSession? _session;
@@ -161,27 +180,6 @@ public sealed class PilasterContextMenu
         AnimateEntrance(border);
     }
 
-    /// <summary>Ugyanaz az animáció egy almenü gyökér-Bordere alatt (spec A1, v1.0.2).</summary>
-    private void OnSubmenuOpened(object sender, RoutedEventArgs e)
-    {
-        if (!_animations.AreAnimationsEnabled || sender is not MenuItem item)
-        {
-            return;
-        }
-
-        item.ApplyTemplate();
-
-        // "SubmenuBorder" a WPF-UI MenuItem-sablonjának névadása (4.3.0) — ha
-        // egy jövőbeli verzió átnevezné, a FindName egyszerűen null-t ad, az
-        // almenü animáció nélkül, de HIBA nélkül nyílik.
-        if (item.Template.FindName("SubmenuBorder", item) is not Border border)
-        {
-            return;
-        }
-
-        AnimateEntrance(border);
-    }
-
     private void AnimateEntrance(Border border)
     {
         var duration = TimeSpan.FromMilliseconds(
@@ -216,12 +214,19 @@ public sealed class PilasterContextMenu
         Func<TimeSpan, IReadOnlyCollection<string>, Task<ShellMenuSession?>>? shellQuery,
         Core.Settings.AppSettings settings,
         string? shellTarget = null,
-        string shellKind = "items")
+        string shellKind = "items",
+        PilasterMenuHeader? header = null,
+        IReadOnlyList<PilasterMenuEntry>? footer = null)
     {
         var glass = (GlassEffectService)services.GetService(typeof(GlassEffectService))!;
         var animations = (AnimationService)services.GetService(typeof(AnimationService))!;
         var guard = (ShellCrashGuard)services.GetService(typeof(ShellCrashGuard))!;
         var menu = new PilasterContextMenu(glass, animations) { _guard = guard, _shellTarget = shellTarget, _shellKind = shellKind };
+
+        if (header is not null)
+        {
+            menu.BuildHeader(header);
+        }
 
         menu.BuildOwnItems(ownItems);
 
@@ -240,7 +245,19 @@ public sealed class PilasterContextMenu
             // Helyfoglaló, MIELŐTT a menü megnyílik: enélkül a menü
             // átméreteződne, amikor a shell elemek beérkeznek, és a kurzor
             // alatt elmozdulnának a saját elemek (spec K4).
-            menu.AddLoadingPlaceholder();
+            menu.AddLoadingPlaceholder(settings.ShellItemsInOwnSection);
+        }
+
+        if (footer is { Count: > 0 })
+        {
+            // A lábléc (pl. Tulajdonságok) a bővítmények ALATT, a menü végén.
+            menu._footerSeparator = new Separator();
+            menu._menu.Items.Add(menu._footerSeparator);
+
+            foreach (var item in menu.Convert(footer))
+            {
+                menu._menu.Items.Add(item);
+            }
         }
 
         menu._menu.PlacementTarget = placementTarget;
@@ -254,10 +271,36 @@ public sealed class PilasterContextMenu
         return menu;
     }
 
-    /// <summary>Szeparátor + alacsony kontrasztú „Betöltés…" sor, amíg a shell elemek jönnek.</summary>
-    private void AddLoadingPlaceholder()
+    /// <summary>
+    /// Helyfoglaló, amíg a shell elemek jönnek. Almenüs módban (alapértelmezés)
+    /// maga a VÉGLEGES „Egyéb alkalmazások ›" sor kerül be rögtön, egy
+    /// „Betöltés…" gyerekelemmel — a lekérdezés végén csak az almenü tartalma
+    /// cserélődik, a főmenü mérete és elrendezése NEM változik (korábban a
+    /// „Betöltés…" sor helyére került az almenü sora, és a menü ugrált).
+    /// </summary>
+    private void AddLoadingPlaceholder(bool ownSection)
     {
         _loadingSeparator = new Separator();
+
+        if (ownSection)
+        {
+            _shellGroup = CreateGroup(
+                TranslationSource.Instance["ContextMenu_OtherApps"],
+                new SymbolIcon { Symbol = SymbolRegular.Apps24, FontSize = 15 },
+                ShellGroupTag);
+            _shellPlaceholder = new MenuItem
+            {
+                Header = TranslationSource.Instance["ContextMenu_LoadingShell"],
+                IsEnabled = false,
+                Icon = new SymbolIcon { Symbol = SymbolRegular.Empty },
+            };
+
+            _menu.Items.Add(_loadingSeparator);
+            _menu.Items.Add(_shellGroup);
+            _menu.Items.Add(_shellPlaceholder);
+            RegisterChild(_shellGroup, _shellPlaceholder, 1);
+            return;
+        }
 
         _loadingItem = new MenuItem
         {
@@ -272,6 +315,117 @@ public sealed class PilasterContextMenu
 
     private Separator? _loadingSeparator;
     private MenuItem? _loadingItem;
+
+    /// <summary>Az „Egyéb alkalmazások ›" sor, ha almenüs módban már a betöltés előtt bekerült.</summary>
+    private MenuItem? _shellGroup;
+
+    /// <summary>A lábléc elválasztója — inline módban a shell-elemek ELÉ kerülnek.</summary>
+    private Separator? _footerSeparator;
+
+    /// <summary>„Betöltés…" sor az „Egyéb alkalmazások" csoport alatt, amíg a bővítmények jönnek.</summary>
+    private MenuItem? _shellPlaceholder;
+
+    // ---- Helyben lenyíló csoportok ----
+    // Almenük (külön felugró ablakok) helyett a csoportok („További
+    // lehetőségek", „Egyéb alkalmazások", 7-Zip …) a menün BELÜL nyílnak le
+    // kattintásra. A WPF almenüi rámutatásra késve vagy egyáltalán nem
+    // nyíltak, más színűek voltak, és elvett egérrel is nyitva maradtak
+    // (felhasználói hibajelentés) — a lenyíló sorokkal ez az egész
+    // hibaosztály megszűnik.
+    private readonly Dictionary<MenuItem, List<Control>> _groupChildren = [];
+    private readonly Dictionary<Control, MenuItem> _parentGroup = [];
+    private readonly HashSet<MenuItem> _expandedGroups = [];
+
+    private const string ChevronClosed = "▾";
+    private const string ChevronOpen = "▴";
+
+    private MenuItem CreateGroup(object header, object? icon, object? tag = null)
+    {
+        var group = new MenuItem
+        {
+            Header = header,
+            Icon = icon,
+            Tag = tag,
+            StaysOpenOnClick = true,
+            InputGestureText = ChevronClosed,
+        };
+
+        _groupChildren[group] = [];
+        group.Click += (_, _) => ToggleGroup(group);
+        return group;
+    }
+
+    private void RegisterChild(MenuItem group, Control child, int depth)
+    {
+        _groupChildren[group].Add(child);
+        _parentGroup[child] = group;
+        child.Margin = new Thickness(14 * depth, 0, 0, 0);
+        child.Visibility = IsOpenChain(group) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void UnregisterChild(Control child)
+    {
+        if (_parentGroup.Remove(child, out var group))
+        {
+            _groupChildren[group].Remove(child);
+        }
+
+        _menu.Items.Remove(child);
+    }
+
+    /// <summary>Igaz, ha a csoport és minden szülőcsoportja le van nyitva.</summary>
+    private bool IsOpenChain(MenuItem group) =>
+        _expandedGroups.Contains(group) && (!_parentGroup.TryGetValue(group, out var parent) || IsOpenChain(parent));
+
+    private void ToggleGroup(MenuItem group)
+    {
+        if (!_expandedGroups.Remove(group))
+        {
+            _expandedGroups.Add(group);
+        }
+
+        group.InputGestureText = _expandedGroups.Contains(group) ? ChevronOpen : ChevronClosed;
+        RefreshGroup(group, animate: true);
+    }
+
+    private void RefreshGroup(MenuItem group, bool animate)
+    {
+        var show = IsOpenChain(group);
+
+        foreach (var child in _groupChildren[group])
+        {
+            var wasVisible = child.Visibility == Visibility.Visible;
+            child.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+            if (show && !wasVisible && animate)
+            {
+                _animations.PlayEntrance(child, offsetY: -4, milliseconds: 170);
+            }
+
+            if (child is MenuItem nested && _groupChildren.ContainsKey(nested))
+            {
+                RefreshGroup(nested, animate);
+            }
+        }
+    }
+
+    /// <summary>A csoport utolsó (akár beágyazott) elemének indexe a menüben — ez után kerülnek az új elemei.</summary>
+    private int LastDescendantIndex(MenuItem group)
+    {
+        var index = _menu.Items.IndexOf(group);
+
+        foreach (var child in _groupChildren[group])
+        {
+            index = Math.Max(index, child is MenuItem nested && _groupChildren.ContainsKey(nested)
+                ? LastDescendantIndex(nested)
+                : _menu.Items.IndexOf(child));
+        }
+
+        return index;
+    }
+
+    /// <summary>A fejléc (fájladatok, ikonsor, címkék) tartója — a kereső nem rejti el.</summary>
+    private const string HeaderTag = "pilaster:header";
     private ShellCrashGuard? _guard;
     private string? _shellTarget;
     private string? _shellKind;
@@ -301,6 +455,26 @@ public sealed class PilasterContextMenu
     /// <summary>A helyfoglaló eltávolítása — a shell elemek helyére.</summary>
     private void RemoveLoadingPlaceholder()
     {
+        // Almenüs módban a sor MARAD (lásd AddLoadingPlaceholder) — ha nem jött
+        // semmi, szürkén jelzi, hogy nincs további alkalmazás.
+        if (_shellGroup is not null)
+        {
+            if (_shellPlaceholder is not null)
+            {
+                UnregisterChild(_shellPlaceholder);
+                _shellPlaceholder = null;
+            }
+
+            if (_groupChildren[_shellGroup].Count == 0)
+            {
+                _shellGroup.Header = TranslationSource.Instance["ContextMenu_NoOtherApps"];
+                _shellGroup.InputGestureText = string.Empty;
+                _shellGroup.IsEnabled = false;
+            }
+
+            return;
+        }
+
         if (_loadingItem is not null)
         {
             _menu.Items.Remove(_loadingItem);
@@ -312,6 +486,181 @@ public sealed class PilasterContextMenu
             _menu.Items.Remove(_loadingSeparator);
             _loadingSeparator = null;
         }
+    }
+
+    /// <summary>
+    /// Fejléc (A+C terv): a kijelölés adatai, az ikonsor és a címke-chipek.
+    /// Egy saját sablonú, nem kiemelhető <see cref="MenuItem"/> hordozza —
+    /// a menü minden nem-MenuItem elemét magától MenuItem-be csomagolná,
+    /// ami rámutatáskor kiemelné, kattintásra pedig bezárná a menüt.
+    /// </summary>
+    private void BuildHeader(PilasterMenuHeader header)
+    {
+        var root = new StackPanel { Margin = new Thickness(4, 4, 4, 2) };
+
+        // --- a kijelölés adatai ---
+        var info = new Grid { Margin = new Thickness(8, 6, 8, 8) };
+        info.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        info.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        // Képnél a kis előnézet sarkai lekerekítve — a szögletes bélyegkép
+        // idegenül hatott a lekerekített menüben.
+        FrameworkElement icon = header.Items.Count == 1
+            ? new Controls.ShellIconImage
+            {
+                IconSize = 36,
+                Item = header.Items[0],
+                Width = 36,
+                Height = 36,
+                Stretch = System.Windows.Media.Stretch.UniformToFill,
+                Clip = new System.Windows.Media.RectangleGeometry(new Rect(0, 0, 36, 36), 7, 7),
+            }
+            : new SymbolIcon { Symbol = SymbolRegular.DocumentMultiple24, FontSize = 30 };
+        icon.Margin = new Thickness(0, 0, 12, 0);
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        info.Children.Add(icon);
+
+        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 240 };
+        texts.Children.Add(new System.Windows.Controls.TextBlock
+        {
+            Text = header.Title,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 13.5,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        var detail = new System.Windows.Controls.TextBlock
+        {
+            Text = header.Detail,
+            FontSize = 11.5,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        detail.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
+        texts.Children.Add(detail);
+        Grid.SetColumn(texts, 1);
+        info.Children.Add(texts);
+        root.Children.Add(info);
+
+        // --- ikonsor ---
+        if (header.Actions.Count > 0)
+        {
+            var bar = new System.Windows.Controls.Primitives.UniformGrid { Rows = 1, Margin = new Thickness(2, 0, 2, 4) };
+
+            foreach (var action in header.Actions)
+            {
+                // Saját rajzolású gomb, NEM Wpf.Ui Button: az a menü üveghátterén
+                // fekete kitöltéssel jelent meg (felhasználói hibajelentés).
+                var glyph = new SymbolIcon
+                {
+                    Symbol = action.Icon,
+                    FontSize = 18,
+                    Filled = action.IsActive,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                glyph.SetResourceReference(Control.ForegroundProperty, action.IsActive ? "SystemAccentBrush" : "TextFillColorPrimaryBrush");
+
+                var button = new Border
+                {
+                    Height = 36,
+                    Margin = new Thickness(1, 0, 1, 0),
+                    CornerRadius = new CornerRadius(6),
+                    Background = System.Windows.Media.Brushes.Transparent,
+                    Cursor = action.IsEnabled ? System.Windows.Input.Cursors.Hand : null,
+                    Opacity = action.IsEnabled ? 1 : 0.35,
+                    ToolTip = TranslationSource.Instance[action.LabelKey],
+                    Child = glyph,
+                };
+
+                if (action.IsEnabled)
+                {
+                    button.MouseEnter += (_, _) => button.SetResourceReference(Border.BackgroundProperty, "SubtleFillColorSecondaryBrush");
+                    button.MouseLeave += (_, _) => button.Background = System.Windows.Media.Brushes.Transparent;
+                    button.MouseLeftButtonDown += (_, e) =>
+                    {
+                        e.Handled = true;
+                        button.SetResourceReference(Border.BackgroundProperty, "SubtleFillColorTertiaryBrush");
+                    };
+                    button.MouseLeftButtonUp += (_, e) =>
+                    {
+                        e.Handled = true;
+                        _menu.IsOpen = false;
+                        action.Action();
+                    };
+                }
+
+                bar.Children.Add(button);
+            }
+
+            root.Children.Add(bar);
+        }
+
+        // --- címke-chipek: kattintásra rá/le, a menü nyitva marad ---
+        if (header.Tags.Count > 0)
+        {
+            var chips = new WrapPanel { Margin = new Thickness(6, 2, 6, 6), MaxWidth = 300 };
+
+            foreach (var chip in header.Tags)
+            {
+                var isOn = chip.IsOn;
+                var content = new StackPanel { Orientation = Orientation.Horizontal };
+                content.Children.Add(new Controls.TagSwatch { TagColor = chip.Tag.Color, ColorHex = chip.Tag.ColorHex, Width = 10, Height = 10, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
+                content.Children.Add(new System.Windows.Controls.TextBlock { Text = chip.Tag.Name, FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+
+                var border = new Border
+                {
+                    Child = content,
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(9, 3, 10, 3),
+                    Margin = new Thickness(0, 0, 6, 6),
+                    BorderThickness = new Thickness(1),
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = TranslationSource.Instance["ContextMenu_TagChipHint"],
+                };
+
+                void Paint()
+                {
+                    border.SetResourceReference(Border.BorderBrushProperty, isOn ? "SystemAccentBrush" : "ControlStrokeColorDefaultBrush");
+                    border.SetResourceReference(Border.BackgroundProperty, isOn ? "SubtleFillColorTertiaryBrush" : "SubtleFillColorTransparentBrush");
+                }
+
+                Paint();
+                border.MouseLeftButtonUp += (_, e) =>
+                {
+                    e.Handled = true;
+                    isOn = !isOn;
+                    chip.Toggle(isOn);
+                    Paint();
+                };
+                chips.Children.Add(border);
+            }
+
+            root.Children.Add(chips);
+        }
+
+        var host = new MenuItem
+        {
+            Header = root,
+            Tag = HeaderTag,
+            StaysOpenOnClick = true,
+            Focusable = false,
+            Template = HeaderTemplate,
+        };
+
+        _menu.Items.Add(host);
+        _menu.Items.Add(new Separator());
+    }
+
+    /// <summary>Csak a tartalmat rajzoló sablon a fejléc-tartóhoz — nincs kiemelés, nincs ikonoszlop.</summary>
+    private static readonly ControlTemplate HeaderTemplate = CreateHeaderTemplate();
+
+    private static ControlTemplate CreateHeaderTemplate()
+    {
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(ContentPresenter.ContentSourceProperty, "Header");
+        var template = new ControlTemplate(typeof(MenuItem)) { VisualTree = presenter };
+        template.Seal();
+        return template;
     }
 
     private void BuildOwnItems(IReadOnlyList<PilasterMenuEntry> entries)
@@ -339,9 +688,20 @@ public sealed class PilasterContextMenu
     /// elválasztók összevonódnak — lásd az osztályszintű megjegyzést a
     /// <see cref="ShellMenuSession"/>-nél ugyanerről a mintáról.
     /// </summary>
-    private IEnumerable<Control> Convert(IReadOnlyList<PilasterMenuEntry> entries)
+    private List<Control> Convert(IReadOnlyList<PilasterMenuEntry> entries, MenuItem? parent = null, int depth = 0)
     {
+        var result = new List<Control>();
         var lastWasSeparator = true;
+
+        void Add(Control control)
+        {
+            result.Add(control);
+
+            if (parent is not null)
+            {
+                RegisterChild(parent, control, depth);
+            }
+        }
 
         foreach (var entry in entries)
         {
@@ -350,7 +710,7 @@ public sealed class PilasterContextMenu
                 if (!lastWasSeparator)
                 {
                     lastWasSeparator = true;
-                    yield return new Separator();
+                    Add(new Separator());
                 }
 
                 continue;
@@ -362,30 +722,35 @@ public sealed class PilasterContextMenu
             }
 
             lastWasSeparator = false;
+            var icon = new SymbolIcon { Symbol = entry.Icon, FontSize = 15 };
+
+            if (entry.SubItems is { Count: > 0 } children)
+            {
+                var group = CreateGroup(TranslationSource.Instance[entry.LabelKey], icon);
+                group.IsEnabled = entry.IsEnabled;
+                Add(group);
+                result.AddRange(Convert(children, group, depth + 1));
+                continue;
+            }
 
             var item = new MenuItem
             {
                 Header = TranslationSource.Instance[entry.LabelKey],
                 IsEnabled = entry.IsEnabled,
-                Icon = new SymbolIcon { Symbol = entry.Icon, FontSize = 15 },
+                Icon = icon,
+                InputGestureText = entry.Gesture ?? string.Empty,
+                FontWeight = entry.IsDefault ? FontWeights.SemiBold : FontWeights.Normal,
             };
 
-            if (entry.SubItems is { Count: > 0 } children)
-            {
-                foreach (var child in Convert(children))
-                {
-                    item.Items.Add(child);
-                }
-
-                item.SubmenuOpened += OnSubmenuOpened;
-            }
-            else if (entry.Action is { } action)
+            if (entry.Action is { } action)
             {
                 item.Click += (_, _) => action();
             }
 
-            yield return item;
+            Add(item);
         }
+
+        return result;
     }
 
     /// <summary>
@@ -435,10 +800,9 @@ public sealed class PilasterContextMenu
             _guard?.Clear();
         }
 
-        RemoveLoadingPlaceholder();
-
         if (session is null)
         {
+            RemoveLoadingPlaceholder();
             return;
         }
 
@@ -454,70 +818,158 @@ public sealed class PilasterContextMenu
 
         if (session.Items.Count == 0)
         {
+            RemoveLoadingPlaceholder();
             return;
         }
 
-        _menu.Items.Add(new Separator());
+        // Ami a saját menüben már szerepel (Megnyitás, Kivágás, Másolás,
+        // Törlés, Tulajdonságok, Rögzítés a gyorseléréshez, Terminál …), az a
+        // shell-részből kimarad — különben minden ilyen parancs kétszer
+        // szerepelne, eltérő felirattal.
+        var nodes = TrimSeparators(session.Items.Where(node => !IsDuplicateOfOwnCommand(node)).ToList());
 
-        if (settings.ShellItemsInOwnSection)
+        if (_shellGroup is not null)
         {
-            _menu.Items.Add(new MenuItem
+            if (_shellPlaceholder is not null)
             {
-                Header = TranslationSource.Instance["ContextMenu_OtherApps"],
-                IsEnabled = false,
-                FontSize = 11,
-                Margin = new Thickness(0, 6, 0, 4),
-                // J5 (v1.0.1): üres ikon a valódi elemekével AZONOS ikon-
-                // oszlopot foglalja le, így a felirat pixelre egybeesik a
-                // többi sor szövegének bal szélével — nem egy kézzel
-                // eltalált margóérték, ami a natív MenuItem-sablon
-                // változásával elcsúszhatna.
-                Icon = new SymbolIcon { Symbol = SymbolRegular.Empty },
-            });
-        }
-
-        foreach (var node in session.Items)
-        {
-            // J3 (v1.0.1): a saját menü mindig felkínálja a "Megnyitás"-t
-            // (Cmd_Open, lásd BuildFileMenuEntries) — a shell saját
-            // "Megnyitás" verbje ugyanezt csinálná még egyszer. A verb
-            // NYELVFÜGGETLEN (lásd ShellMenuNode.Verb dokumentációja),
-            // ezért erre szűrünk, nem a feliratra. Ha egy bővítmény nem ad
-            // verbet, a másodlagos jelző az MFS_DEFAULT állapot — a natív
-            // menüben egyszerre csak EGY elem lehet alapértelmezett, tehát
-            // ez legfeljebb egy elemet szűr ki.
-            if (IsDuplicateOpenCommand(node))
-            {
-                Serilog.Log.Debug(
-                    "Jobbklikk-menü: shell 'Megnyitás' elem kiszűrve (verb={Verb}, alapértelmezett={IsDefault}): {Text}",
-                    node.Verb,
-                    node.IsDefault,
-                    node.Text);
-                continue;
+                UnregisterChild(_shellPlaceholder);
+                _shellPlaceholder = null;
             }
 
-            _menu.Items.Add(ConvertShellNode(node));
+            var at = LastDescendantIndex(_shellGroup) + 1;
+
+            foreach (var control in ConvertShellNodes(nodes, _shellGroup, 1))
+            {
+                _menu.Items.Insert(at++, control);
+            }
+
+            RemoveLoadingPlaceholder();
+            return;
+        }
+
+        RemoveLoadingPlaceholder();
+
+        if (nodes.Count == 0)
+        {
+            return;
+        }
+
+        var insertAt = _footerSeparator is null ? _menu.Items.Count : _menu.Items.IndexOf(_footerSeparator);
+        _menu.Items.Insert(insertAt++, new Separator());
+
+        foreach (var control in ConvertShellNodes(nodes, null, 0))
+        {
+            _menu.Items.Insert(insertAt++, control);
         }
     }
 
+    /// <summary>Az „Egyéb alkalmazások" almenü jelölése — a kereső ebbe is belenéz.</summary>
+    private const string ShellGroupTag = "pilaster:shellgroup";
+
+    /// <summary>A szűrés után a lista elején/végén maradt, és az egymás utáni elválasztók eldobása.</summary>
+    private static List<ShellMenuNode> TrimSeparators(List<ShellMenuNode> nodes)
+    {
+        var result = new List<ShellMenuNode>(nodes.Count);
+
+        foreach (var node in nodes)
+        {
+            if (node.IsSeparator && (result.Count == 0 || result[^1].IsSeparator))
+            {
+                continue;
+            }
+
+            result.Add(node);
+        }
+
+        while (result.Count > 0 && result[^1].IsSeparator)
+        {
+            result.RemoveAt(result.Count - 1);
+        }
+
+        return result;
+    }
+
     /// <summary>
-    /// Igaz, ha ez a felső szintű shell-elem ugyanazt a "Megnyitás" parancsot
-    /// adná, mint a saját <c>Cmd_Open</c> — lásd a hívási hely megjegyzését.
+    /// A shell NYELVFÜGGETLEN parancsnevei (verb), amelyeknek van saját
+    /// megfelelője a Pilaster-menüben. MÉRVE (a fejlesztői gépen megjelenő
+    /// shell-elemek naplójából): <c>pintohome</c> = „Rögzítés a Gyors
+    /// elérésbe", <c>PilasterOpen</c> = a Pilaster saját Intéző-bejegyzése (a
+    /// Pilasteren BELÜL értelmetlen), a GUID a Windows Terminal „Megnyitás a
+    /// terminálban" parancsa.
     /// </summary>
-    private static bool IsDuplicateOpenCommand(ShellMenuNode node)
+    private static readonly HashSet<string> OwnCommandVerbs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "open", "openas", "cut", "copy", "paste", "delete", "rename", "link", "properties",
+        "copyaspath", "pintohome", "PilasterOpen",
+        "{9F156763-7844-4DC4-B2B1-901F640F5155}",
+    };
+
+    /// <summary>
+    /// Igaz, ha a felső szintű shell-elemnek van saját megfelelője a menüben.
+    /// Verb híján az MFS_DEFAULT állapot a jelző: az a „Megnyitás" (a natív
+    /// menüben egyszerre csak EGY elem lehet alapértelmezett).
+    /// </summary>
+    private static bool IsDuplicateOfOwnCommand(ShellMenuNode node)
     {
         if (node.IsSeparator || node.HasChildren)
         {
             return false;
         }
 
-        if (node.Verb is { Length: > 0 } verb)
+        var duplicate = node.Verb is { Length: > 0 } verb
+            ? OwnCommandVerbs.Contains(verb)
+            : node.IsDefault;
+
+        if (duplicate)
         {
-            return verb.Equals("open", StringComparison.OrdinalIgnoreCase);
+            Serilog.Log.Debug("Jobbklikk-menü: saját paranccsal egyező shell-elem kiszűrve (verb={Verb}): {Text}", node.Verb, node.Text);
         }
 
-        return node.IsDefault;
+        return duplicate;
     }
+
+    /// <summary>
+    /// Shell-elemek laposított listája: az almenüs bővítmények (pl. 7-Zip)
+    /// helyben lenyíló csoportként, beljebb húzott elemekkel.
+    /// </summary>
+    private List<Control> ConvertShellNodes(IEnumerable<ShellMenuNode> nodes, MenuItem? parent, int depth)
+    {
+        var result = new List<Control>();
+
+        foreach (var node in nodes)
+        {
+            Control control;
+
+            if (!node.IsSeparator && node.HasChildren)
+            {
+                control = CreateGroup(node.Text, ShellIcon(node));
+                control.IsEnabled = node.IsEnabled;
+            }
+            else
+            {
+                control = ConvertShellNode(node);
+            }
+
+            result.Add(control);
+
+            if (parent is not null)
+            {
+                RegisterChild(parent, control, depth);
+            }
+
+            if (control is MenuItem group && _groupChildren.ContainsKey(group))
+            {
+                result.AddRange(ConvertShellNodes(node.Children, group, depth + 1));
+            }
+        }
+
+        return result;
+    }
+
+    private static object ShellIcon(ShellMenuNode node) =>
+        node.Icon is null
+            ? new SymbolIcon { Symbol = SymbolRegular.Empty }
+            : new System.Windows.Controls.Image { Source = node.Icon, Width = 16, Height = 16 };
 
     private Control ConvertShellNode(ShellMenuNode node)
     {
@@ -531,8 +983,11 @@ public sealed class PilasterContextMenu
             Header = node.Text,
             IsEnabled = node.IsEnabled,
             IsChecked = node.IsChecked,
+            // Ikon nélküli elemnél is le kell foglalni az ikon-oszlopot — különben
+            // a felirat balra csúszik a többi sorhoz képest (ez volt a
+            // „elcsúszott szöveg" a menüben).
             Icon = node.Icon is null
-                ? null
+                ? new SymbolIcon { Symbol = SymbolRegular.Empty }
                 : new System.Windows.Controls.Image { Source = node.Icon, Width = 16, Height = 16 },
         };
 
@@ -543,16 +998,7 @@ public sealed class PilasterContextMenu
             item.FontWeight = FontWeights.SemiBold;
         }
 
-        if (node.HasChildren)
-        {
-            foreach (var child in node.Children)
-            {
-                item.Items.Add(ConvertShellNode(child));
-            }
-
-            item.SubmenuOpened += OnSubmenuOpened;
-        }
-        else if (node.CommandId != 0)
+        if (node.CommandId != 0)
         {
             var commandId = node.CommandId;
 
@@ -600,26 +1046,34 @@ public sealed class PilasterContextMenu
     {
         var trimmed = query.Trim();
 
+        bool Matches(MenuItem item) =>
+            (item.Header?.ToString() ?? string.Empty).Contains(trimmed, StringComparison.CurrentCultureIgnoreCase)
+            || (_groupChildren.TryGetValue(item, out var children) && children.OfType<MenuItem>().Any(Matches));
+
         foreach (var element in _menu.Items.OfType<Control>())
         {
-            if (element is Separator)
-            {
-                // Szűrés közben az elválasztók elrejtése, hogy ne maradjanak
-                // magányos vonalak az eltűnt elemek helyén.
-                element.Visibility = trimmed.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-                continue;
-            }
-
-            if (element is not MenuItem menuItem)
+            if (element is MenuItem { Tag: HeaderTag })
             {
                 continue;
             }
 
-            var text = menuItem.Header?.ToString() ?? string.Empty;
+            if (trimmed.Length == 0)
+            {
+                // Vissza az alapállapotba: a lenyíló csoportok elemei csak
+                // akkor látszanak, ha a csoport le van nyitva.
+                element.Visibility = _parentGroup.TryGetValue(element, out var group) && !IsOpenChain(group)
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+                continue;
+            }
 
-            menuItem.Visibility = trimmed.Length == 0 || text.Contains(trimmed, StringComparison.CurrentCultureIgnoreCase)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            element.Visibility = element switch
+            {
+                // Szűrés közben az elválasztók eltűnnek, hogy ne maradjanak magányos vonalak.
+                Separator => Visibility.Collapsed,
+                MenuItem item => Matches(item) ? Visibility.Visible : Visibility.Collapsed,
+                _ => element.Visibility,
+            };
         }
     }
 

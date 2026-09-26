@@ -246,6 +246,13 @@ public sealed class AppSettings
     /// </summary>
     public bool LiquidGlassEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Az üveghatás erőssége 0–100 között: mennyire látszik át a (valódi,
+    /// natív Acrylic) elmosott háttér a paneleken. 0 = szinte átlátszatlan,
+    /// 100 = erősen áttetsző. Csak <see cref="LiquidGlassEnabled"/> mellett hat.
+    /// </summary>
+    public int GlassIntensity { get; set; } = 60;
+
     /// <summary>Az utoljára használt nézetmód — új fül ezzel nyílik.</summary>
     public Pilaster.Core.FileSystem.ViewMode LastViewMode { get; set; } = Pilaster.Core.FileSystem.ViewMode.Details;
 
@@ -274,6 +281,12 @@ public sealed class AppSettings
 
     /// <summary>A mappák a fájlok elé rendeződjenek.</summary>
     public bool FoldersFirst { get; set; } = true;
+
+    /// <summary>Extra „Létrehozva" oszlop a Részletes nézetben (rendezhető).</summary>
+    public bool ShowCreatedColumn { get; set; }
+
+    /// <summary>Extra „Utolsó hozzáférés" oszlop a Részletes nézetben (rendezhető).</summary>
+    public bool ShowAccessedColumn { get; set; }
 
     /// <summary>Igaz = bináris (KiB/MiB), hamis = decimális (KB/MB) méretformátum.</summary>
     public bool BinarySizeUnits { get; set; }

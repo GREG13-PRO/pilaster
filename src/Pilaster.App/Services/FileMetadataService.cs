@@ -174,6 +174,37 @@ public sealed class FileMetadataService : IDisposable
     public IReadOnlyList<string> GetFavoritePaths() =>
         _document.Items.Where(kv => kv.Value.IsFavorite).Select(kv => kv.Key).ToList();
 
+    /// <summary>
+    /// Átnevezés/áthelyezés után a címkék és a kedvenc-jelölés követik az
+    /// elemet — mappánál a teljes alatta lévő fával együtt. Enélkül egy
+    /// átnevezett fájl minden címkéje nyomtalanul eltűnt, a Kedvencek közt
+    /// pedig egy „hiányzó" bejegyzés maradt a régi útvonallal.
+    /// </summary>
+    public void MovePath(string oldPath, string newPath)
+    {
+        var oldNormalized = Path.TrimEndingDirectorySeparator(oldPath);
+        var newNormalized = Path.TrimEndingDirectorySeparator(newPath);
+        var prefix = oldNormalized + Path.DirectorySeparatorChar;
+
+        var moved = _document.Items
+            .Where(kv => string.Equals(kv.Key, oldNormalized, StringComparison.OrdinalIgnoreCase)
+                || kv.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (moved.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (key, entry) in moved)
+        {
+            _document.Items.Remove(key);
+            _document.Items[newNormalized + key[oldNormalized.Length..]] = entry;
+        }
+
+        NotifyChanged();
+    }
+
     private FileMetadataEntry GetOrCreateEntry(string path)
     {
         if (_document.Items.TryGetValue(path, out var entry))
@@ -241,7 +272,15 @@ public sealed class FileMetadataService : IDisposable
                 Items = new Dictionary<string, FileMetadataEntry>(loaded.Items, StringComparer.OrdinalIgnoreCase),
             };
         }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        catch (JsonException)
+        {
+            // Sérült fájl: az első mentés különben VÉGLEG felülírná egy üres
+            // dokumentummal, és minden címke/kedvenc elveszne. Félretesszük,
+            // hogy kézzel visszamenthető maradjon.
+            CorruptFileBackup.Preserve(_filePath);
+            return new FileMetadataDocument { Items = new(StringComparer.OrdinalIgnoreCase) };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return new FileMetadataDocument { Items = new(StringComparer.OrdinalIgnoreCase) };
         }

@@ -101,6 +101,7 @@ public sealed class CloudDriveService : IDisposable
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
+            CorruptFileBackup.Preserve(_filePath);
             return new CloudDriveDocument();
         }
     }
@@ -111,8 +112,13 @@ public sealed class CloudDriveService : IDisposable
         {
             lock (_fileLock)
             {
+                // Atomi csere, mint a többi adatfájlnál — egy írás közbeni
+                // összeomlás ne hagyjon csonka (és így a következő indításkor
+                // üresnek betöltődő) fájlt.
                 var json = JsonSerializer.Serialize(_document, CloudDriveJsonContext.Default.CloudDriveDocument);
-                File.WriteAllText(_filePath, json);
+                var temporary = _filePath + ".tmp";
+                File.WriteAllText(temporary, json);
+                File.Move(temporary, _filePath, overwrite: true);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

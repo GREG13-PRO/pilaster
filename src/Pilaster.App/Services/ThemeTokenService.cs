@@ -36,6 +36,16 @@ public sealed class ThemeTokenService(ISettingsService settings)
     public const string BgElevated = "TokenBgElevated";
     public const string BgInput = "TokenBgInput";
 
+    /// <summary>
+    /// Lebegő panel (aktivitás-központ): sötét témában VILÁGOSABB, mint az
+    /// ablak és a fájllista, világosban fehér — különben a tartalom fölött
+    /// lebegve beleolvadt a háttérbe, és átlátszónak tűnt.
+    /// </summary>
+    public const string BgFlyout = "TokenBgFlyout";
+
+    /// <summary>A lebegő panelen belüli kártya (egy-egy művelet) — a panelnél egy árnyalattal sötétebb.</summary>
+    public const string BgFlyoutCard = "TokenBgFlyoutCard";
+
     // --- Szöveg ---
     public const string TextPrimary = "TokenTextPrimary";
     public const string TextSecondary = "TokenTextSecondary";
@@ -115,6 +125,8 @@ public sealed class ThemeTokenService(ISettingsService settings)
         Set(app, BgSurface, dark ? "#FF2B2B2B" : "#FFFFFFFF");
         Set(app, BgElevated, dark ? "#FF323232" : "#FFFFFFFF");
         Set(app, BgInput, dark ? "#FF2D2D2D" : "#FFFBFBFB");
+        Set(app, BgFlyout, dark ? "#FF404040" : "#FFFFFFFF");
+        Set(app, BgFlyoutCard, dark ? "#FF303030" : "#FFF3F3F3");
 
         Set(app, TextPrimary, dark ? "#FFFFFFFF" : "#FF1A1A1A");
         Set(app, TextSecondary, dark ? "#FFC8C8C8" : "#FF5D5D5D");
@@ -185,5 +197,17 @@ public sealed class ThemeTokenService(ISettingsService settings)
         app.Resources[RowHeight] = height;
         app.Resources[RowPadding] = padding;
         app.Resources[RowMargin] = margin;
+    }
+
+    /// <summary>
+    /// Egy téma-alapszín áttetsző, befagyasztott ecsetként — az üveghatás
+    /// panel- és tartalomecseteihez (lásd GlassEffectService). Itt, a
+    /// paletta-fájlban készül, hogy színes ecset ne jöjjön létre máshol.
+    /// </summary>
+    public static SolidColorBrush CreateTranslucentBrush(Color color, double opacity)
+    {
+        var brush = new SolidColorBrush(color) { Opacity = Math.Clamp(opacity, 0, 1) };
+        brush.Freeze();
+        return brush;
     }
 }

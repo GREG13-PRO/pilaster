@@ -75,8 +75,39 @@ public static class InstallOrchestrator
             ShellIntegrationService.SetFolderOpenCommand(exePath);
         }
 
+        if (session.PerformanceMode)
+        {
+            WritePerformanceModeSettings();
+        }
+
         var estimatedSizeKb = GetDirectorySize(installDir) / 1024;
         SetupRegistration.RegisterUninstaller(installDir, uninstallExePath, estimatedSizeKb);
+    }
+
+    /// <summary>
+    /// Kezdő beállítások gyengébb géphez. CSAK ha még nincs beállításfájl — egy
+    /// meglévő telepítés beállításait frissítéskor sosem írjuk felül. Az app a
+    /// hiányzó mezőket alapértékkel tölti ki, így elég a három kulcs.
+    /// </summary>
+    private static void WritePerformanceModeSettings()
+    {
+        var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), SetupInfo.AppName);
+        var settingsFile = Path.Combine(configDir, "settings.json");
+
+        if (File.Exists(settingsFile))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(configDir);
+            File.WriteAllText(settingsFile, """{"animations":"Off","liquidGlassEnabled":false,"contextMenuPreloadEnabled":false}""");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Nem kritikus: a program ilyenkor az alapbeállításokkal indul.
+        }
     }
 
     public static async Task UninstallAsync(SetupSession session, IProgress<CopyProgress> progress, CancellationToken cancellationToken)

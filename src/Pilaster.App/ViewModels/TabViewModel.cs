@@ -210,7 +210,180 @@ public sealed partial class TabViewModel : ObservableObject
     [ObservableProperty]
     public partial string? QuickFilterText { get; set; }
 
-    partial void OnQuickFilterTextChanged(string? value) => ApplyItemFilter();
+    partial void OnQuickFilterTextChanged(string? value)
+    {
+        ApplyItemFilter();
+        ScheduleRecursiveSearch(value);
+    }
+
+    /// <summary>
+    /// Igaz, amíg a lista a rekurzív keresés találatait mutatja (a mappa és
+    /// az összes almappája) a mappa saját tartalma helyett.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsSearchActive { get; set; }
+
+    /// <summary>Igaz, amíg a rekurzív keresés még fut.</summary>
+    [ObservableProperty]
+    public partial bool IsSearching { get; set; }
+
+    private CancellationTokenSource? _searchCancellation;
+    private List<FileSystemItem>? _itemsBeforeSearch;
+    private string? _searchRoot;
+
+    /// <summary>A rekurzív keresés indulása előtti rövid várakozás — gépelés közben ne induljon minden billentyűre.</summary>
+    private const int SearchDebounceMs = 350;
+
+    /// <summary>
+    /// A keresőmező szövege a mappa ÉS az összes almappája (bármilyen
+    /// mélységben) nevei közt keres. Az azonnali szűrés (<see cref="ApplyItemFilter"/>)
+    /// a mappa saját elemein rögtön látszik; rövid szünet után indul a
+    /// rekurzív keresés, ami fokozatosan tölti fel a találatokat. A mező
+    /// kiürítésekor (vagy Esc-re) a mappa eredeti tartalma tér vissza.
+    /// </summary>
+    private void ScheduleRecursiveSearch(string? text)
+    {
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = null;
+
+        var query = text?.Trim();
+
+        if (string.IsNullOrEmpty(query) || query.Length < 2 || !CanSearchHere())
+        {
+            EndSearch();
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        _searchCancellation = cancellation;
+        _ = RunRecursiveSearchAsync(query, cancellation.Token);
+    }
+
+    /// <summary>Csak valódi mappában van értelme (a Kezdőlap és a Lomtár virtuális).</summary>
+    private bool CanSearchHere() =>
+        CurrentPath is { Length: > 0 } path
+        && path != HomeMarker
+        && path != RecycleBinMarker
+        && Directory.Exists(path);
+
+    private void EndSearch()
+    {
+        IsSearching = false;
+
+        if (!IsSearchActive)
+        {
+            return;
+        }
+
+        IsSearchActive = false;
+
+        // Csak akkor tesszük vissza a mappa tartalmát, ha még ugyanabban a
+        // mappában vagyunk — navigáláskor az új mappa betöltése már a saját
+        // elemeivel töltötte (vagy tölti) fel a listát.
+        if (_itemsBeforeSearch is { } previous && string.Equals(_searchRoot, CurrentPath, StringComparison.OrdinalIgnoreCase))
+        {
+            Items.Reset(previous);
+            UpdateStatus(0, 0);
+        }
+
+        _itemsBeforeSearch = null;
+        _searchRoot = null;
+    }
+
+    private async Task RunRecursiveSearchAsync(string query, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(SearchDebounceMs, token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var root = CurrentPath!;
+        var strings = TranslationSource.Instance;
+
+        await OnUiAsync(() =>
+        {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!IsSearchActive)
+            {
+                _itemsBeforeSearch = Items.ToList();
+                _searchRoot = root;
+                IsSearchActive = true;
+            }
+
+            IsSearching = true;
+            Items.Reset([]);
+            StatusText = strings["Search_Running"];
+        }).ConfigureAwait(false);
+
+        var buffer = new List<FileSystemItem>();
+        var total = 0;
+        var lastFlush = Environment.TickCount64;
+
+        try
+        {
+            var options = new ListingOptions(ShowHiddenItems, ShowSystemItems);
+
+            await foreach (var item in Pilaster.Providers.Local.RecursiveSearch
+                .SearchAsync(root, query, options, token)
+                .ConfigureAwait(false))
+            {
+                item.RefreshDisplayName(ShowExtensions);
+                buffer.Add(item);
+                total++;
+
+                if (buffer.Count >= 200 || Environment.TickCount64 - lastFlush > 150)
+                {
+                    var flush = buffer;
+                    buffer = [];
+                    lastFlush = Environment.TickCount64;
+                    var count = total;
+                    await OnUiAsync(() =>
+                    {
+                        if (!token.IsCancellationRequested)
+                        {
+                            Items.AddRange(flush);
+                            StatusText = string.Format(strings["Search_RunningCount"], count);
+                        }
+                    }).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // Részleges eredmény — ami eddig összegyűlt, az megjelenik.
+        }
+
+        await OnUiAsync(() =>
+        {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var all = Items.Concat(buffer).ToList();
+            all.Sort(new FileSystemItemComparer(SortKey, SortDescending, FoldersFirst));
+            Items.Reset(all);
+            RefreshMetadataOnItems();
+            IsSearching = false;
+            EmptyMessage = all.Count == 0 ? strings["Search_NoResults"] : null;
+            StatusText = all.Count >= Pilaster.Providers.Local.RecursiveSearch.MaxResults
+                ? string.Format(strings["Search_DoneLimited"], all.Count)
+                : string.Format(strings["Search_Done"], all.Count);
+        }).ConfigureAwait(false);
+    }
 
     private void ApplyItemFilter()
     {
@@ -298,7 +471,10 @@ public sealed partial class TabViewModel : ObservableObject
             return;
         }
 
-        var newName = item.EditableName.Trim();
+        // A Windows a záró pontokat/szóközöket csendben levágja a névről —
+        // előre levágjuk, különben a listában más név látszana, mint ami a
+        // lemezen ténylegesen létrejött.
+        var newName = item.EditableName.Trim().TrimEnd('.', ' ');
 
         if (newName.Length == 0 || newName == item.Name)
         {
@@ -315,7 +491,8 @@ public sealed partial class TabViewModel : ObservableObject
 
         try
         {
-            var newPath = await _provider.RenameAsync(item.FullPath, newName).ConfigureAwait(false);
+            var oldPath = item.FullPath;
+            var newPath = await _provider.RenameAsync(oldPath, newName).ConfigureAwait(false);
 
             await OnUiAsync(() =>
             {
@@ -327,6 +504,10 @@ public sealed partial class TabViewModel : ObservableObject
                 item.IsRenaming = false;
                 item.RenameError = null;
                 item.RefreshDisplayName(ShowExtensions);
+
+                // Az elem ÚJ útvonalának beállítása UTÁN: a Changed esemény
+                // ekkor már az új útvonalon keresi vissza a címkéket.
+                _metadata.MovePath(oldPath, newPath);
             }).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -428,6 +609,10 @@ public sealed partial class TabViewModel : ObservableObject
             previous.Dispose();
         }
 
+        // A korábbi mappa figyelt elemei különben életben maradnának, és egy
+        // késve beérkező mappaméret még újrarendezést indítana az üres listán.
+        UnwatchFolderSizes();
+
         await OnUiAsync(() =>
         {
             CurrentPath = HomeMarker;
@@ -453,8 +638,12 @@ public sealed partial class TabViewModel : ObservableObject
     /// </summary>
     private async Task LoadRecycleBinAsync()
     {
+        // Saját megszakítás-token, mint a LoadAsync-nál: egy lassú Lomtár-
+        // lekérdezés közben elindított újabb navigáció után a késve beérkező
+        // Lomtár-lista korábban felülírta az új mappa tartalmát.
         var previous = _loadCancellation;
-        _loadCancellation = null;
+        var cancellation = new CancellationTokenSource();
+        _loadCancellation = cancellation;
 
         if (previous is not null)
         {
@@ -462,9 +651,16 @@ public sealed partial class TabViewModel : ObservableObject
             previous.Dispose();
         }
 
+        var token = cancellation.Token;
+
         UnwatchFolderSizes();
 
         var recycled = await Task.Run(RecycleBinService.GetItems).ConfigureAwait(false);
+
+        if (token.IsCancellationRequested)
+        {
+            return;
+        }
 
         var items = recycled
             .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -490,6 +686,11 @@ public sealed partial class TabViewModel : ObservableObject
 
         await OnUiAsync(() =>
         {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
             CurrentPath = RecycleBinMarker;
             Title = TranslationSource.Instance["Nav_RecycleBin"];
             IsLoading = false;
@@ -597,7 +798,7 @@ public sealed partial class TabViewModel : ObservableObject
             return;
         }
 
-        var root = new TabViewModel(_provider, _folderSizes, _metadata);
+        var root = new TabViewModel(_provider, _folderSizes, _metadata) { FoldersFirst = FoldersFirst, ShowExtensions = ShowExtensions };
         Columns.Add(root);
         _ = root.NavigateAsync(path);
     }
@@ -628,7 +829,7 @@ public sealed partial class TabViewModel : ObservableObject
         {
             ColumnsSelectedFile = null;
 
-            var next = new TabViewModel(_provider, _folderSizes, _metadata);
+            var next = new TabViewModel(_provider, _folderSizes, _metadata) { FoldersFirst = FoldersFirst, ShowExtensions = ShowExtensions };
             Columns.Add(next);
             await next.NavigateAsync(item.FullPath).ConfigureAwait(false);
         }
@@ -724,6 +925,12 @@ public sealed partial class TabViewModel : ObservableObject
     public partial bool ShowExtensions { get; set; } = true;
 
     partial void OnShowExtensionsChanged(bool value) => RefreshDisplayNames();
+
+    /// <summary>A mappák a fájlok elé kerülnek — a „Mappák elöl" beállítás (<c>AppSettings.FoldersFirst</c>).</summary>
+    [ObservableProperty]
+    public partial bool FoldersFirst { get; set; } = true;
+
+    partial void OnFoldersFirstChanged(bool value) => ResortInPlace();
 
     /// <summary>
     /// A megjelenő nevek újraszámolása a betöltött elemeken. Olcsó O(n)
@@ -865,6 +1072,13 @@ public sealed partial class TabViewModel : ObservableObject
     {
         if (CurrentPath is { } path)
         {
+            // Frissítés = a felhasználó (vagy egy fájlművelet) szerint változhatott
+            // a tartalom — a mappaméreteket is újra kell számolni.
+            if (!IsHome && !IsRecycleBin)
+            {
+                _folderSizes.InvalidateTree(path);
+            }
+
             await LoadAsync(path).ConfigureAwait(false);
         }
     }
@@ -1135,7 +1349,7 @@ public sealed partial class TabViewModel : ObservableObject
 
     private List<FileSystemItem> SortItems(List<FileSystemItem> items)
     {
-        items.Sort(new FileSystemItemComparer(SortKey, SortDescending));
+        items.Sort(new FileSystemItemComparer(SortKey, SortDescending, FoldersFirst));
         return items;
     }
 
@@ -1147,7 +1361,7 @@ public sealed partial class TabViewModel : ObservableObject
         }
 
         var snapshot = Items.ToList();
-        snapshot.Sort(new FileSystemItemComparer(SortKey, SortDescending));
+        snapshot.Sort(new FileSystemItemComparer(SortKey, SortDescending, FoldersFirst));
         Items.Reset(snapshot);
     }
 

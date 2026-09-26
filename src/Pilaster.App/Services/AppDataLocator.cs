@@ -32,8 +32,22 @@ public static class AppDataLocator
     /// <summary>Igaz, ha hordozható módban futunk.</summary>
     public static bool IsPortable { get; private set; }
 
+    /// <summary>
+    /// Környezeti változó, amely felülírja az adatmappát — a tesztkészlet
+    /// ezzel irányítja az általa indított Pilaster-folyamatokat (és a
+    /// folyamaton belül létrehozott szolgáltatásokat) egy ideiglenes mappába.
+    /// Enélkül a tesztek a fejlesztő VALÓDI beállításait, címkéit és
+    /// gyorselérését írták felül (innen jött pl. az „Önteszt" címke).
+    /// </summary>
+    public const string OverrideVariable = "PILASTER_DATA_DIR";
+
     private static string Resolve()
     {
+        if (Environment.GetEnvironmentVariable(OverrideVariable) is { Length: > 0 } overridden)
+        {
+            return overridden;
+        }
+
         var exeDirectory = Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty);
 
         if (!string.IsNullOrEmpty(exeDirectory)

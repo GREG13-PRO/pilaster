@@ -122,6 +122,27 @@ public partial class App : Application
 
         var settings = _services.GetRequiredService<ISettingsService>();
 
+        // Egypéldányos futás: ha már fut egy Pilaster, annak adjuk át az
+        // útvonalat, és kilépünk — MÉG mielőtt bármi (ablak, shell-jelző,
+        // mentés) elindulna. Az öntesztek szándékosan több példányt indítanak
+        // párhuzamosan, ezért rájuk nem vonatkozik.
+        var isSelfTest = Environment.GetEnvironmentVariables().Keys
+            .Cast<string>()
+            .Any(k => k.StartsWith("PILASTER_SELFTEST_", StringComparison.Ordinal));
+
+        if (settings.Current.SingleInstance && !isSelfTest)
+        {
+            _singleInstance = SingleInstanceService.TryAcquire(GetFolderArgument(), out var handedOff);
+
+            if (_singleInstance is null && handedOff)
+            {
+                Log.Information("Már fut egy Pilaster-példány — az indítás átadva neki");
+                Log.CloseAndFlush();
+                Environment.Exit(0);
+                return;
+            }
+        }
+
         // A beragadt shell-jelző felismerése MÉG az első menü előtt (spec P3).
         _services.GetRequiredService<ShellCrashGuard>().CheckOnStartup();
 
@@ -170,17 +191,27 @@ public partial class App : Application
         // hívhatják meg az appot — lásd a "Mappák megnyitása ebben az appban"
         // rendszerintegrációs kapcsolót. args[0] a saját exe útvonala, a
         // tényleges paraméter az [1]-től kezdődik.
-        var args = Environment.GetCommandLineArgs();
-
-        if (args.Length > 1 && Directory.Exists(args[1]))
+        if (GetFolderArgument() is { } folderArgument)
         {
             var vm = _services.GetRequiredService<MainWindowViewModel>();
 
             if (vm.SelectedTab is { } tab)
             {
-                _ = tab.NavigateCommand.ExecuteAsync(args[1]);
+                _ = tab.NavigateCommand.ExecuteAsync(folderArgument);
             }
         }
+
+        // Egy később indított második példány ide adja át az útvonalát: az
+        // ablak előtérbe jön, az útvonal pedig új fülön nyílik meg.
+        _singleInstance?.StartListening(path => Dispatcher.InvokeAsync(() =>
+        {
+            ActivateMainWindow(mainWindow);
+
+            if (path is not null && Directory.Exists(path))
+            {
+                _services.GetRequiredService<MainWindowViewModel>().ActivePane.AddTab(path);
+            }
+        }));
 
         // Diagnosztikai önteszt: a shell-munkamenet után KIKÉNYSZERÍTETT
         // véglegesítés. Külön FOLYAMATBAN fut, mert ha apartment-kötött
@@ -337,7 +368,12 @@ public partial class App : Application
     {
         var exitCode = 0;
         var log = new List<string>();
-        var resultsPath = Path.Combine(Path.GetTempPath(), "pilaster-preload-selftest.txt");
+
+        // A tesztkészlet adja meg a pontos helyet (lásd ShellMenuPreloadTests) —
+        // a saját %TEMP%-ünk a tesztfuttató alatt eltérhet a hívóétól.
+        var resultsPath = Environment.GetEnvironmentVariable("PILASTER_SELFTEST_RESULTS") is { Length: > 0 } requested
+            ? requested
+            : Path.Combine(Path.GetTempPath(), "pilaster-preload-selftest.txt");
 
         try
         {
@@ -1037,6 +1073,19 @@ public partial class App : Application
     /// ha épp egy másik alkalmazásé a fókusz. A <c>Topmost</c> rövid
     /// felvillantása megkerüli ezt, anélkül hogy tartósan legfelül maradna.
     /// </summary>
+    /// <summary>Az egypéldányos futás birtokosa — csak az ELSŐ példányban nem null.</summary>
+    private SingleInstanceService? _singleInstance;
+
+    /// <summary>
+    /// A parancssorban átadott mappa (jobbklikk „Megnyitás Pilaster-ben",
+    /// Intéző-kiváltás), ha van és létezik. <c>args[0]</c> a saját exe.
+    /// </summary>
+    private static string? GetFolderArgument()
+    {
+        var args = Environment.GetCommandLineArgs();
+        return args.Length > 1 && Directory.Exists(args[1]) ? args[1] : null;
+    }
+
     private static void ActivateMainWindow(Window window)
     {
         if (window.WindowState == WindowState.Minimized)
@@ -1063,6 +1112,7 @@ public partial class App : Application
         _services?.GetService<QuickAccessService>()?.Flush();
         _services?.GetService<CloudDriveService>()?.Flush();
         _services?.Dispose();
+        _singleInstance?.Dispose();
 
         Log.CloseAndFlush();
 

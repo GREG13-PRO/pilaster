@@ -77,17 +77,23 @@ public sealed class DiscordBugReportService : IBugReportService
                 return new BugReportResult(true, null);
             }
 
+            // A naplóba az OK is bekerül — enélkül a „nem működik" jelentést
+            // semmi nem magyarázta (rossz kulcs? leállt bot? rossz port?).
+            Serilog.Log.Warning("Hibabejelentés elutasítva: HTTP {Status} ({Url})", (int)response.StatusCode, api.Url);
+
             return response.StatusCode == HttpStatusCode.Unauthorized
                 ? new BugReportResult(false, "BugReport_NotConfigured")
                 : new BugReportResult(false, "BugReport_Failure");
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            Serilog.Log.Warning(ex, "A hibabejelentő bot nem érhető el ({Url})", api.Url);
             return new BugReportResult(false, "BugReport_ErrorNetwork");
         }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
             // Időtúllépés, nem a felhasználó általi megszakítás.
+            Serilog.Log.Warning(ex, "A hibabejelentés időtúllépés miatt megszakadt ({Url})", api.Url);
             return new BugReportResult(false, "BugReport_ErrorNetwork");
         }
     }

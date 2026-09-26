@@ -14,6 +14,8 @@ public sealed record KeyBindingRow(string Action, string Gesture, string Descrip
 /// táblázatához (spec F1).
 /// </summary>
 /// <remarks>
+/// Kétpaneles nézetben a Classic táblázat billentyűi a Modern kiosztás
+/// mellett is élnek (a Ctrl+R ott frissítés marad).
 /// Szándékosan LEÍRÓ katalógus, nem a kiosztás forrása: a tényleges kezelés a
 /// <c>MainWindow.OnMainPreviewKeyDown</c>-ban él. A kettőt kézzel kell
 /// szinkronban tartani — cserébe a táblázat rendezhető, fordítható és
@@ -38,6 +40,11 @@ public static class KeymapCatalog
             new(s["Cmd_Back"], "Alt+←", s["Keymap_BackHint"]),
             new(s["Cmd_Forward"], "Alt+→", s["Keymap_ForwardHint"]),
             new(s["Cmd_Up"], "Alt+↑", s["Keymap_UpHint"]),
+            new(s["Keymap_ToggleDualPane"], "F9", s["Keymap_ToggleDualPaneHint"]),
+            new(s["Keymap_OpenItem"], "Enter", s["Keymap_OpenItemHint"]),
+            new(s["Cmd_Up"], "Backspace / Ctrl+PgUp", s["Keymap_UpHint"]),
+            new(s["Keymap_DriveMenu"], "Alt+F1 / Alt+F2", s["Keymap_DriveMenuHint"]),
+            new(s["Keymap_OpenInPane"], "Ctrl+← / Ctrl+→", s["Keymap_OpenInPaneHint"]),
         ];
 
         if (preset == KeymapPreset.Explorer)
@@ -73,7 +80,11 @@ public static class KeymapCatalog
             new(s["Keymap_RefreshBoth"], "Alt+F5", s["Keymap_RefreshBothHint"]),
             new(s["Keymap_Mark"], "Insert", s["Keymap_MarkHint"]),
             new(s["Keymap_ToggleMark"], "Space", s["Keymap_ToggleMarkHint"]),
-            new(s["Keymap_UnselectAll"], "Ctrl+D / Num-", s["Keymap_UnselectAllHint"]),
+            new(s["Keymap_UnselectAll"], "Ctrl+D", s["Keymap_UnselectAllHint"]),
+            new(s["Mask_SelectTitle"], "Num+", s["Keymap_SelectMaskHint"]),
+            new(s["Mask_UnselectTitle"], "Num-", s["Keymap_UnselectMaskHint"]),
+            new(s["Cmd_NewFile"], "Shift+F4", s["Keymap_NewFileHint"]),
+            new(s["Keymap_Rename"], "Shift+F6", s["Keymap_RenameHint"]),
             new(s["Keymap_InvertSelection"], "Num*", s["Keymap_InvertSelectionHint"]),
             new(s["Keymap_QuickFilter"], "Alt+F7", s["Keymap_QuickFilterHint"]),
             .. shared,

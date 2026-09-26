@@ -34,11 +34,34 @@
             <conv:TagColorConverter x:Key="TagColorBrush" />
             <conv:TagBrushConverter x:Key="TagBrush" />
             <conv:HexToBrushConverter x:Key="HexToBrush" />
+            <conv:AllEqualMultiConverter x:Key="AllEqual" />
             <conv:IconNameConverter x:Key="IconName" />
             <conv:NotNullConverter x:Key="NotNull" />
             <conv:EqualsToVisibilityConverter x:Key="CategoryVisible" />
             <conv:VisibleFlagOpacityConverter x:Key="HiddenOpacityInverse" />
             <conv:ColorToBrushConverter x:Key="ColorToBrush" />
+
+            <!--
+                Billentyűzetes fókusz-keret a listasorokhoz. A WPF alapértelmezése
+                egy SZÖGLETES, pontozott téglalap a sor TELJES szélességében —
+                a lekerekített, beljebb kezdődő kijelölés-kiemelés mellett ez
+                elcsúszott, „fura" keretnek látszott. Ez ugyanazt a formát
+                követi, mint a kiemelés (4 px-es beljebb-kezdés, 6 px-es kerekítés).
+            -->
+            <Style x:Key="RoundedRowFocusVisual">
+                <Setter Property="Control.Template">
+                    <Setter.Value>
+                        <ControlTemplate>
+                            <Border
+                                Margin="4,0"
+                                BorderBrush="{DynamicResource SystemAccentBrush}"
+                                BorderThickness="1.5"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
             <!--
                 A WPF-UI saját ContextMenu-sablonjának felülírása (spec
@@ -76,6 +99,22 @@
                 Foreground/BorderBrush) — csak a sablon geometriája (a
                 dekorátor + effekt helyett natív árnyék) változott.
             -->
+            <!--
+                Hivatkozások: a WPF alapértelmezett sötétkék linkszíne
+                (SystemColors.HotTrackBrush) sötét témában szinte olvashatatlan
+                volt (pl. a hibajelentő e-mail cím) — a téma accent szövegszínét
+                kapják, aláhúzás csak rámutatáskor.
+            -->
+            <Style TargetType="{x:Type Hyperlink}">
+                <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <Setter Property="TextDecorations" Value="{x:Null}" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="TextDecorations" Value="Underline" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
             <Style TargetType="{x:Type ContextMenu}">
                 <Setter Property="TextElement.Foreground" Value="{DynamicResource ContextMenuForeground}" />
                 <Setter Property="Foreground" Value="{DynamicResource ContextMenuForeground}" />

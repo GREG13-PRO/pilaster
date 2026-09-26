@@ -51,7 +51,7 @@ $RECYCLE.BIN/
 *~
 
 ## Eszközök helyi beállításai — gépenként eltér, nem a repóba való
-.claude/settings.local.json
+.claude/
 
 ## Titkos adatok / secrets — soha ne kerüljön be
 *.pfx
@@ -66,6 +66,7 @@ discord-bot/bot.log
 discord-bot/npm-debug.log*
 .env
 .env.*
+!.env.example
 
 ## Pilaster futásidejű adatok / runtime data
 *.db

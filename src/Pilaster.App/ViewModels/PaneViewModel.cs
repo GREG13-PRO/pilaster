@@ -195,10 +195,16 @@ public sealed partial class PaneViewModel : ObservableObject
     /// nézetben egy valódi mappán — lásd <see cref="SuppressHomeTab"/>.
     /// </summary>
     [RelayCommand]
-    private void NewTab() => AddTab(
-        SuppressHomeTab ? DefaultRealFolder() : TabViewModel.HomeMarker,
-        ActiveTab?.ViewMode,
-        ActiveTab?.ShowHiddenItems ?? false);
+    private void NewTab()
+    {
+        // MINDIG új fül — a „+" gombnak láthatóan kell csinálnia valamit. (Egy
+        // korábbi változat meglévő Kezdőlap-fülre váltott új helyett, amit a
+        // felhasználó úgy élt meg, hogy a gomb nem működik.)
+        AddTab(
+            SuppressHomeTab ? DefaultRealFolder() : TabViewModel.HomeMarker,
+            ActiveTab?.ViewMode,
+            ActiveTab?.ShowHiddenItems ?? false);
+    }
 
     /// <summary>
     /// Valódi mappa a virtuális Kezdőlap helyett (spec E1, v1.0.1): a

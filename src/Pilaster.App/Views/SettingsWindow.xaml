@@ -16,7 +16,7 @@
     MinHeight="520"
     Icon="pack://application:,,,/Pilaster;component/Assets/app.ico"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica"
+    WindowBackdropType="{DynamicResource PilasterWindowBackdrop}"
     WindowCornerPreference="Round"
     WindowStartupLocation="CenterOwner">
 
@@ -32,10 +32,67 @@
             <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
 
-        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
+        <!--
+            Egyetlen görgethető oldal: minden kategória egymás alatt, saját
+            nagy címmel (CategoryHeaderStyle) — a kategórián belüli
+            alcsoportok (SectionHeaderStyle) ennél kisebbek és halványabbak,
+            hogy a tagolás első ránézésre olvasható legyen.
+        -->
+        <Style x:Key="CategoryHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="2,18,0,8" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Margin" Value="2,14,0,8" />
+        </Style>
+
+        <!--
+            A bal oldali kategórialista sora — lekerekített rámutatás-kiemelés.
+            A kijelölést a lista alatti, csúszó SelectionIndicator rajzolja
+            (lásd a ListBox előtt). Korábban a WPF alap ListBoxItem szögletes,
+            szél-szélig érő kiemelése látszott.
+        -->
+        <Style x:Key="CategoryItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource RoundedRowFocusVisual}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Background="Transparent">
+                            <Border
+                                x:Name="Highlight"
+                                Background="Transparent"
+                                CornerRadius="6" />
+                            <Border Padding="{TemplateBinding Padding}" VerticalAlignment="Center">
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Highlight" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <!--
+                                A KIJELÖLT sor saját kiemelése szándékosan nincs itt:
+                                azt a lista alatti, csúszó SelectionIndicator rajzolja.
+                                Rámutatáskor a kijelölt sor ne kapjon dupla hátteret.
+                            -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Highlight" Property="Background" Value="Transparent" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="CaptionStyle" TargetType="TextBlock">
@@ -85,23 +142,51 @@
             </ui:TextBox>
 
             <!--  Bal oldali kategórialista  -->
-            <ListBox
+            <!--
+                Tartalomjegyzék: kattintásra az adott kategóriához görget
+                (OnCategorySelectionChanged), görgetéskor pedig követi, melyik
+                kategóriánál jár a felhasználó (OnContentScrollChanged).
+            -->
+            <!--
+                Csúszó kijelölés: EGYETLEN kiemelés (lekerekített háttér +
+                akcentus-sáv) ül a lista ALATT, és a kijelölt sorhoz CSÚSZIK
+                (lásd MoveSelectionIndicator) — nem soronként villan fel/el.
+                A Windows 11 Gépházának navigációs mintája.
+            -->
+            <Canvas
+                x:Name="IndicatorLayer"
                 Grid.Row="1"
                 Grid.Column="0"
-                Margin="10,0,4,0"
+                Margin="10,0,6,0"
+                ClipToBounds="True"
+                IsHitTestVisible="False">
+                <Grid x:Name="SelectionIndicator" Opacity="0">
+                    <Grid.RenderTransform>
+                        <TranslateTransform x:Name="SelectionIndicatorOffset" />
+                    </Grid.RenderTransform>
+                    <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="6" />
+                    <Border
+                        Width="3"
+                        Height="16"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource SystemAccentBrush}"
+                        CornerRadius="1.5" />
+                </Grid>
+            </Canvas>
+
+            <ListBox
+                x:Name="CategoryList"
+                Grid.Row="1"
+                Grid.Column="0"
+                Margin="10,0,6,0"
                 Background="Transparent"
                 BorderThickness="0"
+                ItemContainerStyle="{StaticResource CategoryItemStyle}"
                 ItemsSource="{Binding Categories}"
-                SelectedItem="{Binding SelectedCategory, Mode=TwoWay}">
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="{DynamicResource TokenRowPadding}" />
-                        <Setter Property="Margin" Value="{DynamicResource TokenRowMargin}" />
-                        <Setter Property="MinHeight" Value="{DynamicResource TokenRowHeight}" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}" />
-                    </Style>
-                </ListBox.ItemContainerStyle>
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                SelectionChanged="OnCategorySelectionChanged">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:SettingsCategoryViewModel}">
                         <StackPanel Orientation="Horizontal">
@@ -158,14 +243,101 @@
                 x:Name="ContentScroll"
                 Grid.Row="1"
                 Grid.Column="1"
-                Padding="10,0,18,4"
+                Padding="14,0,18,4"
+                ScrollChanged="OnContentScrollChanged"
                 VerticalScrollBarVisibility="Auto"
                 Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
             <StackPanel>
 
-                <!--  ===== Megjelenés =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=appearance}">
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_Appearance}" />
+                <!--  ===== general =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:general">
+                    <Grid Margin="2,4,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_General}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="general"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
+
+                    <Border Style="{StaticResource CardStyle}" Tag="general.restoreSession">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_RestoreSession}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_RestoreSessionHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding RestoreSession, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="general.startupFolder" IsEnabled="{Binding RestoreSession, Converter={StaticResource InvertBool}}">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_StartupFolder}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_StartupFolderHint}" />
+                            <ui:TextBox Margin="0,10,0,0" Text="{Binding StartupFolder, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="general.singleInstance">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_SingleInstance}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_SingleInstanceHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding SingleInstance, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+                
+
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc Settings_Language}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_LanguageHint}" />
+                        </StackPanel>
+                        <ComboBox
+                            Grid.Column="1"
+                            Width="200"
+                            VerticalAlignment="Center"
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{Binding Languages}"
+                            SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" />
+                    </Grid>
+                </Border>
+                </StackPanel>
+
+                <!--  ===== appearance =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:appearance">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Appearance}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="appearance"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
 
                 <Border Style="{StaticResource CardStyle}">
                     <Grid>
@@ -238,6 +410,8 @@
                                         Margin="0,0,8,8"
                                         Padding="0"
                                         Appearance="Transparent"
+                                        BorderBrush="Transparent"
+                                        BorderThickness="0"
                                         Command="{Binding DataContext.SelectAccentPresetCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
                                         CommandParameter="{Binding}"
                                         CornerRadius="16">
@@ -305,12 +479,34 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource CardStyle}">
+                <Border Style="{StaticResource CardStyle}" Tag="appearance.performance">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc Settings_PerformanceMode}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_PerformanceModeHint}" />
+                        </StackPanel>
+                        <ui:Button
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Command="{Binding EnablePerformanceModeCommand}"
+                            Content="{loc:Loc Settings_PerformanceModeApply}" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}" Tag="appearance.glass">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <StackPanel Grid.Column="0" Margin="0,0,16,0">
                             <TextBlock Text="{loc:Loc Settings_LiquidGlass}" />
                             <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_LiquidGlassHint}" />
@@ -319,15 +515,58 @@
                             Grid.Column="1"
                             VerticalAlignment="Center"
                             IsChecked="{Binding LiquidGlassEnabled, Mode=TwoWay}" />
+
+                        <!--  Erősség — csak bekapcsolt üveghatásnál van értelme, ezért kikapcsolva letiltott.  -->
+                        <Grid
+                            Grid.Row="1"
+                            Grid.ColumnSpan="2"
+                            Margin="0,12,0,0"
+                            IsEnabled="{Binding LiquidGlassEnabled}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="44" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                Grid.Column="0"
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                Text="{loc:Loc Settings_GlassIntensity}" />
+                            <Slider
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                IsMoveToPointEnabled="True"
+                                IsSnapToTickEnabled="True"
+                                Maximum="100"
+                                Minimum="0"
+                                TickFrequency="5"
+                                Value="{Binding GlassIntensity, Mode=TwoWay}" />
+                            <TextBlock
+                                Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                Text="{Binding GlassIntensity, StringFormat={}{0}%}" />
+                        </Grid>
                     </Grid>
                 </Border>
-
                 </StackPanel>
 
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=integrations}">
-                <!--  ===== Panelek =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=panes}">
-                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_Panes}" />
+                <!--  ===== panes =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:panes">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Panes}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="panes"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
 
                     <Border Style="{StaticResource CardStyle}" Tag="panes.vertical">
                         <Grid>
@@ -378,9 +617,21 @@
                     </Border>
                 </StackPanel>
 
-                <!--  ===== Fájllista =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=filelist}">
-                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_FileList}" />
+                <!--  ===== filelist =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:filelist">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_FileList}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="filelist"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
 
                     <Border Style="{StaticResource CardStyle}" Tag="filelist.system">
                         <Grid>
@@ -424,6 +675,29 @@
                         </Grid>
                     </Border>
 
+                    <Border Style="{StaticResource CardStyle}" Tag="filelist.columns">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_ExtraColumns}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ExtraColumnsHint}" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center" Text="{loc:Loc Col_Created}" />
+                                <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ShowCreatedColumn, Mode=TwoWay}" />
+                            </Grid>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center" Text="{loc:Loc Col_Accessed}" />
+                                <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ShowAccessedColumn, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <Border Style="{StaticResource CardStyle}" Tag="filelist.sizeUnits">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -439,464 +713,21 @@
                     </Border>
                 </StackPanel>
 
-                <!--  ===== Jobbklikk menü =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=contextmenu}">
-                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_ContextMenu}" />
-
-                    <!--  Megjelenítési mód (spec v1.0.3) — a legfontosabb kapcsoló, ezért legfelül.  -->
-                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.mode">
-                        <StackPanel>
-                            <TextBlock Margin="0,0,0,10" Text="{loc:Loc Settings_ContextMenuMode}" />
-
-                            <RadioButton
-                                Margin="0,0,0,10"
-                                GroupName="ContextMenuMode"
-                                IsChecked="{Binding ContextMenuMode, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Windows}">
-                                <StackPanel Margin="8,0,0,0">
-                                    <TextBlock Text="{loc:Loc Settings_ContextMenuMode_Windows}" />
-                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuMode_WindowsHint}" />
-                                </StackPanel>
-                            </RadioButton>
-
-                            <RadioButton
-                                GroupName="ContextMenuMode"
-                                IsChecked="{Binding ContextMenuMode, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Pilaster}">
-                                <StackPanel Margin="8,0,0,0">
-                                    <TextBlock Text="{loc:Loc Settings_ContextMenuMode_Pilaster}" />
-                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuMode_PilasterHint}" />
-                                </StackPanel>
-                            </RadioButton>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.shell">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_ShellExtensions}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellExtensionsHint}" />
-                            </StackPanel>
-                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ShellExtensionsEnabled, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.timeout" IsEnabled="{Binding ShellExtensionsEnabled}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_ShellTimeout}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellTimeoutHint}" />
-                            </StackPanel>
-                            <ui:NumberBox
-                                Grid.Column="1"
-                                Width="120"
-                                VerticalAlignment="Center"
-                                Maximum="5000"
-                                Minimum="50"
-                                Value="{Binding ShellMenuTimeoutMs, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.section" IsEnabled="{Binding ShellExtensionsEnabled}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_ShellOwnSection}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellOwnSectionHint}" />
-                            </StackPanel>
-                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ShellItemsInOwnSection, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <!--  Előretöltés kijelöléskor (spec A2, v1.0.2)  -->
-                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.preload" IsEnabled="{Binding ShellExtensionsEnabled}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_ContextMenuPreload}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuPreloadHint}" />
-                            </StackPanel>
-                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ContextMenuPreloadEnabled, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <!--  Összeomlás utáni visszakapcsolás (spec P3)  -->
-                    <Border Style="{StaticResource CardStyle}" Visibility="{Binding ShellDisabledAfterCrash, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Loc Settings_ShellReenable}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellReenableHint}" />
-                            <StackPanel Margin="0,6,0,0" Orientation="Horizontal" Visibility="{Binding ShellCrashPath, Converter={StaticResource NullToCollapsed}}">
-                                <TextBlock
-                                    Margin="0,0,6,0"
-                                    FontSize="11"
-                                    Foreground="{DynamicResource TokenTextMuted}"
-                                    Text="{loc:Loc Settings_ShellCrashPath}" />
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{DynamicResource TokenWarning}"
-                                    Text="{Binding ShellCrashPath}"
-                                    TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                            <ui:Button
-                                Margin="0,10,0,0"
-                                HorizontalAlignment="Left"
-                                Command="{Binding ReenableShellExtensionsCommand}"
-                                Content="{loc:Loc Settings_ShellReenable}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.blacklist" IsEnabled="{Binding ShellExtensionsEnabled}">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Loc Settings_ShellBlacklist}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellBlacklistHint}" />
-                            <ui:TextBox
-                                MinHeight="80"
-                                Margin="0,10,0,0"
-                                AcceptsReturn="True"
-                                Text="{Binding ShellBlacklistText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                TextWrapping="NoWrap"
-                                VerticalScrollBarVisibility="Auto" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <!--  ===== Szerkesztő =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=editor}">
-                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_Editor}" />
-
-                    <Border Style="{StaticResource CardStyle}" Tag="editor.font">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Loc Settings_EditorFont}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorFontHint}" />
-                            <Grid Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <ui:TextBox Grid.Column="0" Margin="0,0,8,0" Text="{Binding EditorFontFamily, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
-                                <ui:NumberBox
-                                    Grid.Column="1"
-                                    Width="100"
-                                    Maximum="48"
-                                    Minimum="6"
-                                    Value="{Binding EditorFontSize, Mode=TwoWay}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="editor.tabWidth">
-                        <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                    <TextBlock Text="{loc:Loc Settings_EditorTabWidth}" />
-                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorTabWidthHint}" />
-                                </StackPanel>
-                                <ui:NumberBox
-                                    Grid.Column="1"
-                                    Width="100"
-                                    VerticalAlignment="Center"
-                                    Maximum="16"
-                                    Minimum="1"
-                                    Value="{Binding EditorTabWidth, Mode=TwoWay}" />
-                            </Grid>
-                            <CheckBox
-                                Margin="0,10,0,0"
-                                Content="{loc:Loc Settings_EditorInsertSpaces}"
-                                IsChecked="{Binding EditorInsertSpaces, Mode=TwoWay}" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="editor.wordWrap">
-                        <StackPanel>
-                            <CheckBox Content="{loc:Loc Settings_EditorWordWrap}" IsChecked="{Binding EditorWordWrap, Mode=TwoWay}" />
-                            <CheckBox Margin="0,8,0,0" Content="{loc:Loc Settings_EditorLineNumbers}" IsChecked="{Binding EditorShowLineNumbers, Mode=TwoWay}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorWordWrapHint}" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="editor.encoding">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_EditorEncoding}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorEncodingHint}" />
-                            </StackPanel>
-                            <ComboBox
-                                Grid.Column="1"
-                                Width="160"
-                                VerticalAlignment="Center"
-                                ItemsSource="{Binding Encodings}"
-                                SelectedItem="{Binding EditorDefaultEncoding, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="editor.lineEnding">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_EditorLineEnding}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorLineEndingHint}" />
-                            </StackPanel>
-                            <ComboBox
-                                Grid.Column="1"
-                                Width="160"
-                                VerticalAlignment="Center"
-                                ItemsSource="{Binding LineEndings}"
-                                SelectedItem="{Binding EditorDefaultLineEnding, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="editor.window">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_EditorWindow}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorWindowHint}" />
-                            </StackPanel>
-                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding EditorInSeparateWindow, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-                </StackPanel>
-
-                <!--  ===== Speciális: naplózás és mappák =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=advanced}">
-                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_Advanced}" />
-
-                    <Border Style="{StaticResource CardStyle}" Tag="advanced.logLevel">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_LogLevel}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_LogLevelHint}" />
-                                <Border
-                                    Margin="0,6,0,0"
-                                    Padding="6,2"
-                                    HorizontalAlignment="Left"
-                                    Background="{DynamicResource TokenBgApp}"
-                                    BorderBrush="{DynamicResource TokenBorder}"
-                                    BorderThickness="1"
-                                    CornerRadius="4">
-                                    <TextBlock
-                                        FontSize="11"
-                                        Foreground="{DynamicResource TokenWarning}"
-                                        Text="{loc:Loc Settings_RestartRequired}" />
-                                </Border>
-                            </StackPanel>
-                            <ComboBox
-                                Grid.Column="1"
-                                Width="160"
-                                VerticalAlignment="Center"
-                                ItemsSource="{Binding LogLevels}"
-                                SelectedItem="{Binding LogLevel, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="advanced.logFile">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_OpenLog}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_OpenLogHint}" />
-                            </StackPanel>
-                            <ui:Button
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Click="OnOpenLogClick"
-                                Content="{loc:Loc Cmd_Open}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="advanced.configFolder">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_OpenConfig}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_OpenConfigHint}" />
-                            </StackPanel>
-                            <ui:Button
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Click="OnOpenConfigFolderClick"
-                                Content="{loc:Loc Cmd_Open}" />
-                        </Grid>
-                    </Border>
-                </StackPanel>
-
-                <!--  ===== Általános: indulás és munkamenet =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=general}">
-                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc SettingsCat_General}" />
-
-                    <Border Style="{StaticResource CardStyle}" Tag="general.restoreSession">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_RestoreSession}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_RestoreSessionHint}" />
-                            </StackPanel>
-                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding RestoreSession, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="general.startupFolder" IsEnabled="{Binding RestoreSession, Converter={StaticResource InvertBool}}">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Loc Settings_StartupFolder}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_StartupFolderHint}" />
-                            <ui:TextBox Margin="0,10,0,0" Text="{Binding StartupFolder, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Tag="general.singleInstance">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc Settings_SingleInstance}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_SingleInstanceHint}" />
-                            </StackPanel>
-                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding SingleInstance, Mode=TwoWay}" />
-                        </Grid>
-                    </Border>
-                </StackPanel>
-
-                <!--  ===== Integrációk: terminál =====  -->
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=integrations}">
-                    <Border Style="{StaticResource CardStyle}" Tag="integrations.terminal">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Loc Settings_Terminal}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_TerminalHint}" />
-                            <ui:TextBox Margin="0,10,0,0" Text="{Binding ExternalTerminalPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-                <!--  ===== Rendszerintegráció =====  -->
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_ShellIntegration}" />
-                <TextBlock
-                    Margin="2,0,0,10"
-                    Style="{StaticResource CaptionStyle}"
-                    Text="{loc:Loc Settings_ShellIntegrationHint}" />
-
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                            <TextBlock Text="{loc:Loc ShellIntegration_FolderOpen}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_FolderOpenHint}" />
-                        </StackPanel>
-                        <ui:ToggleSwitch
-                            x:Name="FolderOpenToggle"
-                            Grid.Column="1"
+                <!--  ===== keyboard =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:keyboard">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Keyboard}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
                             VerticalAlignment="Center"
-                            IsChecked="{Binding FolderOpenRedirectEnabled, Mode=OneWay}"
-                            PreviewMouseLeftButtonDown="OnFolderOpenRedirectPreviewClick" />
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="keyboard"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
                     </Grid>
-                </Border>
 
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                            <TextBlock Text="{loc:Loc ShellIntegration_WinE}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_WinEHint}" />
-                        </StackPanel>
-                        <ui:ToggleSwitch
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            IsChecked="{Binding WinERedirectEnabled, Mode=OneWay}"
-                            PreviewMouseLeftButtonDown="OnWinERedirectPreviewClick" />
-                    </Grid>
-                </Border>
-
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                            <TextBlock Text="{loc:Loc ShellIntegration_ContextMenu}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_ContextMenuHint}" />
-                        </StackPanel>
-                        <ui:ToggleSwitch
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            IsChecked="{Binding ContextMenuEntryEnabled, Mode=OneWay}"
-                            PreviewMouseLeftButtonDown="OnContextMenuEntryPreviewClick" />
-                    </Grid>
-                </Border>
-
-                <Border Style="{StaticResource CardStyle}">
-                    <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{loc:Loc ShellIntegration_ResetAll}" />
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_ResetAllHint}" />
-                            </StackPanel>
-                            <ui:Button
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Command="{Binding ResetShellIntegrationCommand}"
-                                Content="{loc:Loc Cmd_Reset}" />
-                        </Grid>
-                        <TextBlock
-                            Margin="0,10,0,0"
-                            Foreground="{DynamicResource TokenDanger}"
-                            Text="{Binding ShellIntegrationError}"
-                            TextWrapping="Wrap"
-                            Visibility="{Binding ShellIntegrationError, Converter={StaticResource NullToCollapsed}}" />
-                    </StackPanel>
-                </Border>
-
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=keyboard}">
                 <!--  ===== Billentyűkiosztás =====  -->
                 <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_Keymap}" />
 
@@ -994,133 +825,294 @@
                         </Grid>
                     </StackPanel>
                 </Border>
-
                 </StackPanel>
 
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=general}">
-                <!--  ===== Nyelv =====  -->
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_Language}" />
-
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                            <TextBlock Text="{loc:Loc Settings_Language}" />
-                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_LanguageHint}" />
-                        </StackPanel>
-                        <ComboBox
-                            Grid.Column="1"
-                            Width="200"
+                <!--  ===== contextmenu =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:contextmenu">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_ContextMenu}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
                             VerticalAlignment="Center"
-                            DisplayMemberPath="DisplayName"
-                            ItemsSource="{Binding Languages}"
-                            SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" />
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="contextmenu"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
                     </Grid>
-                </Border>
 
-                </StackPanel>
 
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=advanced}">
-                <!--  ===== Gyorsgombok =====  -->
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_QuickActions}" />
-                <TextBlock
-                    Margin="2,0,0,10"
-                    Style="{StaticResource CaptionStyle}"
-                    Text="{loc:Loc Settings_QuickActionsHint}" />
+                    <!--  Megjelenítési mód (spec v1.0.3) — a legfontosabb kapcsoló, ezért legfelül.  -->
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.mode">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,10" Text="{loc:Loc Settings_ContextMenuMode}" />
 
-                <ItemsControl ItemsSource="{Binding QuickActions}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:QuickActionEditorViewModel}">
-                            <Border Style="{StaticResource CardStyle}" Padding="16">
-                                <StackPanel>
-
-                                    <TextBlock
-                                        Margin="0,0,0,12"
-                                        FontWeight="SemiBold"
-                                        Text="{Binding Header, Converter={StaticResource LocalizeKey}}" />
-
-                                    <!--
-                                        Típus. A GroupName a szerkesztő fejlécéből jön, hogy a két
-                                        gyorsgomb rádiói biztosan külön csoportba essenek — enélkül
-                                        a második szerkesztő választása kikapcsolná az elsőét.
-                                    -->
-                                    <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
-                                        <RadioButton
-                                            Margin="0,0,18,0"
-                                            Content="{loc:Loc Type_Folder}"
-                                            GroupName="{Binding Header}"
-                                            IsChecked="{Binding Kind, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Folder}" />
-                                        <RadioButton
-                                            Content="{loc:Loc Type_File}"
-                                            GroupName="{Binding Header}"
-                                            IsChecked="{Binding Kind, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=File}" />
-                                    </StackPanel>
-
-                                    <!--  Kiterjesztés — csak fájlnál  -->
-                                    <StackPanel Margin="0,0,0,12" Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
-                                        <TextBlock Margin="0,0,0,4" Text="{loc:Loc Settings_Extension}" />
-                                        <ui:TextBox Width="120" HorizontalAlignment="Left" Text="{Binding Extension, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                    </StackPanel>
-
-                                    <!--  Névsablon + élő előnézet  -->
-                                    <TextBlock Margin="0,0,0,4" Text="{loc:Loc Settings_NameTemplate}" />
-                                    <ui:TextBox Text="{Binding NameTemplate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_TemplateHint}" />
-
-                                    <Border
-                                        Margin="0,8,0,12"
-                                        Padding="10,6"
-                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="6">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock
-                                                Margin="0,0,8,0"
-                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                Text="{loc:Loc Settings_Preview}" />
-                                            <TextBlock FontWeight="SemiBold" Text="{Binding Preview}" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!--  Cél  -->
-                                    <CheckBox
-                                        Margin="0,0,0,8"
-                                        Content="{loc:Loc Settings_UseFixedPath}"
-                                        IsChecked="{Binding UseFixedPath, Mode=TwoWay}" />
-
-                                    <Grid Visibility="{Binding UseFixedPath, Converter={StaticResource BoolToVisibility}}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <ui:TextBox
-                                            Grid.Column="0"
-                                            Margin="0,0,8,0"
-                                            Text="{Binding FixedPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                        <ui:Button
-                                            Grid.Column="1"
-                                            Command="{Binding BrowseFolderCommand}"
-                                            Content="{loc:Loc Settings_Browse}" />
-                                    </Grid>
-
+                            <RadioButton
+                                Margin="0,0,0,10"
+                                GroupName="ContextMenuMode"
+                                IsChecked="{Binding ContextMenuMode, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Windows}">
+                                <StackPanel Margin="8,0,0,0">
+                                    <TextBlock Text="{loc:Loc Settings_ContextMenuMode_Windows}" />
+                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuMode_WindowsHint}" />
                                 </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                            </RadioButton>
 
-                <TextBlock
-                    Margin="2,10,0,0"
-                    Style="{StaticResource CaptionStyle}"
-                    Text="{loc:Loc Settings_AutoSaved}" />
+                            <RadioButton
+                                GroupName="ContextMenuMode"
+                                IsChecked="{Binding ContextMenuMode, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Pilaster}">
+                                <StackPanel Margin="8,0,0,0">
+                                    <TextBlock Text="{loc:Loc Settings_ContextMenuMode_Pilaster}" />
+                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuMode_PilasterHint}" />
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
 
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.shell">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_ShellExtensions}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellExtensionsHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ShellExtensionsEnabled, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.timeout" IsEnabled="{Binding ShellExtensionsEnabled}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_ShellTimeout}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellTimeoutHint}" />
+                            </StackPanel>
+                            <ui:NumberBox
+                                ClearButtonEnabled="False"
+                                Grid.Column="1"
+                                Width="150"
+                                VerticalAlignment="Center"
+                                Maximum="5000"
+                                Minimum="50"
+                                Value="{Binding ShellMenuTimeoutMs, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.section" IsEnabled="{Binding ShellExtensionsEnabled}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_ShellOwnSection}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellOwnSectionHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ShellItemsInOwnSection, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Előretöltés kijelöléskor (spec A2, v1.0.2)  -->
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.preload" IsEnabled="{Binding ShellExtensionsEnabled}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_ContextMenuPreload}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ContextMenuPreloadHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding ContextMenuPreloadEnabled, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Összeomlás utáni visszakapcsolás (spec P3)  -->
+                    <Border Style="{StaticResource CardStyle}" Visibility="{Binding ShellDisabledAfterCrash, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_ShellReenable}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellReenableHint}" />
+                            <StackPanel Margin="0,6,0,0" Orientation="Horizontal" Visibility="{Binding ShellCrashPath, Converter={StaticResource NullToCollapsed}}">
+                                <TextBlock
+                                    Margin="0,0,6,0"
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TokenTextMuted}"
+                                    Text="{loc:Loc Settings_ShellCrashPath}" />
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{DynamicResource TokenWarning}"
+                                    Text="{Binding ShellCrashPath}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <ui:Button
+                                Margin="0,10,0,0"
+                                HorizontalAlignment="Left"
+                                Command="{Binding ReenableShellExtensionsCommand}"
+                                Content="{loc:Loc Settings_ShellReenable}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardStyle}" Tag="contextmenu.blacklist" IsEnabled="{Binding ShellExtensionsEnabled}">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_ShellBlacklist}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_ShellBlacklistHint}" />
+                            <ui:TextBox
+                                MinHeight="80"
+                                Margin="0,10,0,0"
+                                AcceptsReturn="True"
+                                Text="{Binding ShellBlacklistText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                TextWrapping="NoWrap"
+                                VerticalScrollBarVisibility="Auto" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=tags}">
+                <!--  ===== editor =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:editor">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Editor}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="editor"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
+
+                    <Border Style="{StaticResource CardStyle}" Tag="editor.font">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_EditorFont}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorFontHint}" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ui:TextBox Grid.Column="0" Margin="0,0,8,0" Text="{Binding EditorFontFamily, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                <ui:NumberBox
+                                    ClearButtonEnabled="False"
+                                    Grid.Column="1"
+                                    Width="150"
+                                    Maximum="48"
+                                    Minimum="6"
+                                    Value="{Binding EditorFontSize, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="editor.tabWidth">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                    <TextBlock Text="{loc:Loc Settings_EditorTabWidth}" />
+                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorTabWidthHint}" />
+                                </StackPanel>
+                                <ui:NumberBox
+                                    ClearButtonEnabled="False"
+                                    Grid.Column="1"
+                                    Width="150"
+                                    VerticalAlignment="Center"
+                                    Maximum="16"
+                                    Minimum="1"
+                                    Value="{Binding EditorTabWidth, Mode=TwoWay}" />
+                            </Grid>
+                            <CheckBox
+                                Margin="0,10,0,0"
+                                Content="{loc:Loc Settings_EditorInsertSpaces}"
+                                IsChecked="{Binding EditorInsertSpaces, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="editor.wordWrap">
+                        <StackPanel>
+                            <CheckBox Content="{loc:Loc Settings_EditorWordWrap}" IsChecked="{Binding EditorWordWrap, Mode=TwoWay}" />
+                            <CheckBox Margin="0,8,0,0" Content="{loc:Loc Settings_EditorLineNumbers}" IsChecked="{Binding EditorShowLineNumbers, Mode=TwoWay}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorWordWrapHint}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="editor.encoding">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_EditorEncoding}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorEncodingHint}" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                Width="160"
+                                VerticalAlignment="Center"
+                                ItemsSource="{Binding Encodings}"
+                                SelectedItem="{Binding EditorDefaultEncoding, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="editor.lineEnding">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_EditorLineEnding}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorLineEndingHint}" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                Width="160"
+                                VerticalAlignment="Center"
+                                ItemsSource="{Binding LineEndings}"
+                                SelectedItem="{Binding EditorDefaultLineEnding, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="editor.window">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_EditorWindow}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_EditorWindowHint}" />
+                            </StackPanel>
+                            <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding EditorInSeparateWindow, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  ===== tags =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:tags">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Tags}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="tags"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
                 <!--  ===== Címkék =====  -->
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Nav_Tags}" />
                 <TextBlock
                     Margin="2,0,0,10"
                     Style="{StaticResource CaptionStyle}"
@@ -1152,6 +1144,8 @@
                                             Padding="5"
                                             VerticalAlignment="Center"
                                             Appearance="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="0"
                                             Command="{Binding TogglePickerCommand}"
                                             ToolTip="{loc:Loc Tags_PickColor}">
                                             <controls:TagSwatch ColorHex="{Binding ColorHex}" TagColor="{Binding Color}" />
@@ -1165,11 +1159,15 @@
                                             PlacementTarget="{Binding ElementName=ColorButton}"
                                             StaysOpen="False">
                                             <Border
-                                                Padding="12"
+                                                Margin="0,4,8,8"
+                                                Padding="10"
                                                 Background="{DynamicResource TokenBgElevated}"
                                                 BorderBrush="{DynamicResource TokenBorder}"
                                                 BorderThickness="1"
-                                                CornerRadius="8">
+                                                CornerRadius="10">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="12" Opacity="0.25" ShadowDepth="2" />
+                                                </Border.Effect>
                                                 <StackPanel Width="216">
                                                     <ItemsControl ItemsSource="{Binding Presets}">
                                                         <ItemsControl.ItemsPanel>
@@ -1180,15 +1178,43 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate DataType="{x:Type metadata:TagColor}">
                                                                 <ui:Button
-                                                                    Margin="2"
-                                                                    Padding="4"
+                                                                    Width="34"
+                                                                    Height="34"
+                                                                    Margin="1"
+                                                                    Padding="0"
                                                                     Appearance="Transparent"
+                                                                    BorderBrush="Transparent"
+                                                                    BorderThickness="0"
                                                                     Command="{Binding DataContext.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                    CommandParameter="{Binding}">
-                                                                    <controls:TagSwatch
-                                                                        Width="20"
-                                                                        Height="20"
-                                                                        TagColor="{Binding}" />
+                                                                    CommandParameter="{Binding}"
+                                                                    CornerRadius="17">
+                                                                    <!--  A kiválasztott szín körül accent gyűrű.  -->
+                                                                    <Border
+                                                                        Width="28"
+                                                                        Height="28"
+                                                                        BorderThickness="2"
+                                                                        CornerRadius="14">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Value="True">
+                                                                                        <DataTrigger.Binding>
+                                                                                            <MultiBinding Converter="{StaticResource AllEqual}">
+                                                                                                <Binding />
+                                                                                                <Binding Path="DataContext.Color" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                                                            </MultiBinding>
+                                                                                        </DataTrigger.Binding>
+                                                                                        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentBrush}" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <controls:TagSwatch
+                                                                            Width="20"
+                                                                            Height="20"
+                                                                            TagColor="{Binding}" />
+                                                                    </Border>
                                                                 </ui:Button>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
@@ -1237,6 +1263,8 @@
                                             Grid.Column="2"
                                             Padding="6"
                                             Appearance="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="0"
                                             Command="{Binding DataContext.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
                                             CommandParameter="{Binding}"
                                             ToolTip="{loc:Loc Cmd_Delete}">
@@ -1254,18 +1282,99 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <ComboBox
+                            <!--
+                                Színválasztó gomb + felugró paletta — ugyanaz, mint a
+                                meglévő címkéknél. Korábban egy 62 DIP széles legördülő
+                                volt, amiben a kiválasztott színminta félig levágódott.
+                            -->
+                            <ui:Button
+                                x:Name="NewTagColorButton"
                                 Grid.Column="0"
-                                Width="62"
                                 Margin="0,0,8,0"
-                                ItemsSource="{Binding TagColors}"
-                                SelectedItem="{Binding NewTagColor, Mode=TwoWay}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type metadata:TagColor}">
-                                        <controls:TagSwatch TagColor="{Binding}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
+                                Padding="8"
+                                VerticalAlignment="Center"
+                                Command="{Binding ToggleNewTagPickerCommand}"
+                                ToolTip="{loc:Loc Tags_PickColor}">
+                                <StackPanel Orientation="Horizontal">
+                                    <controls:TagSwatch
+                                        Width="16"
+                                        Height="16"
+                                        TagColor="{Binding NewTagColor}" />
+                                    <ui:SymbolIcon
+                                        Margin="6,0,0,0"
+                                        FontSize="10"
+                                        Symbol="ChevronDown24" />
+                                </StackPanel>
+                            </ui:Button>
+                            <Popup
+                                Grid.Column="0"
+                                AllowsTransparency="True"
+                                IsOpen="{Binding IsNewTagPickerOpen, Mode=TwoWay}"
+                                Placement="Bottom"
+                                PlacementTarget="{Binding ElementName=NewTagColorButton}"
+                                StaysOpen="False">
+                                <Border
+                                    Margin="0,4,8,8"
+                                    Padding="10"
+                                    Background="{DynamicResource TokenBgElevated}"
+                                    BorderBrush="{DynamicResource TokenBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="10">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="12" Opacity="0.25" ShadowDepth="2" />
+                                    </Border.Effect>
+                                    <ItemsControl ItemsSource="{Binding TagColors}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="6" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type metadata:TagColor}">
+                                                <ui:Button
+                                                    Width="34"
+                                                    Height="34"
+                                                    Margin="1"
+                                                    Padding="0"
+                                                    Appearance="Transparent"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="0"
+                                                    Command="{Binding DataContext.SelectNewTagColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    CornerRadius="17">
+                                                    <!--  A kiválasztott szín körül accent gyűrű.  -->
+                                                    <Border
+                                                        Width="28"
+                                                        Height="28"
+                                                        BorderThickness="2"
+                                                        CornerRadius="14">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Value="True">
+                                                                        <DataTrigger.Binding>
+                                                                            <MultiBinding Converter="{StaticResource AllEqual}">
+                                                                                <Binding />
+                                                                                <Binding Path="DataContext.NewTagColor" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                                            </MultiBinding>
+                                                                        </DataTrigger.Binding>
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <controls:TagSwatch
+                                                            Width="20"
+                                                            Height="20"
+                                                            TagColor="{Binding}" />
+                                                    </Border>
+                                                </ui:Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                            </Popup>
                             <ui:TextBox
                                 Grid.Column="1"
                                 Margin="0,0,8,0"
@@ -1278,14 +1387,106 @@
                         </Grid>
                     </StackPanel>
                 </Border>
-
                 </StackPanel>
 
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=about}">
-                <!--  ===== Frissítések =====  -->
-                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_Updates}" />
+                <!--  ===== integrations =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:integrations">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Integrations}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="integrations"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
 
-                <Border Style="{StaticResource CardStyle}" DataContext="{Binding Updates}">
+                <!--  ===== Panelek =====  -->
+                
+
+                <!--  ===== Fájllista =====  -->
+                
+
+                <!--  ===== Jobbklikk menü =====  -->
+                
+
+                <!--  ===== Szerkesztő =====  -->
+                
+
+                <!--  ===== Speciális: naplózás és mappák =====  -->
+                
+
+                <!--  ===== Általános: indulás és munkamenet =====  -->
+                
+
+                <!--  ===== Integrációk: terminál =====  -->
+                
+                <!--  ===== Rendszerintegráció =====  -->
+                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_ShellIntegration}" />
+                <TextBlock
+                    Margin="2,0,0,10"
+                    Style="{StaticResource CaptionStyle}"
+                    Text="{loc:Loc Settings_ShellIntegrationHint}" />
+
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc ShellIntegration_FolderOpen}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_FolderOpenHint}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch
+                            x:Name="FolderOpenToggle"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            IsChecked="{Binding FolderOpenRedirectEnabled, Mode=OneWay}"
+                            PreviewMouseLeftButtonDown="OnFolderOpenRedirectPreviewClick" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc ShellIntegration_WinE}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_WinEHint}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            IsChecked="{Binding WinERedirectEnabled, Mode=OneWay}"
+                            PreviewMouseLeftButtonDown="OnWinERedirectPreviewClick" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc ShellIntegration_ContextMenu}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_ContextMenuHint}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            IsChecked="{Binding ContextMenuEntryEnabled, Mode=OneWay}"
+                            PreviewMouseLeftButtonDown="OnContextMenuEntryPreviewClick" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -1293,46 +1494,33 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{loc:Loc Settings_CurrentVersion}" />
-                                    <!--
-                                        Nincs szándékos vizuális jelzés (kurzor,
-                                        aláhúzás) — lásd a Hibabejelentés fejlécének
-                                        10-kattintásos gesztusát fentebb, ugyanaz a
-                                        minta: SettingsViewModel.RegisterVersionClick,
-                                        7 kattintásra rejtett üzenet bukkan fel.
-                                    -->
-                                    <TextBlock
-                                        Margin="6,0,0,0"
-                                        FontWeight="SemiBold"
-                                        MouseLeftButtonDown="OnVersionClick"
-                                        Text="{Binding CurrentVersion, StringFormat=v{0}}" />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_UpdatesHint}" />
+                                <TextBlock Text="{loc:Loc ShellIntegration_ResetAll}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc ShellIntegration_ResetAllHint}" />
                             </StackPanel>
-                            <Grid Grid.Column="1" VerticalAlignment="Center">
-                                <ui:ProgressRing
-                                    Width="18"
-                                    Height="18"
-                                    IsIndeterminate="True"
-                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
-                                <ui:Button
-                                    Command="{Binding CheckNowCommand}"
-                                    Content="{loc:Loc Update_CheckNow}"
-                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
-                            </Grid>
+                            <ui:Button
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Command="{Binding ResetShellIntegrationCommand}"
+                                Content="{loc:Loc Cmd_Reset}" />
                         </Grid>
                         <TextBlock
                             Margin="0,10,0,0"
-                            Style="{StaticResource CaptionStyle}"
-                            Text="{Binding StatusMessage}"
-                            Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsed}}" />
+                            Foreground="{DynamicResource TokenDanger}"
+                            Text="{Binding ShellIntegrationError}"
+                            TextWrapping="Wrap"
+                            Visibility="{Binding ShellIntegrationError, Converter={StaticResource NullToCollapsed}}" />
                     </StackPanel>
                 </Border>
 
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding SelectedCategory.Id, Converter={StaticResource CategoryVisible}, ConverterParameter=integrations}">
+                
+                    <Border Style="{StaticResource CardStyle}" Tag="integrations.terminal">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Settings_Terminal}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_TerminalHint}" />
+                            <ui:TextBox Margin="0,10,0,0" Text="{Binding ExternalTerminalPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                        </StackPanel>
+                    </Border>
+                
                 <!--  ===== Hibabejelentés =====  -->
                 <!--
                     A fejlécre kattintás nem véletlen: 10 kattintásra nyílik
@@ -1462,13 +1650,258 @@
 
                     </StackPanel>
                 </Border>
+                </StackPanel>
 
+                <!--  ===== advanced =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:advanced">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_Advanced}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="advanced"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
+
+                    <Border Style="{StaticResource CardStyle}" Tag="advanced.logLevel">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_LogLevel}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_LogLevelHint}" />
+                                <Border
+                                    Margin="0,6,0,0"
+                                    Padding="6,2"
+                                    HorizontalAlignment="Left"
+                                    Background="{DynamicResource TokenBgApp}"
+                                    BorderBrush="{DynamicResource TokenBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="{DynamicResource TokenWarning}"
+                                        Text="{loc:Loc Settings_RestartRequired}" />
+                                </Border>
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                Width="160"
+                                VerticalAlignment="Center"
+                                ItemsSource="{Binding LogLevels}"
+                                SelectedItem="{Binding LogLevel, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="advanced.logFile">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_OpenLog}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_OpenLogHint}" />
+                            </StackPanel>
+                            <ui:Button
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Click="OnOpenLogClick"
+                                Content="{loc:Loc Cmd_Open}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Tag="advanced.configFolder">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{loc:Loc Settings_OpenConfig}" />
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_OpenConfigHint}" />
+                            </StackPanel>
+                            <ui:Button
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Click="OnOpenConfigFolderClick"
+                                Content="{loc:Loc Cmd_Open}" />
+                        </Grid>
+                    </Border>
+                
+                <!--  ===== Gyorsgombok =====  -->
+                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_QuickActions}" />
+                <TextBlock
+                    Margin="2,0,0,10"
+                    Style="{StaticResource CaptionStyle}"
+                    Text="{loc:Loc Settings_QuickActionsHint}" />
+
+                <ItemsControl ItemsSource="{Binding QuickActions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:QuickActionEditorViewModel}">
+                            <Border Style="{StaticResource CardStyle}" Padding="16">
+                                <StackPanel>
+
+                                    <TextBlock
+                                        Margin="0,0,0,12"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding Header, Converter={StaticResource LocalizeKey}}" />
+
+                                    <!--
+                                        Típus. A GroupName a szerkesztő fejlécéből jön, hogy a két
+                                        gyorsgomb rádiói biztosan külön csoportba essenek — enélkül
+                                        a második szerkesztő választása kikapcsolná az elsőét.
+                                    -->
+                                    <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
+                                        <RadioButton
+                                            Margin="0,0,18,0"
+                                            Content="{loc:Loc Type_Folder}"
+                                            GroupName="{Binding Header}"
+                                            IsChecked="{Binding Kind, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=Folder}" />
+                                        <RadioButton
+                                            Content="{loc:Loc Type_File}"
+                                            GroupName="{Binding Header}"
+                                            IsChecked="{Binding Kind, Mode=TwoWay, Converter={StaticResource EnumToBool}, ConverterParameter=File}" />
+                                    </StackPanel>
+
+                                    <!--  Kiterjesztés — csak fájlnál  -->
+                                    <StackPanel Margin="0,0,0,12" Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                                        <TextBlock Margin="0,0,0,4" Text="{loc:Loc Settings_Extension}" />
+                                        <ui:TextBox Width="120" HorizontalAlignment="Left" Text="{Binding Extension, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+
+                                    <!--  Névsablon + élő előnézet  -->
+                                    <TextBlock Margin="0,0,0,4" Text="{loc:Loc Settings_NameTemplate}" />
+                                    <ui:TextBox Text="{Binding NameTemplate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_TemplateHint}" />
+
+                                    <Border
+                                        Margin="0,8,0,12"
+                                        Padding="10,6"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock
+                                                Margin="0,0,8,0"
+                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                Text="{loc:Loc Settings_Preview}" />
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding Preview}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!--  Cél  -->
+                                    <CheckBox
+                                        Margin="0,0,0,8"
+                                        Content="{loc:Loc Settings_UseFixedPath}"
+                                        IsChecked="{Binding UseFixedPath, Mode=TwoWay}" />
+
+                                    <Grid Visibility="{Binding UseFixedPath, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ui:TextBox
+                                            Grid.Column="0"
+                                            Margin="0,0,8,0"
+                                            Text="{Binding FixedPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <ui:Button
+                                            Grid.Column="1"
+                                            Command="{Binding BrowseFolderCommand}"
+                                            Content="{loc:Loc Settings_Browse}" />
+                                    </Grid>
+
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock
+                    Margin="2,10,0,0"
+                    Style="{StaticResource CaptionStyle}"
+                    Text="{loc:Loc Settings_AutoSaved}" />
+                </StackPanel>
+
+                <!--  ===== about =====  -->
+                <StackPanel Margin="0,0,0,12" Tag="category:about">
+                    <Grid Margin="2,22,0,6">
+                        <TextBlock Style="{StaticResource CategoryHeaderStyle}" Text="{loc:Loc SettingsCat_About}" />
+                        <ui:Button
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Appearance="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding ResetCategoryCommand}"
+                            CommandParameter="about"
+                            Content="{loc:Loc Settings_ResetCategory}"
+                            FontSize="12" />
+                    </Grid>
+
+                <!--  ===== Frissítések =====  -->
+                <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="{loc:Loc Settings_Updates}" />
+
+                <Border Style="{StaticResource CardStyle}" DataContext="{Binding Updates}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{loc:Loc Settings_CurrentVersion}" />
+                                    <!--
+                                        Nincs szándékos vizuális jelzés (kurzor,
+                                        aláhúzás) — lásd a Hibabejelentés fejlécének
+                                        10-kattintásos gesztusát fentebb, ugyanaz a
+                                        minta: SettingsViewModel.RegisterVersionClick,
+                                        7 kattintásra rejtett üzenet bukkan fel.
+                                    -->
+                                    <TextBlock
+                                        Margin="6,0,0,0"
+                                        FontWeight="SemiBold"
+                                        MouseLeftButtonDown="OnVersionClick"
+                                        Text="{Binding CurrentVersion, StringFormat=v{0}}" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_UpdatesHint}" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                <ui:ProgressRing
+                                    Width="18"
+                                    Height="18"
+                                    IsIndeterminate="True"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                                <ui:Button
+                                    Command="{Binding CheckNowCommand}"
+                                    Content="{loc:Loc Update_CheckNow}"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                            </Grid>
+                        </Grid>
+                        <TextBlock
+                            Margin="0,10,0,0"
+                            Style="{StaticResource CaptionStyle}"
+                            Text="{Binding StatusMessage}"
+                            Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsed}}" />
+                    </StackPanel>
+                </Border>
                 </StackPanel>
 
             </StackPanel>
         </ScrollViewer>
 
-            <!--  Alsó sáv: kategória visszaállítása + teljes export/import (spec F6)  -->
+            <!--
+                Alsó sáv: teljes export/import (spec F6). A kategória
+                visszaállítása az egyoldalas elrendezésben az egyes
+                kategóriák saját fejlécébe került — itt nem lenne egyértelmű,
+                melyik kategóriára vonatkozik.
+            -->
             <Border
                 Grid.Row="2"
                 Grid.Column="0"
@@ -1476,10 +1909,6 @@
                 Margin="18,10,18,14">
                 <Grid>
                     <StackPanel HorizontalAlignment="Left" Orientation="Horizontal">
-                        <ui:Button
-                            Margin="0,0,6,0"
-                            Command="{Binding ResetCategoryCommand}"
-                            Content="{loc:Loc Settings_ResetCategory}" />
                         <ui:Button
                             Margin="0,0,6,0"
                             Command="{Binding ImportSettingsCommand}"
