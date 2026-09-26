@@ -41,14 +41,11 @@ public enum ContextMenuMode
 {
     /// <summary>
     /// A VALÓDI Windows rendszermenü (<c>TrackPopupMenuEx</c>) — pontosan úgy
-    /// viselkedik, mint az Intézőben. Ez az alapértelmezett: a saját menü
-    /// bővítmény-megjelenítése (ikonkonverzió, almenü-feltöltés, „Egyéb
-    /// alkalmazások" szekció) még csiszolás alatt áll, ezért amíg nincs
-    /// tökéletesre finomítva, a natív út a kockázatmentesebb alapértelmezés.
+    /// viselkedik, mint az Intézőben.
     /// </summary>
     Windows,
 
-    /// <summary>A Pilaster saját, Fluent-stílusú menüje — lásd <c>PilasterContextMenu</c>.</summary>
+    /// <summary>A Pilaster saját, Fluent-stílusú menüje (alapértelmezett) — lásd <c>PilasterContextMenu</c>.</summary>
     Pilaster,
 }
 
@@ -297,13 +294,11 @@ public sealed class AppSettings
     // ---------- Jobbklikk menü ----------
 
     /// <summary>
-    /// A jobbklikk-menü megjelenítési módja (spec v1.0.3). Alapértelmezett:
-    /// <see cref="ContextMenuMode.Windows"/> — meglévő beállításfájlban ez a
-    /// mező hiányzik, a JSON-deszerializálás ilyenkor a C# alapértéket
-    /// (Windows) hagyja meg, tehát a frissítés MIGRÁCIÓ NÉLKÜL is a kívánt
-    /// eredményt adja: mindenki a Windows-menüvel indul újra.
+    /// A jobbklikk-menü megjelenítési módja. Alapértelmezett a Pilaster saját
+    /// menüje; a Beállítások → Jobbklikk menü alatt a Windows natív menüjére
+    /// váltható.
     /// </summary>
-    public ContextMenuMode ContextMenuMode { get; set; } = ContextMenuMode.Windows;
+    public ContextMenuMode ContextMenuMode { get; set; } = ContextMenuMode.Pilaster;
 
     /// <summary>Megjelenjenek-e a telepített shell-bővítmények elemei a saját menüben.</summary>
     public bool ShellExtensionsEnabled { get; set; } = true;

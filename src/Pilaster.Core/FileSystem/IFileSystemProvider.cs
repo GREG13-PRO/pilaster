@@ -66,10 +66,29 @@ public interface IFileSystemProvider
 /// <c>using System.IO;</c> minden fájlba behúz.
 /// </remarks>
 /// <param name="IncludeHidden">Rejtett elemek is jöjjenek-e.</param>
-/// <param name="IncludeSystem">Rendszerelemek is jöjjenek-e.</param>
+/// <param name="IncludeSystem">A védett rendszerelemek (rejtett ÉS rendszer) is jöjjenek-e.</param>
 public readonly record struct ListingOptions(
     bool IncludeHidden = false,
     bool IncludeSystem = false)
 {
+    /// <summary>
+    /// Látszik-e egy elem — az Intéző szabálya szerint: a rejtett elemet a
+    /// „rejtett elemek", a rejtett ÉS rendszer (védett operációsrendszer-)
+    /// elemet a „rendszerfájlok" kapcsoló mutatja. A csak rendszer-attribútumú
+    /// elem MINDIG látszik — ilyen pl. a Nextcloud/OneDrive szinkronizált
+    /// mappája, amit korábban tévesen elrejtettünk (felhasználói hibajelentés).
+    /// </summary>
+    public bool IsVisible(FileAttributes attributes)
+    {
+        var hidden = attributes.HasFlag(FileAttributes.Hidden);
+
+        if (!hidden)
+        {
+            return true;
+        }
+
+        return attributes.HasFlag(FileAttributes.System) ? IncludeSystem && IncludeHidden : IncludeHidden;
+    }
+
     public static ListingOptions Default => new();
 }

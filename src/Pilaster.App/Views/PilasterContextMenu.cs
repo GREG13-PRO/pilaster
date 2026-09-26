@@ -297,8 +297,7 @@ public sealed class PilasterContextMenu
 
             _menu.Items.Add(_loadingSeparator);
             _menu.Items.Add(_shellGroup);
-            _menu.Items.Add(_shellPlaceholder);
-            RegisterChild(_shellGroup, _shellPlaceholder, 1);
+            RegisterChild(_shellGroup, _shellPlaceholder);
             return;
         }
 
@@ -325,19 +324,14 @@ public sealed class PilasterContextMenu
     /// <summary>„Betöltés…" sor az „Egyéb alkalmazások" csoport alatt, amíg a bővítmények jönnek.</summary>
     private MenuItem? _shellPlaceholder;
 
-    // ---- Helyben lenyíló csoportok ----
-    // Almenük (külön felugró ablakok) helyett a csoportok („További
-    // lehetőségek", „Egyéb alkalmazások", 7-Zip …) a menün BELÜL nyílnak le
-    // kattintásra. A WPF almenüi rámutatásra késve vagy egyáltalán nem
-    // nyíltak, más színűek voltak, és elvett egérrel is nyitva maradtak
-    // (felhasználói hibajelentés) — a lenyíló sorokkal ez az egész
-    // hibaosztály megszűnik.
+    // ---- Oldalra nyíló csoportok (almenük) ----
+    // A csoportok („További lehetőségek", „Egyéb alkalmazások", 7-Zip …)
+    // valódi, oldalra nyíló almenük. A nyitás/zárás tempóját, a színét és
+    // az üveghatását a Services/SubmenuBehavior egységesíti — enélkül a WPF
+    // almenüi késve nyíltak, más színűek voltak és elvett egérrel is nyitva
+    // maradtak (felhasználói hibajelentés).
     private readonly Dictionary<MenuItem, List<Control>> _groupChildren = [];
     private readonly Dictionary<Control, MenuItem> _parentGroup = [];
-    private readonly HashSet<MenuItem> _expandedGroups = [];
-
-    private const string ChevronClosed = "▾";
-    private const string ChevronOpen = "▴";
 
     private MenuItem CreateGroup(object header, object? icon, object? tag = null)
     {
@@ -346,21 +340,17 @@ public sealed class PilasterContextMenu
             Header = header,
             Icon = icon,
             Tag = tag,
-            StaysOpenOnClick = true,
-            InputGestureText = ChevronClosed,
         };
 
         _groupChildren[group] = [];
-        group.Click += (_, _) => ToggleGroup(group);
         return group;
     }
 
-    private void RegisterChild(MenuItem group, Control child, int depth)
+    private void RegisterChild(MenuItem group, Control child)
     {
         _groupChildren[group].Add(child);
         _parentGroup[child] = group;
-        child.Margin = new Thickness(14 * depth, 0, 0, 0);
-        child.Visibility = IsOpenChain(group) ? Visibility.Visible : Visibility.Collapsed;
+        group.Items.Add(child);
     }
 
     private void UnregisterChild(Control child)
@@ -368,60 +358,8 @@ public sealed class PilasterContextMenu
         if (_parentGroup.Remove(child, out var group))
         {
             _groupChildren[group].Remove(child);
+            group.Items.Remove(child);
         }
-
-        _menu.Items.Remove(child);
-    }
-
-    /// <summary>Igaz, ha a csoport és minden szülőcsoportja le van nyitva.</summary>
-    private bool IsOpenChain(MenuItem group) =>
-        _expandedGroups.Contains(group) && (!_parentGroup.TryGetValue(group, out var parent) || IsOpenChain(parent));
-
-    private void ToggleGroup(MenuItem group)
-    {
-        if (!_expandedGroups.Remove(group))
-        {
-            _expandedGroups.Add(group);
-        }
-
-        group.InputGestureText = _expandedGroups.Contains(group) ? ChevronOpen : ChevronClosed;
-        RefreshGroup(group, animate: true);
-    }
-
-    private void RefreshGroup(MenuItem group, bool animate)
-    {
-        var show = IsOpenChain(group);
-
-        foreach (var child in _groupChildren[group])
-        {
-            var wasVisible = child.Visibility == Visibility.Visible;
-            child.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-
-            if (show && !wasVisible && animate)
-            {
-                _animations.PlayEntrance(child, offsetY: -4, milliseconds: 170);
-            }
-
-            if (child is MenuItem nested && _groupChildren.ContainsKey(nested))
-            {
-                RefreshGroup(nested, animate);
-            }
-        }
-    }
-
-    /// <summary>A csoport utolsó (akár beágyazott) elemének indexe a menüben — ez után kerülnek az új elemei.</summary>
-    private int LastDescendantIndex(MenuItem group)
-    {
-        var index = _menu.Items.IndexOf(group);
-
-        foreach (var child in _groupChildren[group])
-        {
-            index = Math.Max(index, child is MenuItem nested && _groupChildren.ContainsKey(nested)
-                ? LastDescendantIndex(nested)
-                : _menu.Items.IndexOf(child));
-        }
-
-        return index;
     }
 
     /// <summary>A fejléc (fájladatok, ikonsor, címkék) tartója — a kereső nem rejti el.</summary>
@@ -468,7 +406,6 @@ public sealed class PilasterContextMenu
             if (_groupChildren[_shellGroup].Count == 0)
             {
                 _shellGroup.Header = TranslationSource.Instance["ContextMenu_NoOtherApps"];
-                _shellGroup.InputGestureText = string.Empty;
                 _shellGroup.IsEnabled = false;
             }
 
@@ -695,11 +632,13 @@ public sealed class PilasterContextMenu
 
         void Add(Control control)
         {
-            result.Add(control);
-
             if (parent is not null)
             {
-                RegisterChild(parent, control, depth);
+                RegisterChild(parent, control);
+            }
+            else
+            {
+                result.Add(control);
             }
         }
 
@@ -729,7 +668,7 @@ public sealed class PilasterContextMenu
                 var group = CreateGroup(TranslationSource.Instance[entry.LabelKey], icon);
                 group.IsEnabled = entry.IsEnabled;
                 Add(group);
-                result.AddRange(Convert(children, group, depth + 1));
+                Convert(children, group, depth + 1);
                 continue;
             }
 
@@ -836,12 +775,7 @@ public sealed class PilasterContextMenu
                 _shellPlaceholder = null;
             }
 
-            var at = LastDescendantIndex(_shellGroup) + 1;
-
-            foreach (var control in ConvertShellNodes(nodes, _shellGroup, 1))
-            {
-                _menu.Items.Insert(at++, control);
-            }
+            ConvertShellNodes(nodes, _shellGroup, 1);
 
             RemoveLoadingPlaceholder();
             return;
@@ -929,8 +863,9 @@ public sealed class PilasterContextMenu
     }
 
     /// <summary>
-    /// Shell-elemek laposított listája: az almenüs bővítmények (pl. 7-Zip)
-    /// helyben lenyíló csoportként, beljebb húzott elemekkel.
+    /// Shell-elemek: az almenüs bővítmények (pl. 7-Zip) oldalra nyíló
+    /// csoportként. Csoportba (<paramref name="parent"/>) kerülő elemek annak
+    /// almenüjébe mennek, a visszaadott lista csak a legfelső szintet tartalmazza.
     /// </summary>
     private List<Control> ConvertShellNodes(IEnumerable<ShellMenuNode> nodes, MenuItem? parent, int depth)
     {
@@ -950,16 +885,18 @@ public sealed class PilasterContextMenu
                 control = ConvertShellNode(node);
             }
 
-            result.Add(control);
-
             if (parent is not null)
             {
-                RegisterChild(parent, control, depth);
+                RegisterChild(parent, control);
+            }
+            else
+            {
+                result.Add(control);
             }
 
             if (control is MenuItem group && _groupChildren.ContainsKey(group))
             {
-                result.AddRange(ConvertShellNodes(node.Children, group, depth + 1));
+                ConvertShellNodes(node.Children, group, depth + 1);
             }
         }
 
@@ -1050,31 +987,34 @@ public sealed class PilasterContextMenu
             (item.Header?.ToString() ?? string.Empty).Contains(trimmed, StringComparison.CurrentCultureIgnoreCase)
             || (_groupChildren.TryGetValue(item, out var children) && children.OfType<MenuItem>().Any(Matches));
 
-        foreach (var element in _menu.Items.OfType<Control>())
+        void Apply(IEnumerable<Control> elements)
         {
-            if (element is MenuItem { Tag: HeaderTag })
+            foreach (var element in elements)
             {
-                continue;
-            }
+                if (element is MenuItem { Tag: HeaderTag })
+                {
+                    continue;
+                }
 
-            if (trimmed.Length == 0)
-            {
-                // Vissza az alapállapotba: a lenyíló csoportok elemei csak
-                // akkor látszanak, ha a csoport le van nyitva.
-                element.Visibility = _parentGroup.TryGetValue(element, out var group) && !IsOpenChain(group)
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
-                continue;
-            }
+                element.Visibility = trimmed.Length == 0
+                    ? Visibility.Visible
+                    : element switch
+                    {
+                        // Szűrés közben az elválasztók eltűnnek, hogy ne maradjanak magányos vonalak.
+                        Separator => Visibility.Collapsed,
+                        MenuItem item => Matches(item) ? Visibility.Visible : Visibility.Collapsed,
+                        _ => element.Visibility,
+                    };
 
-            element.Visibility = element switch
-            {
-                // Szűrés közben az elválasztók eltűnnek, hogy ne maradjanak magányos vonalak.
-                Separator => Visibility.Collapsed,
-                MenuItem item => Matches(item) ? Visibility.Visible : Visibility.Collapsed,
-                _ => element.Visibility,
-            };
+                // A csoportokon belül is csak az illeszkedők maradnak.
+                if (element is MenuItem group && _groupChildren.TryGetValue(group, out var children))
+                {
+                    Apply(children);
+                }
+            }
         }
+
+        Apply(_menu.Items.OfType<Control>().ToList());
     }
 
     /// <summary>

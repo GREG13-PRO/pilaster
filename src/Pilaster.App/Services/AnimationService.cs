@@ -107,7 +107,7 @@ public sealed class AnimationService(ISettingsService settings)
             System.Windows.Controls.MenuItem.SubmenuOpenedEvent,
             new RoutedEventHandler((sender, e) =>
             {
-                if (sender is not System.Windows.Controls.MenuItem item || !ReferenceEquals(sender, e.OriginalSource) || IsInSelfAnimatedMenu(item))
+                if (sender is not System.Windows.Controls.MenuItem item || !ReferenceEquals(sender, e.OriginalSource))
                 {
                     return;
                 }
@@ -115,19 +115,6 @@ public sealed class AnimationService(ISettingsService settings)
                 item.ApplyTemplate();
                 PlayEntrance(item.Template?.FindName("SubmenuBorder", item) as FrameworkElement, offsetY: -4, milliseconds: 140);
             }));
-    }
-
-    private static bool IsInSelfAnimatedMenu(DependencyObject element)
-    {
-        for (var current = element; current is not null; current = LogicalTreeHelper.GetParent(current))
-        {
-            if (current is ContextMenu menu)
-            {
-                return menu.Name == SelfAnimatedMenuName;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

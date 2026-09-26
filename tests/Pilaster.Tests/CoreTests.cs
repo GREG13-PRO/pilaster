@@ -190,3 +190,29 @@ public class FileSystemItemComparerTests
         Assert.Equal(["regi", "uj"], items.Select(i => i.Name));
     }
 }
+
+/// <summary>Az Intéző láthatósági szabálya — lásd <see cref="ListingOptions.IsVisible"/>.</summary>
+public class ListingOptionsTests
+{
+    [Fact]
+    public void CsakRendszerAttributumuMappaMindigLatszik()
+    {
+        // Pl. a Nextcloud/OneDrive szinkronizált mappája: System, de nem Hidden.
+        var attributes = System.IO.FileAttributes.Directory | System.IO.FileAttributes.System | System.IO.FileAttributes.ReparsePoint;
+
+        Assert.True(new ListingOptions(IncludeHidden: false, IncludeSystem: false).IsVisible(attributes));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    public void RejtettElemARejtettKapcsolotKoveti(bool includeHidden, bool includeSystem, bool expected) =>
+        Assert.Equal(expected, new ListingOptions(includeHidden, includeSystem).IsVisible(System.IO.FileAttributes.Hidden));
+
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]
+    public void VedettRendszerElemCsakMindketKapcsolovalLatszik(bool includeHidden, bool includeSystem, bool expected) =>
+        Assert.Equal(expected, new ListingOptions(includeHidden, includeSystem).IsVisible(System.IO.FileAttributes.Hidden | System.IO.FileAttributes.System));
+}

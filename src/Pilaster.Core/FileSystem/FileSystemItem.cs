@@ -94,9 +94,8 @@ public sealed partial class FileSystemItem : ObservableObject
 
     public FileAttributes Attributes { get; init; }
 
-    /// <summary>Igaz, ha rejtett vagy rendszerelem — a nézet halványabban rajzolja.</summary>
-    public bool IsHidden =>
-        Attributes.HasFlag(FileAttributes.Hidden) || Attributes.HasFlag(FileAttributes.System);
+    /// <summary>Igaz, ha rejtett — a nézet halványabban rajzolja (a csak rendszer-attribútumú elem, pl. egy szinkronizált mappa, nem).</summary>
+    public bool IsHidden => Attributes.HasFlag(FileAttributes.Hidden);
 
     /// <summary>
     /// Igaz, ha az elembe be lehet navigálni. Lomtár-elemeknél MINDIG hamis,

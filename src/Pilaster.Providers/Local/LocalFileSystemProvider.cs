@@ -99,22 +99,7 @@ public sealed class LocalFileSystemProvider : IFileSystemProvider
                     IgnoreInaccessible = true,
                 })
             {
-                ShouldIncludePredicate = (ref FileSystemEntry entry) =>
-                {
-                    var attributes = entry.Attributes;
-
-                    if (!options.IncludeHidden && attributes.HasFlag(FileAttributes.Hidden))
-                    {
-                        return false;
-                    }
-
-                    if (!options.IncludeSystem && attributes.HasFlag(FileAttributes.System))
-                    {
-                        return false;
-                    }
-
-                    return true;
-                },
+                ShouldIncludePredicate = (ref FileSystemEntry entry) => options.IsVisible(entry.Attributes),
             };
 
             foreach (var item in enumerable)

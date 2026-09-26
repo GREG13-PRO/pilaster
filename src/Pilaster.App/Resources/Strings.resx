@@ -1142,16 +1142,16 @@
     <value>Context menu display</value>
   </data>
   <data name="Settings_ContextMenuMode_Windows" xml:space="preserve">
-    <value>Windows (default)</value>
+    <value>Windows</value>
   </data>
   <data name="Settings_ContextMenuMode_WindowsHint" xml:space="preserve">
     <value>The native system menu — behaves exactly like in File Explorer.</value>
   </data>
   <data name="Settings_ContextMenuMode_Pilaster" xml:space="preserve">
-    <value>Pilaster</value>
+    <value>Pilaster (default)</value>
   </data>
   <data name="Settings_ContextMenuMode_PilasterHint" xml:space="preserve">
-    <value>The app's own design — extension display (icons, submenus, the "Other apps" section) is still being polished.</value>
+    <value>Pilaster's own menu: file details, icon bar, tags, and installed apps' commands in a submenu.</value>
   </data>
   <data name="Settings_ContextMenuPreload" xml:space="preserve">
     <value>Preload on selection</value>

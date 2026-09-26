@@ -87,6 +87,7 @@ public sealed class GlassEffectService(ISettingsService settings)
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler((sender, _) => ApplyToWindow((FluentWindow)sender)));
 
+        SubmenuBehavior.Register(this);
         ApplyBrushes();
     }
 

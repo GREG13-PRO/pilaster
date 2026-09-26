@@ -118,9 +118,7 @@ public static class RecursiveSearch
         }
     }
 
-    private static bool IsVisible(FileAttributes attributes, ListingOptions options) =>
-        (options.IncludeHidden || !attributes.HasFlag(FileAttributes.Hidden))
-        && (options.IncludeSystem || !attributes.HasFlag(FileAttributes.System));
+    private static bool IsVisible(FileAttributes attributes, ListingOptions options) => options.IsVisible(attributes);
 
     private static bool IsLink(string path)
     {
