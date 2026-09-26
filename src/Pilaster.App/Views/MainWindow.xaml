@@ -864,6 +864,65 @@
             </Setter>
         </Style>
 
+        <!--
+            Oldalsáv görgetése: vékony, a tartalom FÖLÖTT lebegő görgetősáv a
+            jobb szélen, ami csak akkor jelenik meg, ha az egér az oldalsáv
+            fölött van (Windows 11 minta). A szokásos sablon külön oszlopot
+            foglalt neki, így a szekciók nyilai mellé szorult, és zavaróan
+            középen látszott (felhasználói visszajelzés).
+        -->
+        <Style x:Key="OverlayScrollViewerStyle" TargetType="ScrollViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid Background="Transparent">
+                            <ScrollContentPresenter
+                                x:Name="PART_ScrollContentPresenter"
+                                Margin="{TemplateBinding Padding}"
+                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                            <ScrollBar
+                                x:Name="PART_VerticalScrollBar"
+                                Margin="0,10,1,10"
+                                HorizontalAlignment="Right"
+                                Maximum="{TemplateBinding ScrollableHeight}"
+                                Opacity="0"
+                                Orientation="Vertical"
+                                ViewportSize="{TemplateBinding ViewportHeight}"
+                                Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                Value="{TemplateBinding VerticalOffset}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="PART_VerticalScrollBar"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="1"
+                                                Duration="0:0:0.15" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                BeginTime="0:0:0.6"
+                                                Storyboard.TargetName="PART_VerticalScrollBar"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0"
+                                                Duration="0:0:0.3" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -874,6 +933,15 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+
+        <!--
+            Az ablak alapja üveghatásnál (lásd GlassEffectService.ApplyBrushes):
+            sötétben átlátszó, világosban fehéres tónus, hogy a színes
+            asztalháttér ne üssön át tarkán a panelek közötti réseken. Külön
+            réteg, mert a WPF-UI az Acrylic bekapcsolásakor az ablak saját
+            hátterét átlátszóra állítja.
+        -->
+        <Border Grid.RowSpan="5" Background="{DynamicResource GlassWindowBrush}" />
 
         <!--
             Címsor — a Windows 11 Intézőhöz hasonlóan a FÜLEK a címsorban
@@ -961,12 +1029,13 @@
         <Border
             Grid.Row="1"
             Grid.RowSpan="2"
-            Margin="6,0,6,2"
+            Margin="10,0,10,6"
             Background="{DynamicResource GlassPanelBrush}"
             CornerRadius="12" />
 
         <!--  Eszköztár: navigáció, útvonalsáv, keresés, nézetváltó  -->
-        <Grid Grid.Row="2" Margin="12,7,12,7">
+        <!--  A sáv hátterével (10) és az alatta lévő oldalsávval/fájlterülettel egy vonalban, 6 DIP belső térrel.  -->
+        <Grid Grid.Row="2" Margin="16,7,16,13">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -1209,7 +1278,8 @@
                 Grid.Column="2"
                 Width="260"
                 Margin="10,0,10,0"
-                Padding="8,4"
+                Padding="8,6,8,3"
+                VerticalContentAlignment="Center"
                 PlaceholderText="{loc:Loc Search_Placeholder}"
                 Text="{Binding SelectedTab.QuickFilterText, UpdateSourceTrigger=PropertyChanged}">
                 <ui:TextBox.Icon>
@@ -1353,7 +1423,7 @@
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="12">
-                <ScrollViewer Padding="0,8" controls:SmoothScroll.IsEnabled="True" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Padding="0,8" controls:SmoothScroll.IsEnabled="True" Style="{StaticResource OverlayScrollViewerStyle}" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <ItemsControl ItemsSource="{Binding Sections}">
                         <ItemsControl.ItemTemplate>

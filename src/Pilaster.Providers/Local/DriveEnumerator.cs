@@ -33,9 +33,12 @@ public static class DriveEnumerator
     /// Az elérhető meghajtók lekérése.
     /// </summary>
     /// <remarks>
-    /// A nem kész (<c>IsReady == false</c>) meghajtók is bekerülnek — egy üres
-    /// DVD-meghajtó vagy leválasztott hálózati megosztás is látszódjon, csak
-    /// méretadat nélkül. Az egyes meghajtók lekérdezése külön try-blokkban fut,
+    /// Az üres optikai meghajtók és a kártya nélküli kártyaolvasók (nem kész
+    /// CD/DVD vagy cserélhető meghajtó) kimaradnak — mint az Intézőben, ahol
+    /// csak lemez/kártya behelyezésekor jelennek meg (korábban egy üres DVD-
+    /// meghajtó is ott állt az oldalsávon, felhasználói visszajelzés). Egy
+    /// nem kész hálózati meghajtó viszont látszik, méretadat nélkül — azt a
+    /// felhasználó maga csatolta. Az egyes meghajtók lekérdezése külön try-blokkban fut,
     /// mert egy időtúllépő hálózati meghajtó nem akaszthatja meg a többit.
     /// </remarks>
     public static IReadOnlyList<DriveEntry> GetDrives()
@@ -47,6 +50,12 @@ public static class DriveEnumerator
             try
             {
                 var ready = drive.IsReady;
+
+                if (!ready && drive.DriveType is DriveType.CDRom or DriveType.Removable)
+                {
+                    continue;
+                }
+
                 var root = drive.RootDirectory.FullName;
 
                 var label = ready && !string.IsNullOrWhiteSpace(drive.VolumeLabel)

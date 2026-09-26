@@ -479,7 +479,7 @@ public partial class SettingsWindow : FluentWindow
     /// ViewModel saját maga állítja vissza (lásd
     /// SettingsViewModel.OnFolderOpenRedirectEnabledChanged).
     /// </summary>
-    private void OnFolderOpenRedirectPreviewClick(object sender, MouseButtonEventArgs e)
+    private async void OnFolderOpenRedirectPreviewClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
 
@@ -490,7 +490,7 @@ public partial class SettingsWindow : FluentWindow
 
         var turningOn = !viewModel.FolderOpenRedirectEnabled;
 
-        if (turningOn && !ConfirmEnable(TranslationSource.Instance["ShellIntegration_ConfirmFolderOpen"]))
+        if (turningOn && !await ConfirmEnableAsync(TranslationSource.Instance["ShellIntegration_ConfirmFolderOpen"]))
         {
             return;
         }
@@ -498,7 +498,7 @@ public partial class SettingsWindow : FluentWindow
         viewModel.FolderOpenRedirectEnabled = turningOn;
     }
 
-    private void OnWinERedirectPreviewClick(object sender, MouseButtonEventArgs e)
+    private async void OnWinERedirectPreviewClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
 
@@ -509,7 +509,7 @@ public partial class SettingsWindow : FluentWindow
 
         var turningOn = !viewModel.WinERedirectEnabled;
 
-        if (turningOn && !ConfirmEnable(TranslationSource.Instance["ShellIntegration_ConfirmWinE"]))
+        if (turningOn && !await ConfirmEnableAsync(TranslationSource.Instance["ShellIntegration_ConfirmWinE"]))
         {
             return;
         }
@@ -517,7 +517,7 @@ public partial class SettingsWindow : FluentWindow
         viewModel.WinERedirectEnabled = turningOn;
     }
 
-    private void OnContextMenuEntryPreviewClick(object sender, MouseButtonEventArgs e)
+    private async void OnContextMenuEntryPreviewClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
 
@@ -528,7 +528,7 @@ public partial class SettingsWindow : FluentWindow
 
         var turningOn = !viewModel.ContextMenuEntryEnabled;
 
-        if (turningOn && !ConfirmEnable(TranslationSource.Instance["ShellIntegration_ConfirmContextMenu"]))
+        if (turningOn && !await ConfirmEnableAsync(TranslationSource.Instance["ShellIntegration_ConfirmContextMenu"]))
         {
             return;
         }
@@ -536,12 +536,8 @@ public partial class SettingsWindow : FluentWindow
         viewModel.ContextMenuEntryEnabled = turningOn;
     }
 
-    private static bool ConfirmEnable(string message) =>
-        System.Windows.MessageBox.Show(
-            message,
-            TranslationSource.Instance["ShellIntegration_ConfirmTitle"],
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+    private Task<bool> ConfirmEnableAsync(string message) =>
+        ModernDialog.ConfirmAsync(this, TranslationSource.Instance["ShellIntegration_ConfirmTitle"], message, TranslationSource.Instance["Cmd_Enable"]);
 
     private void OnSupportEmailNavigate(object sender, RequestNavigateEventArgs e)
     {

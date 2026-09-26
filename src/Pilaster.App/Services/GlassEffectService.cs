@@ -174,6 +174,7 @@ public sealed class GlassEffectService(ISettingsService settings)
 
         if (!IsEnabled)
         {
+            app.Resources[GlassWindowBrushKey] = Brushes.Transparent;
             app.Resources["GlassPanelBrush"] = app.Resources["CardBackgroundFillColorDefaultBrush"];
             app.Resources["GlassSurfaceBrush"] = app.Resources["CardBackgroundFillColorDefaultBrush"];
             return;
@@ -199,7 +200,7 @@ public sealed class GlassEffectService(ISettingsService settings)
 
         app.Resources["GlassPanelBrush"] = CreateBrush(baseColor, light ? Lerp(0.96, 0.72, t) : Lerp(0.94, 0.30, t));
         app.Resources["GlassSurfaceBrush"] = CreateBrush(baseColor, light ? Lerp(0.98, 0.84, t) : Lerp(0.97, 0.55, t));
-        app.Resources[GlassWindowBrushKey] = light ? CreateBrush(baseColor, Lerp(0.75, 0.50, t)) : Brushes.Transparent;
+        app.Resources[GlassWindowBrushKey] = light ? CreateBrush(baseColor, Lerp(0.92, 0.78, t)) : Brushes.Transparent;
     }
 
     /// <summary>Az ablak alapja bekapcsolt üveghatásnál — lásd <see cref="ApplyBrushes"/>.</summary>

@@ -1429,4 +1429,19 @@
   <data name="Toast_TextCopied" xml:space="preserve">
     <value>Vágólapra másolva</value>
   </data>
+  <data name="Cmd_Enable" xml:space="preserve">
+    <value>Bekapcsolás</value>
+  </data>
+  <data name="Cmd_RestartNow" xml:space="preserve">
+    <value>Újraindítás most</value>
+  </data>
+  <data name="Cmd_Save" xml:space="preserve">
+    <value>Mentés</value>
+  </data>
+  <data name="Cmd_DontSave" xml:space="preserve">
+    <value>Ne mentse</value>
+  </data>
+  <data name="Cmd_CloseWithoutSaving" xml:space="preserve">
+    <value>Bezárás mentés nélkül</value>
+  </data>
 </root>

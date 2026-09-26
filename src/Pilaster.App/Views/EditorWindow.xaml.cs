@@ -11,10 +11,6 @@ using Pilaster.Core.Settings;
 using Wpf.Ui.Controls;
 
 using MenuItem = System.Windows.Controls.MenuItem;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxImage = System.Windows.MessageBoxImage;
-using MessageBoxResult = System.Windows.MessageBoxResult;
 
 namespace Pilaster.App.Views;
 
@@ -64,6 +60,7 @@ public partial class EditorWindow : FluentWindow
 
         PreviewKeyDown += OnEditorPreviewKeyDown;
         Closing += OnWindowClosing;
+        Loaded += (_, _) => _exitConfirmed = false;
 
         BindActiveDocument();
     }
@@ -481,23 +478,25 @@ public partial class EditorWindow : FluentWindow
     }
 
     /// <summary>Nem mentett fül bezárása: Mentés / Elvetés / Mégse.</summary>
-    private void OnCloseConfirmationRequested(object? sender, EditorCloseRequest request)
+    private async void OnCloseConfirmationRequested(object? sender, EditorCloseRequest request)
     {
         var strings = TranslationSource.Instance;
 
-        var result = MessageBox.Show(
-            string.Format(CultureInfo.CurrentCulture, strings["Editor_ConfirmClose"], request.Document.Title),
+        var choice = await ModernDialog.ShowAsync(
+            this,
             strings["Editor_Title"],
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+            string.Format(CultureInfo.CurrentCulture, strings["Editor_ConfirmClose"], request.Document.Title),
+            strings["Cmd_Save"],
+            strings["Cmd_DontSave"],
+            strings["Cmd_Cancel"]);
 
-        switch (result)
+        switch (choice)
         {
-            case MessageBoxResult.Yes:
+            case ModernDialog.Choice.Primary:
                 _ = SaveThenCloseAsync(request.Document);
                 break;
 
-            case MessageBoxResult.No:
+            case ModernDialog.Choice.Secondary:
                 _viewModel.ForceClose(request.Document);
                 break;
         }
@@ -522,21 +521,25 @@ public partial class EditorWindow : FluentWindow
     }
 
     /// <summary>Kilépéskor rákérdez, ha van nem mentett fül (spec F2).</summary>
-    private void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private async void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (!_viewModel.HasUnsavedChanges)
+        if (!_viewModel.HasUnsavedChanges || _exitConfirmed)
         {
             return;
         }
 
+        // A Closing esemény szinkron — előbb megállítjuk a bezárást, és a
+        // (modern, aszinkron) megerősítés után zárjuk be újra.
+        e.Cancel = true;
         var strings = TranslationSource.Instance;
 
-        var result = MessageBox.Show(
-            strings["Editor_ConfirmExit"],
-            strings["Editor_Title"],
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        e.Cancel = result != MessageBoxResult.Yes;
+        if (await ModernDialog.ConfirmAsync(this, strings["Editor_Title"], strings["Editor_ConfirmExit"], strings["Cmd_CloseWithoutSaving"]))
+        {
+            _exitConfirmed = true;
+            Close();
+        }
     }
+
+    /// <summary>A felhasználó már jóváhagyta a mentetlen változások elvetését.</summary>
+    private bool _exitConfirmed;
 }

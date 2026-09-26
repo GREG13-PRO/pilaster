@@ -3325,20 +3325,15 @@ public partial class MainWindow : FluentWindow
     /// Pilaster.exe kilépett és elengedte a saját fájljainak zárolását, ezért
     /// előbb ezt kell megerősíteni, nem lehet csendben, azonnal újraindítani.
     /// </summary>
-    private void OnUpdateRestartRequested(object? sender, EventArgs e)
+    private async void OnUpdateRestartRequested(object? sender, EventArgs e)
     {
         var strings = TranslationSource.Instance;
 
-        // Fajlagosan a System.Windows verzió: a Wpf.Ui.Controls névtérnek
-        // (ami ebben a fájlban is be van húzva) saját MessageBox-hoz tartozó
-        // azonos nevű típusai vannak, amik enélkül ütköznének.
-        var result = System.Windows.MessageBox.Show(
-            string.Format(strings["Update_ConfirmRestartMessage"], _viewModel.Updates.PendingVersion),
-            "Pilaster",
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Question);
-
-        if (result != System.Windows.MessageBoxResult.Yes)
+        if (!await ModernDialog.ConfirmAsync(
+                this,
+                "Pilaster",
+                string.Format(strings["Update_ConfirmRestartMessage"], _viewModel.Updates.PendingVersion),
+                strings["Cmd_RestartNow"]))
         {
             return;
         }
@@ -3347,18 +3342,24 @@ public partial class MainWindow : FluentWindow
         System.Windows.Application.Current.Shutdown();
     }
 
-    private void OnEjectCompleted(object? sender, EjectOutcome outcome)
+    /// <summary>
+    /// A kiadás eredménye: sikernél csak egy magától eltűnő buborék (nincs mit
+    /// „leokézni"), hibánál modern párbeszédablak a teendővel.
+    /// </summary>
+    private async void OnEjectCompleted(object? sender, EjectOutcome outcome)
     {
         var strings = TranslationSource.Instance;
 
-        var (message, icon) = outcome switch
+        if (outcome == EjectOutcome.Succeeded)
         {
-            EjectOutcome.Succeeded => (strings["Eject_Success"], System.Windows.MessageBoxImage.Information),
-            EjectOutcome.InUse => (strings["Eject_InUse"], System.Windows.MessageBoxImage.Warning),
-            _ => (strings["Eject_Error"], System.Windows.MessageBoxImage.Error),
-        };
+            ShowToast(strings["Eject_Success"], SymbolRegular.CheckmarkCircle24);
+            return;
+        }
 
-        System.Windows.MessageBox.Show(message, "Pilaster", System.Windows.MessageBoxButton.OK, icon);
+        await ModernDialog.InformAsync(
+            this,
+            strings["Cmd_Eject"],
+            outcome == EjectOutcome.InUse ? strings["Eject_InUse"] : strings["Eject_Error"]);
     }
 
     private void ApplyViewMode(ViewMode mode)
