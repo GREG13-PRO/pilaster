@@ -56,8 +56,6 @@ Follows [Semantic Versioning](https://semver.org/).
   Backspace goes up, Alt+←/→/↑ go back/forward/up, Ctrl+F jumps to search,
   Alt+D or Ctrl+L edits the path, Ctrl+Shift+N creates a folder. The mouse's
   back/forward buttons work too.
-- Installed with winget? Then winget handles updates too
-  (`winget upgrade GREG13-PRO.Pilaster`).
 
 ### Changed
 
