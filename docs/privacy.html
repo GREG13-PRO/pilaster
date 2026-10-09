@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilaster — Privacy Policy</title>
+<meta name="description" content="Pilaster privacy policy: no telemetry, no accounts, everything stays on your PC.">
+<link rel="icon" type="image/png" href="assets/brand/png/icon-32.png">
+<style>
+  :root {
+    --bg: #0b0a09;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --text: #f3ede4;
+    --text-dim: #c9bfb1;
+    --text-faint: #8f8577;
+    --accent: #e0a458;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #faf6ef;
+      --panel: rgba(32, 20, 8, 0.04);
+      --panel-border: rgba(32, 20, 8, 0.10);
+      --text: #241a0f;
+      --text-dim: #55483a;
+      --text-faint: #8a7a67;
+      --accent: #9c672c;
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px 20px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  header img { width: 40px; height: 40px; }
+  h1 { font-size: 1.9rem; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 1.15rem; margin: 2em 0 0.4em; }
+  p, li { color: var(--text-dim); }
+  ul { padding-left: 1.2em; }
+  a { color: var(--accent); }
+  .meta { color: var(--text-faint); font-size: 0.9rem; margin: 0 0 28px; }
+  .lang { display: flex; gap: 8px; margin-bottom: 28px; }
+  .lang a {
+    text-decoration: none; padding: 4px 12px; border-radius: 8px;
+    border: 1px solid var(--panel-border); background: var(--panel); color: var(--text);
+    font-size: 0.9rem;
+  }
+  .summary {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 16px 20px; margin: 0 0 8px;
+  }
+  .summary p { margin: 0; color: var(--text); }
+  section + section { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--panel-border); }
+  code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="assets/brand/png/icon-48.png" alt="">
+    <h1>Pilaster</h1>
+  </header>
+  <nav class="lang"><a href="#en">English</a><a href="#hu">Magyar</a></nav>
+
+  <section id="en" lang="en">
+    <h1>Privacy Policy</h1>
+    <p class="meta">Last updated: September 26, 2026</p>
+
+    <div class="summary"><p>Pilaster doesn't collect, sell or share any personal data. It has no telemetry, no analytics, no ads and no user accounts. Your files and settings never leave your PC.</p></div>
+
+    <h2>What stays on your device</h2>
+    <p>Pilaster is a file manager. To do its job it reads the folders and files you browse, and stores these on your PC only:</p>
+    <ul>
+      <li>settings, tags, favorites and quick-access entries;</li>
+      <li>caches that make browsing faster (for example folder sizes);</li>
+      <li>diagnostic log files, which help troubleshoot crashes.</li>
+    </ul>
+    <p>The Microsoft Store version keeps this data in the app's private storage, and Windows removes it when you uninstall the app. The version downloaded from GitHub keeps it in <code>%APPDATA%\Pilaster</code>, or next to the program in portable mode.</p>
+
+    <h2>Network connections</h2>
+    <p>The Microsoft Store version makes no network connections of its own. Updates are delivered by the Microsoft Store.</p>
+    <p>The version downloaded from GitHub checks for new versions using the public GitHub API (<code>api.github.com</code>). The request contains no personal data, but, like any web request, GitHub can see your IP address. See <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
+
+    <h2>Bug reports</h2>
+    <p>A bug report is only sent if you write one and click Send. It contains your description, the app version and the Windows version. If you tick the boxes, it also includes a screenshot of the Pilaster window and a recent log excerpt. Reports go to the developer only and are used only to fix bugs.</p>
+
+    <h2>Third-party components</h2>
+    <p>Like File Explorer, Pilaster shows the context-menu entries that other installed programs register (for example archivers or cloud storage clients). Those programs run under their own privacy policies. Pilaster doesn't send them any data beyond the files you choose to act on.</p>
+
+    <h2>Children</h2>
+    <p>Pilaster doesn't knowingly collect any information from anyone, including children under 13.</p>
+
+    <h2>Changes and contact</h2>
+    <p>If this policy changes, the updated version will be published on this page with a new date. Questions: <a href="mailto:pilaster-explorer@proton.me">pilaster-explorer@proton.me</a>, or <a href="https://github.com/GREG13-PRO/pilaster/issues">GitHub Issues</a>.</p>
+  </section>
+
+  <section id="hu" lang="hu">
+    <h1>Adatvédelmi nyilatkozat</h1>
+    <p class="meta">Utolsó frissítés: 2026. szeptember 26.</p>
+
+    <div class="summary"><p>A Pilaster semmilyen személyes adatot nem gyűjt, nem ad el és nem oszt meg. Nincs benne telemetria, statisztikagyűjtés, reklám vagy felhasználói fiók. A fájljaid és a beállításaid nem hagyják el a gépedet.</p></div>
+
+    <h2>Ami a gépeden marad</h2>
+    <p>A Pilaster fájlkezelő. A működéséhez olvassa a mappákat és fájlokat, amelyeket megnyitsz, és kizárólag a saját gépeden tárolja a következőket:</p>
+    <ul>
+      <li>beállítások, címkék, kedvencek és gyorselérés-elemek;</li>
+      <li>a böngészést gyorsító átmeneti adatok (például mappaméretek);</li>
+      <li>diagnosztikai naplófájlok, amelyek az összeomlások kivizsgálását segítik.</li>
+    </ul>
+    <p>A Microsoft Store-verzió ezeket az alkalmazás saját, elkülönített tárhelyén tartja, amelyet a Windows az eltávolításkor töröl. A GitHubról letöltött verzió a <code>%APPDATA%\Pilaster</code> mappát használja, hordozható módban pedig a program melletti mappát.</p>
+
+    <h2>Hálózati kapcsolatok</h2>
+    <p>A Microsoft Store-verzió magától nem létesít hálózati kapcsolatot. A frissítéseket a Microsoft Store telepíti.</p>
+    <p>A GitHubról letöltött verzió a nyilvános GitHub API-n (<code>api.github.com</code>) nézi meg, van-e újabb verzió. A kérés nem tartalmaz személyes adatot, de mint minden webes kérésnél, a GitHub látja az IP-címedet. Lásd a <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub adatvédelmi nyilatkozatát</a>.</p>
+
+    <h2>Hibabejelentés</h2>
+    <p>Hibabejelentés csak akkor megy el, ha megírod és a Küldés gombra kattintasz. Ez a leírásodat, az alkalmazás és a Windows verziószámát tartalmazza. Ha bejelölöd, egy képernyőképet is a Pilaster ablakáról, valamint egy friss naplórészletet. A bejelentést csak a fejlesztő látja, és kizárólag hibajavításra használja.</p>
+
+    <h2>Más programok</h2>
+    <p>Az Intézőhöz hasonlóan a Pilaster is megjeleníti a jobbklikk-menüben a más telepített programok (például tömörítők, felhőtárhely-kliensek) által regisztrált elemeket. Ezekre a programokra a saját adatvédelmi szabályaik vonatkoznak. A Pilaster nem ad át nekik adatot azokon a fájlokon kívül, amelyeken a műveletet végrehajtod.</p>
+
+    <h2>Gyermekek</h2>
+    <p>A Pilaster senkitől, így 13 év alatti gyermekektől sem gyűjt tudatosan semmilyen adatot.</p>
+
+    <h2>Változások és kapcsolat</h2>
+    <p>Ha a nyilatkozat változik, a frissített változat új dátummal ezen az oldalon jelenik meg. Kérdés esetén: <a href="mailto:pilaster-explorer@proton.me">pilaster-explorer@proton.me</a>, vagy <a href="https://github.com/GREG13-PRO/pilaster/issues">GitHub Issues</a>.</p>
+  </section>
+</main>
+</body>
+</html>

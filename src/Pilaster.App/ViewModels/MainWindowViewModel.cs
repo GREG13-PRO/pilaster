@@ -683,6 +683,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var (drives, cloud) = await Task.Run(() =>
             (DriveEnumerator.GetDrives(), Pilaster.Shell.Network.CloudStorageDiscovery.Discover()));
 
+        // Bemutató módban semmi nem látszik a valódi gépből — lásd DemoMode.
+        if (DemoMode.IsEnabled)
+        {
+            drives = [.. drives.Where(d => !d.IsCloudSync
+                && (DemoMode.Drives is null || DemoMode.Drives.Contains(d.Item.FullPath.TrimEnd(Path.DirectorySeparatorChar))))];
+            cloud = DemoMode.CloudRoots;
+        }
+
         _drives = drives;
         _cloudRoots = cloud;
         ReplaceSection("Nav_Drives", BuildDrives);
@@ -884,16 +892,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    /// <summary>Kijelölt elemek törlése — alapból Lomtárba (Delete), <paramref name="permanent"/>-tel véglegesen (Shift+Delete).</summary>
-    [RelayCommand]
-    private void DeleteSelection((IReadOnlyList<string> Paths, bool Permanent) args)
-    {
-        if (args.Paths.Count > 0)
-        {
-            _fileOperations.StartDelete(args.Paths, args.Permanent);
-        }
-    }
-
     /// <summary>
     /// Egy másolás/áthelyezés/törlés befejeztével frissíti azokat a nyitott
     /// füleket, amiket a művelet érintett — a célmappát (másolás/áthelyezés),
@@ -906,7 +904,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (job.State is not (FileOperationState.Completed or FileOperationState.CompletedWithErrors))
+        // A megszakított művelet is változtat: a már átmásolt/áthelyezett
+        // elemek megjelennek a célban, illetve eltűnnek a forrásból.
+        if (job.State is not (FileOperationState.Completed or FileOperationState.CompletedWithErrors or FileOperationState.Cancelled))
         {
             return;
         }
@@ -1708,23 +1708,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// alapján — fülváltáskor, navigáció közben és induláskor egyaránt.
     /// </summary>
     /// <remarks>
-    /// Nem csak a pontosan egyező elem emelődik ki, hanem az aktuális útvonal
-    /// MINDEN őse is: ha a „Dokumentumok" gyorselérés a
+    /// Nem csak a pontosan egyező elem emelődhet ki, hanem az aktuális útvonal
+    /// LEGKÖZELEBBI őse is: ha a „Dokumentumok" gyorselérés a
     /// <c>C:\Users\Rego\Documents</c>-re mutat, és éppen a
     /// <c>C:\Users\Rego\Documents\asd</c> mappában vagyunk, a „Dokumentumok"
-    /// sor is aktívnak számít — így a felhasználó mélyebbre navigálva sem
-    /// veszti el a tájékozódási pontot a bal oldali fában.
+    /// sor aktívnak számít — így a felhasználó mélyebbre navigálva sem
+    /// veszti el a tájékozódási pontot a bal oldali fában. A távolabbi ősök
+    /// (pl. a C: meghajtó) viszont nem: korábban szinte mindig két sor tűnt
+    /// kijelöltnek egyszerre.
     /// </remarks>
     private void UpdateActiveSidebarItem()
     {
         var currentPath = SelectedTab?.CurrentPath;
+        var items = Sections.SelectMany(section => section.Items).ToList();
+        var closest = currentPath is null
+            ? -1
+            : items
+                .Where(item => IsPathOrAncestor(item.Path, currentPath))
+                .Select(item => Path.TrimEndingDirectorySeparator(item.Path).Length)
+                .DefaultIfEmpty(-1)
+                .Max();
 
-        foreach (var section in Sections)
+        foreach (var item in items)
         {
-            foreach (var item in section.Items)
-            {
-                item.IsActive = currentPath is not null && IsPathOrAncestor(item.Path, currentPath);
-            }
+            item.IsActive = closest >= 0
+                && Path.TrimEndingDirectorySeparator(item.Path).Length == closest
+                && IsPathOrAncestor(item.Path, currentPath!);
         }
     }
 

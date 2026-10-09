@@ -309,7 +309,17 @@ public static class TextFileFormat
 
         try
         {
-            File.Move(temporary, path, overwrite: true);
+            // A File.Replace megtartja az eredeti fájl attribútumait (pl.
+            // rejtett), létrehozási idejét és jogosultságait — a sima
+            // felülíró Move ezeket elveszítette.
+            if (File.Exists(path))
+            {
+                File.Replace(temporary, path, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(temporary, path);
+            }
         }
         catch
         {

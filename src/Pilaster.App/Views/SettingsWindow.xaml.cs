@@ -31,6 +31,23 @@ public partial class SettingsWindow : FluentWindow
 
         InitializeComponent();
 
+        if (Pilaster.App.Services.PackageInfo.IsPackaged)
+        {
+            // Store-csomagban a frissítést a Store végzi, a registry-alapú
+            // integrációt pedig az Intéző nem látná (lásd PackageInfo).
+            FolderOpenCard.Visibility = Visibility.Collapsed;
+            ContextMenuEntryCard.Visibility = Visibility.Collapsed;
+            UpdateCheckPanel.Visibility = Visibility.Collapsed;
+            UpdatesHintText.Text = Pilaster.App.Localization.TranslationSource.Instance["Settings_UpdatesHintStore"];
+        }
+        else if (Pilaster.App.Services.PackageInfo.IsWingetInstall)
+        {
+            UpdateCheckPanel.Visibility = Visibility.Collapsed;
+            UpdatesHintText.Text = string.Format(
+                Pilaster.App.Localization.TranslationSource.Instance["Settings_UpdatesHintWinget"],
+                Pilaster.App.Services.PackageInfo.WingetPackageId);
+        }
+
         Loaded += OnLoaded;
         Closed += (_, _) =>
         {

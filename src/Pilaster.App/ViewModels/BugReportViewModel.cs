@@ -23,10 +23,13 @@ public sealed partial class BugReportViewModel : ObservableObject
             // Ez a figyelmeztetés — a küldés utáni visszajelzéssel ellentétben —
             // szándékosan nem tűnik el magától: amíg nincs bot API beállítva,
             // a Küldés gomb is inaktív marad, tehát az állapot végig érvényes.
-            StatusMessage = string.Format(
-                TranslationSource.Instance["BugReport_NotConfigured"],
-                BugReportApiResolver.ConfigFilePath);
-            StatusIsError = true;
+            // A Store-verzió felhasználóinak a fejlesztői beállítási útmutató
+            // helyett a GitHub hibakövetőjét mutatjuk.
+            var packaged = Pilaster.App.Services.PackageInfo.IsPackaged;
+            StatusMessage = packaged
+                ? string.Format(TranslationSource.Instance["BugReport_NotConfiguredStore"], GitHubRepositoryInfo.IssuesUrl)
+                : string.Format(TranslationSource.Instance["BugReport_NotConfigured"], BugReportApiResolver.ConfigFilePath);
+            StatusIsError = !packaged;
             StatusVisible = true;
         }
     }

@@ -129,7 +129,8 @@ public sealed partial class TabViewModel : ObservableObject
     [RelayCommand]
     private void BeginEditPath()
     {
-        EditablePathText = CurrentPath ?? string.Empty;
+        // A Kezdőlap és a Lomtár belső álnevét (pilaster:…) nem mutatjuk.
+        EditablePathText = IsHome || IsRecycleBin ? string.Empty : CurrentPath ?? string.Empty;
         IsEditingPath = true;
     }
 
@@ -1156,6 +1157,18 @@ public sealed partial class TabViewModel : ObservableObject
 
         await OnUiAsync(() =>
         {
+            // Az Alt+F7 gyorsszűrő MAPPÁNKÉNTI, ideiglenes szűrésnek készült —
+            // enélkül egy másik mappába lépve a régi szűrőszöveg némán
+            // eltüntethetné az új mappa elemeit, ami üres/hiányos mappának
+            // tűnne, holott csak a felejtett szűrő rejti el őket. A lista
+            // ürítése ELŐTT kell: a keresés lezárása (EndSearch) visszateszi
+            // a keresés előtti elemeket, és azok a betöltés kötegei mellett
+            // duplán látszottak volna.
+            if (QuickFilterText is not null)
+            {
+                QuickFilterText = null;
+            }
+
             CurrentPath = path;
             Title = BuildTitle(path);
             IsLoading = true;
@@ -1164,15 +1177,6 @@ public sealed partial class TabViewModel : ObservableObject
             Items.Clear();
             RebuildBreadcrumbs(path);
             RaiseNavigationState();
-
-            // Az Alt+F7 gyorsszűrő MAPPÁNKÉNTI, ideiglenes szűrésnek készült —
-            // enélkül egy másik mappába lépve a régi szűrőszöveg némán
-            // eltüntethetné az új mappa elemeit, ami üres/hiányos mappának
-            // tűnne, holott csak a felejtett szűrő rejti el őket.
-            if (QuickFilterText is not null)
-            {
-                QuickFilterText = null;
-            }
         }).ConfigureAwait(false);
 
         var collected = new List<FileSystemItem>();

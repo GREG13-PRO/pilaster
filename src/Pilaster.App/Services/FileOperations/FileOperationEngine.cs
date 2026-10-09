@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.IO.Enumeration;
 using System.Windows;
 using System.Windows.Threading;
 using Pilaster.App.Localization;
@@ -26,6 +27,7 @@ namespace Pilaster.App.Services.FileOperations;
 public sealed class FileOperationEngine
 {
     private const int BufferSize = 1024 * 1024; // 1 MB — elég nagy a torkolattorlódás elkerüléséhez, elég kicsi a reszponzív szüneteltetéshez/megszakításhoz.
+    private const int ProgressReportIntervalMs = 100;
     private static readonly TimeSpan SpeedSampleInterval = TimeSpan.FromMilliseconds(400);
 
     public ObservableCollection<FileOperationJob> Jobs { get; } = [];
@@ -78,10 +80,27 @@ public sealed class FileOperationEngine
         string.Equals(Path.GetPathRoot(NormalizePath(a)), Path.GetPathRoot(NormalizePath(b)), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Törlés — alapból Lomtárba, <paramref name="permanent"/> esetén azonnal véglegesen.</summary>
-    public void StartDelete(IReadOnlyList<string> sourcePaths, bool permanent) =>
-        _ = RunDeleteAsync(sourcePaths, permanent);
+    /// <remarks>
+    /// A Shell COM törlés (IFileOperation) STA szálat követel meg — egy
+    /// Task.Run-nal indított háttérszál MTA, és ThreadStateException-nel
+    /// elszállna. Korábban ezért a UI-szálon futott, de ott egy nagy mappa
+    /// törlése befagyasztotta az ablakot: sem a haladásjelző, sem a
+    /// Megszakítás gomb nem reagált. Most saját, háttérbeli STA szálat kap.
+    /// </remarks>
+    public void StartDelete(IReadOnlyList<string> sourcePaths, bool permanent)
+    {
+        var paths = sourcePaths.ToArray();
+        var thread = new Thread(() => RunDelete(paths, permanent))
+        {
+            IsBackground = true,
+            Name = "Pilaster delete",
+        };
 
-    private async Task RunDeleteAsync(IReadOnlyList<string> sourcePaths, bool permanent)
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+    }
+
+    private void RunDelete(IReadOnlyList<string> sourcePaths, bool permanent)
     {
         var job = new FileOperationJob
         {
@@ -92,7 +111,7 @@ public sealed class FileOperationEngine
             TotalFiles = sourcePaths.Count,
         };
 
-        await OnUiAsync(() => Jobs.Insert(0, job));
+        OnUi(() => Jobs.Insert(0, job));
 
         var errors = new List<string>();
 
@@ -103,25 +122,18 @@ public sealed class FileOperationEngine
                 break;
             }
 
-            await OnUiAsync(() => job.CurrentFileName = Path.GetFileName(Path.TrimEndingDirectorySeparator(path)));
+            OnUi(() => job.CurrentFileName = Path.GetFileName(Path.TrimEndingDirectorySeparator(path)));
 
             try
             {
-                // A Shell COM törlés (IFileOperation) STA szálat követel meg —
-                // a WPF UI-szál STA, egy Task.Run-nal indított háttérszál
-                // viszont MTA, és ThreadStateException-nel elszállna. Ezért
-                // ezt KIFEJEZETTEN a UI-szálon hívjuk, nem háttérben.
-                await OnUiAsync(() =>
+                if (permanent)
                 {
-                    if (permanent)
-                    {
-                        RecycleBinService.DeletePermanently(path);
-                    }
-                    else
-                    {
-                        RecycleBinService.SendToRecycleBin(path);
-                    }
-                });
+                    RecycleBinService.DeletePermanently(path);
+                }
+                else
+                {
+                    RecycleBinService.SendToRecycleBin(path);
+                }
             }
             catch (Exception ex)
             {
@@ -133,10 +145,10 @@ public sealed class FileOperationEngine
                 Log.Warning(ex, "Törlés sikertelen: {Path}", path);
             }
 
-            await OnUiAsync(() => job.FilesCompleted++);
+            OnUi(() => job.FilesCompleted++);
         }
 
-        await OnUiAsync(() =>
+        OnUi(() =>
         {
             if (job.Cancellation.IsCancellationRequested)
             {
@@ -268,7 +280,15 @@ public sealed class FileOperationEngine
                 TryDeletePartialFile(partialPath);
             }
 
-            await OnUiAsync(() => job.State = FileOperationState.Cancelled);
+            // Egy névütközésre váró kérdés is itt szakadhatott meg — a
+            // panelje különben a megszakított művelet alatt is ott maradna,
+            // működésképtelen gombokkal.
+            await OnUiAsync(() =>
+            {
+                job.PendingConflict = null;
+                job.BytesPerSecond = 0;
+                job.State = FileOperationState.Cancelled;
+            });
             return;
         }
         catch (Exception ex)
@@ -339,6 +359,37 @@ public sealed class FileOperationEngine
     private async Task CopyDirectoryAsync(string sourceDir, string destDir, CopyContext context)
     {
         var job = context.Job;
+
+        if (GetDirectoryLinkTarget(sourceDir) is { } linkTarget)
+        {
+            // Junction vagy mappára mutató szimbolikus link. Ha a cél a
+            // forrás őse, a bejárás végtelen körbe futna — kihagyjuk.
+            if (IsSameOrInside(sourceDir, linkTarget))
+            {
+                context.Errors.Add($"{Path.GetFileName(sourceDir)}: {TranslationSource.Instance["FileOp_LinkLoop"]}");
+                return;
+            }
+
+            if (context.DeleteSourceAfterCopy)
+            {
+                // A tartalom a link CÉLJÁHOZ tartozik, nem a mozgatott
+                // mappához: átmásoljuk, de csak magát a linket töröljük.
+                // Korábban a fájlok egyenként törlődtek a link célmappájából is.
+                await CopyDirectoryAsync(sourceDir, destDir, context with { DeleteSourceAfterCopy = false }).ConfigureAwait(false);
+
+                try
+                {
+                    Directory.Delete(sourceDir, recursive: false);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    context.Errors.Add($"{Path.GetFileName(sourceDir)}: {string.Format(TranslationSource.Instance["FileOp_SourceDeleteFailed"], ex.Message)}");
+                }
+
+                return;
+            }
+        }
+
         string[] entries;
 
         // Egy olvashatatlan almappa (jogosultság, közben törölt mappa) csak
@@ -380,6 +431,7 @@ public sealed class FileOperationEngine
             // forrásmappa (benne az a fájl) megmarad.
             try
             {
+                ClearReadOnly(sourceDir);
                 Directory.Delete(sourceDir, recursive: false);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -408,7 +460,12 @@ public sealed class FileOperationEngine
             switch (action)
             {
                 case FileConflictAction.Skip:
-                    await OnUiAsync(() => job.FilesCompleted++);
+                    var skippedBytes = TryGetLength(sourcePath);
+                    await OnUiAsync(() =>
+                    {
+                        job.FilesCompleted++;
+                        job.BytesCompleted += skippedBytes;
+                    });
                     return;
 
                 case FileConflictAction.KeepBoth:
@@ -417,6 +474,10 @@ public sealed class FileOperationEngine
 
                 case FileConflictAction.Overwrite:
                 default:
+                    // Az Intéző az írásvédett célfájlt is felülírja, ha a
+                    // felhasználó ezt választotta — enélkül „Hozzáférés
+                    // megtagadva" hibával állna meg.
+                    ClearReadOnly(destPath);
                     break;
             }
         }
@@ -447,6 +508,7 @@ public sealed class FileOperationEngine
         {
             try
             {
+                ClearReadOnly(sourcePath);
                 File.Delete(sourcePath);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -497,6 +559,12 @@ public sealed class FileOperationEngine
             var buffer = new byte[BufferSize];
             int bytesRead;
 
+            // A haladást nem darabonként küldjük a UI-szálra: gyors SSD-n ez
+            // másodpercenként ezernél több, egyenként kivárt dispatcher-hívás
+            // volt, ami magát a másolást is lassította.
+            long unreportedBytes = 0;
+            var lastReport = Environment.TickCount64;
+
             while ((bytesRead = await source.ReadAsync(buffer, job.Cancellation.Token).ConfigureAwait(false)) > 0)
             {
                 job.Cancellation.Token.ThrowIfCancellationRequested();
@@ -505,16 +573,32 @@ public sealed class FileOperationEngine
                 await destination.WriteAsync(buffer.AsMemory(0, bytesRead), job.Cancellation.Token).ConfigureAwait(false);
 
                 var speed = speedTracker.RecordAndGetRate(bytesRead);
+                unreportedBytes += bytesRead;
+
+                if (speed is null && Environment.TickCount64 - lastReport < ProgressReportIntervalMs)
+                {
+                    continue;
+                }
+
+                var reported = unreportedBytes;
+                unreportedBytes = 0;
+                lastReport = Environment.TickCount64;
 
                 await OnUiAsync(() =>
                 {
-                    job.BytesCompleted += bytesRead;
+                    job.BytesCompleted += reported;
 
                     if (speed is { } bps)
                     {
                         job.BytesPerSecond = bps;
                     }
                 });
+            }
+
+            if (unreportedBytes > 0)
+            {
+                var reported = unreportedBytes;
+                await OnUiAsync(() => job.BytesCompleted += reported);
             }
         }
 
@@ -550,6 +634,55 @@ public sealed class FileOperationEngine
         {
             // Megszakított/hibás másolat takarítása csak legjobb-erőfeszítés — ha
             // ez sem sikerül, a felhasználó a hibaüzenetben már látta az okot.
+        }
+    }
+
+    /// <summary>A mappa link-célja (teljes útvonalként), ha junction vagy szimbolikus link; egyébként <c>null</c>.</summary>
+    private static string? GetDirectoryLinkTarget(string path)
+    {
+        try
+        {
+            var info = new DirectoryInfo(path);
+
+            if (!info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.LinkTarget is not { } target)
+            {
+                return null;
+            }
+
+            return Path.GetFullPath(target, Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(info.FullName)) ?? info.FullName);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static void ClearReadOnly(string path)
+    {
+        try
+        {
+            var attributes = File.GetAttributes(path);
+
+            if (attributes.HasFlag(FileAttributes.ReadOnly))
+            {
+                File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Nem létezik, vagy nem módosítható — a következő lépés úgyis jelzi a hibát.
+        }
+    }
+
+    private static long TryGetLength(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
         }
     }
 
@@ -591,10 +724,20 @@ public sealed class FileOperationEngine
             {
                 if (Directory.Exists(path))
                 {
-                    foreach (var file in new DirectoryInfo(path).EnumerateFiles("*", options))
+                    var sizes = new FileSystemEnumerable<long>(path, static (ref FileSystemEntry entry) => entry.Length, options)
+                    {
+                        ShouldIncludePredicate = static (ref FileSystemEntry entry) => !entry.IsDirectory,
+
+                        // Junctionbe/symlinkbe nem lépünk le: körbe mutathatnak
+                        // (lásd CopyDirectoryAsync). A méret így csak becslés.
+                        ShouldRecursePredicate = static (ref FileSystemEntry entry) =>
+                            !entry.Attributes.HasFlag(FileAttributes.ReparsePoint) || GetDirectoryLinkTarget(entry.ToFullPath()) is null,
+                    };
+
+                    foreach (var size in sizes)
                     {
                         files++;
-                        bytes += file.Length;
+                        bytes += size;
                     }
                 }
                 else if (File.Exists(path))
@@ -623,6 +766,20 @@ public sealed class FileOperationEngine
         }
 
         return dispatcher.InvokeAsync(action, DispatcherPriority.Background).Task;
+    }
+
+    /// <summary>Mint <see cref="OnUiAsync"/>, de blokkolva — a törlés saját STA szálának.</summary>
+    private static void OnUi(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        dispatcher.Invoke(action, DispatcherPriority.Background);
     }
 
     /// <summary>

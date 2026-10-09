@@ -43,16 +43,19 @@ public partial class EditorWindow : FluentWindow
         ApplyEditorOptions();
         Editor.TextArea.ContextMenu = BuildEditorContextMenu(glass);
 
-        viewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(EditorViewModel.ActiveDocument))
-            {
-                BindActiveDocument();
-            }
-        };
-
+        // A nézetmodell singleton (a fülek túlélik az ablak bezárását), az
+        // ablak viszont minden megnyitáskor új példány — egy bezárt WPF-ablak
+        // nem jeleníthető meg újra. Ezért bezáráskor le kell iratkozni,
+        // különben a régi ablak is reagálna a nézetmodell eseményeire.
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.SaveAsRequested += OnSaveAsRequested;
         viewModel.CloseConfirmationRequested += OnCloseConfirmationRequested;
+        Closed += (_, _) =>
+        {
+            viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            viewModel.SaveAsRequested -= OnSaveAsRequested;
+            viewModel.CloseConfirmationRequested -= OnCloseConfirmationRequested;
+        };
 
         Editor.TextArea.Caret.PositionChanged += OnCaretChanged;
         Editor.TextArea.SelectionChanged += OnSelectionChanged;
@@ -517,6 +520,14 @@ public partial class EditorWindow : FluentWindow
         else
         {
             _viewModel.StatusMessage = TranslationSource.Instance["Editor_SaveFailed"];
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.ActiveDocument))
+        {
+            BindActiveDocument();
         }
     }
 

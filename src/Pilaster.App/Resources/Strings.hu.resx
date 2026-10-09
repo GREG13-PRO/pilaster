@@ -654,6 +654,15 @@
   <data name="FileOp_SourceDeleteFailed" xml:space="preserve">
     <value>átmásolva, de az eredetit nem sikerült törölni ({0})</value>
   </data>
+  <data name="FileOp_LinkLoop" xml:space="preserve">
+    <value>kihagyva: ez a hivatkozás egy őt tartalmazó mappára mutat vissza</value>
+  </data>
+  <data name="Delete_ConfirmNoRecycle" xml:space="preserve">
+    <value>Ezen a helyen nincs Lomtár, ezért „{0}” véglegesen törlődik. Ez a lépés nem vonható vissza.</value>
+  </data>
+  <data name="Delete_ConfirmNoRecycleMultiple" xml:space="preserve">
+    <value>Ezen a helyen nincs Lomtár, ezért ez a(z) {0} elem véglegesen törlődik. Ez a lépés nem vonható vissza.</value>
+  </data>
 
   <data name="Cmd_Cancel" xml:space="preserve">
     <value>Mégse</value>
@@ -813,6 +822,12 @@
   </data>
   <data name="Keymap_UpHint" xml:space="preserve">
     <value>Egy szinttel feljebb.</value>
+  </data>
+  <data name="Keymap_EditPath" xml:space="preserve">
+    <value>Útvonal szerkesztése</value>
+  </data>
+  <data name="Keymap_EditPathHint" xml:space="preserve">
+    <value>Mappa útvonalának beírása vagy beillesztése a címsorba.</value>
   </data>
   <data name="Keymap_CloseTabHint" xml:space="preserve">
     <value>Az aktív fül bezárása (az utolsó nem zárható be).</value>
@@ -1446,5 +1461,14 @@
   </data>
   <data name="Transfer_InvalidTarget" xml:space="preserve">
     <value>Ide nem lehet másolni — válassz egy valódi mappát (a Kezdőlap nem mappa).</value>
+  </data>
+  <data name="Settings_UpdatesHintStore" xml:space="preserve">
+    <value>A frissítéseket a Microsoft Store telepíti automatikusan.</value>
+  </data>
+  <data name="Settings_UpdatesHintWinget" xml:space="preserve">
+    <value>Ezt a példányt a winget telepítette, így a frissítést is az végzi: winget upgrade {0}</value>
+  </data>
+  <data name="BugReport_NotConfiguredStore" xml:space="preserve">
+    <value>A beépített hibabejelentés ebben a verzióban nem érhető el. Hibát vagy ötletet itt jelezhetsz: {0}</value>
   </data>
 </root>

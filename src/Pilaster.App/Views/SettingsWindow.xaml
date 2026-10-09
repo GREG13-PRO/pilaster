@@ -1431,7 +1431,7 @@
                     Style="{StaticResource CaptionStyle}"
                     Text="{loc:Loc Settings_ShellIntegrationHint}" />
 
-                <Border Style="{StaticResource CardStyle}">
+                <Border x:Name="FolderOpenCard" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -1468,7 +1468,7 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource CardStyle}">
+                <Border x:Name="ContextMenuEntryCard" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -1870,9 +1870,9 @@
                                         MouseLeftButtonDown="OnVersionClick"
                                         Text="{Binding CurrentVersion, StringFormat=v{0}}" />
                                 </StackPanel>
-                                <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_UpdatesHint}" />
+                                <TextBlock x:Name="UpdatesHintText" Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_UpdatesHint}" />
                             </StackPanel>
-                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                            <Grid x:Name="UpdateCheckPanel" Grid.Column="1" VerticalAlignment="Center">
                                 <ui:ProgressRing
                                     Width="18"
                                     Height="18"

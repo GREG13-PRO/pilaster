@@ -109,7 +109,7 @@ public partial class App : Application
         // A beépített szerkesztő EGYETLEN példány: a fülei így élik túl az
         // ablak bezárását-újranyitását, és egy fájl sosem nyílik meg kétszer.
         services.AddSingleton<EditorViewModel>();
-        services.AddSingleton<EditorWindow>();
+        services.AddTransient<EditorWindow>();
 
         // A gyorselérés-szerkesztő minden megnyitáskor friss másolatokon dolgozik.
         services.AddTransient<QuickAccessEditorViewModel>();
@@ -251,7 +251,10 @@ public partial class App : Application
         void StartDeferredWork()
         {
             FolderSizeService.Start();
-            _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
+            if (!DemoMode.IsEnabled && !PackageInfo.IsPackaged && !PackageInfo.IsWingetInstall)
+            {
+                _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
+            }
 
             if (!crashGuard.CrashDetected && settings.Current.ShellExtensionsEnabled)
             {

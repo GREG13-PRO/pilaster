@@ -18,6 +18,8 @@ public static class GitHubRepositoryInfo
 
     public static string ReleasesApiUrl => $"https://api.github.com/repos/{Owner}/{Name}/releases/latest";
 
+    public static string IssuesUrl => $"https://github.com/{Owner}/{Name}/issues";
+
     public static string ReleasesPageUrl => $"https://github.com/{Owner}/{Name}/releases";
 
     private static string ReadMetadata(string key, string fallback)

@@ -115,6 +115,36 @@ jobs:
           name: ${{ matrix.runtime }}
           path: dist/*
 
+  # Microsoft Store-csomag (x64 + arm64 egy .msixbundle-ben). Nem kerül a
+  # GitHub Release-be: a Partner Centerben kell feltölteni. Az identitás
+  # értékeit a repó Actions-változói adják (Settings → Variables):
+  # STORE_IDENTITY_NAME, STORE_PUBLISHER, STORE_PUBLISHER_DISPLAY_NAME.
+  store:
+    runs-on: windows-latest
+    if: ${{ vars.STORE_IDENTITY_NAME != '' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: MSIX csomag
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF -like 'refs/tags/*') { $env:GITHUB_REF -replace 'refs/tags/', '' } else { '${{ github.event.inputs.tag }}' }
+          ./tools/package-msix.ps1 -Version ($tag -replace '^v', '') `
+            -IdentityName '${{ vars.STORE_IDENTITY_NAME }}' `
+            -Publisher '${{ vars.STORE_PUBLISHER }}' `
+            -PublisherDisplayName '${{ vars.STORE_PUBLISHER_DISPLAY_NAME }}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: store-msixbundle
+          path: artifacts/msix/*.msixbundle
+
   release:
     needs: publish
     runs-on: ubuntu-latest
@@ -123,6 +153,7 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           path: artifacts
+          pattern: win-*
           merge-multiple: true
 
       - name: GitHub Release

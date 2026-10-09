@@ -190,6 +190,9 @@ public partial class FilePaneView : UserControl
             _restoringSelection = false;
         }
 
+        // Az állapotsor a visszaállított kijelölést mutassa, ne egy korábbit.
+        UpdateStatusFromSelection(tab);
+
         if (FindScrollViewer(List) is { } scroll && tab.ScrollOffset > 0)
         {
             scroll.ScrollToVerticalOffset(tab.ScrollOffset);
@@ -221,9 +224,13 @@ public partial class FilePaneView : UserControl
             return;
         }
 
-        var selected = List.SelectedItems.Cast<FileSystemItem>().ToList();
+        tab.SelectedPaths = [.. List.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath)];
+        UpdateStatusFromSelection(tab);
+    }
 
-        tab.SelectedPaths = [.. selected.Select(i => i.FullPath)];
+    private void UpdateStatusFromSelection(TabViewModel tab)
+    {
+        var selected = List.SelectedItems.Cast<FileSystemItem>().ToList();
 
         // Fájloknál SizeBytes, mappáknál a háttérben számolt
         // ComputedFolderSize — mindkettő negatív, amíg nincs ismert érték.
@@ -359,6 +366,9 @@ public partial class FilePaneView : UserControl
         }
     }
 
+    /// <summary>A húzás alatti célsor-kiemelés — lásd <see cref="ResolveDrop"/>.</summary>
+    private readonly FileDropHelper _drop = new();
+
     private void OnItemPreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         Activated?.Invoke(this, EventArgs.Empty);
@@ -401,23 +411,35 @@ public partial class FilePaneView : UserControl
     /// </summary>
     private void OnListDragOver(object sender, DragEventArgs e)
     {
-        if (!e.Data.GetDataPresent(DataFormats.FileDrop) || Tab is not { CurrentPath: { } destination })
+        e.Handled = true;
+
+        if (ResolveDrop(e) is not { } drop)
         {
+            _drop.Highlight(null);
             e.Effects = DragDropEffects.None;
-            e.Handled = true;
             return;
         }
 
-        var sourcePaths = e.Data.GetData(DataFormats.FileDrop) as string[] ?? [];
+        _drop.Highlight(drop.Row);
+        e.Effects = FileDropHelper.ToEffect(ResolveDropEffect(drop.Paths, drop.Folder, Keyboard.Modifiers), e.AllowedEffects);
+    }
 
-        e.Effects = ResolveDropEffect(sourcePaths, destination, Keyboard.Modifiers) switch
+    private void OnListDragLeave(object sender, DragEventArgs e) => _drop.Highlight(null);
+
+    /// <summary>
+    /// Az ejtés célja: egy mappa-sor fölött az a mappa (mint az Intézőben),
+    /// máshol a panel aktuális mappája. A Kezdőlapra és a Lomtárba nem lehet ejteni.
+    /// </summary>
+    private (string[] Paths, string Folder, ListBoxItem? Row)? ResolveDrop(DragEventArgs e)
+    {
+        if (Tab is not { IsHome: false, IsRecycleBin: false } tab
+            || e.Data.GetData(DataFormats.FileDrop) is not string[] { Length: > 0 } paths
+            || FileDropHelper.ResolveTarget(e.OriginalSource as DependencyObject, tab.CurrentPath, paths) is not { } target)
         {
-            PaneDropAction.Copy => DragDropEffects.Copy,
-            PaneDropAction.Shortcut => DragDropEffects.Link,
-            _ => DragDropEffects.Move,
-        };
+            return null;
+        }
 
-        e.Handled = true;
+        return (paths, target.Folder, target.Row);
     }
 
     /// <summary>
@@ -480,21 +502,16 @@ public partial class FilePaneView : UserControl
 
     private void OnListDrop(object sender, DragEventArgs e)
     {
-        if (Tab is not { CurrentPath: { } destinationDir } || e.Data.GetData(DataFormats.FileDrop) is not string[] paths)
+        _drop.Highlight(null);
+
+        if (ResolveDrop(e) is not { } drop)
         {
             return;
         }
 
-        // Nincs értelme egy elemet önmagába ejteni.
-        var filtered = paths.Where(p => !string.Equals(Path.GetDirectoryName(p), destinationDir, StringComparison.OrdinalIgnoreCase)).ToList();
-
-        if (filtered.Count == 0)
-        {
-            return;
-        }
-
+        e.Handled = true;
         Activated?.Invoke(this, EventArgs.Empty);
-        FilesDropped?.Invoke(this, (filtered, destinationDir, ResolveDropEffect(filtered, destinationDir, Keyboard.Modifiers)));
+        FilesDropped?.Invoke(this, (drop.Paths, drop.Folder, ResolveDropEffect(drop.Paths, drop.Folder, Keyboard.Modifiers)));
     }
 
     private void OnBreadcrumbClick(object sender, RoutedEventArgs e)

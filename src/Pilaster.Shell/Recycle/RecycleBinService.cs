@@ -98,6 +98,34 @@ public static class RecycleBinService
                 | ShellFileOperations.OperationFlags.NoConfirmation
                 | ShellFileOperations.OperationFlags.NoErrorUI);
 
+    /// <summary>
+    /// Igaz, ha az útvonal kötetén van Lomtár. Hálózati megosztáson és
+    /// cserélhető meghajtón (pendrive, memóriakártya) nincs: ott a Windows a
+    /// <see cref="SendToRecycleBin"/>-t is véglegesen hajtja végre.
+    /// </summary>
+    /// <remarks>
+    /// Csak a meghajtó típusát kérdezi le, nem nyúl a hálózathoz. Kétes
+    /// esetben hamisat ad, hogy a hívó inkább rákérdezzen.
+    /// </remarks>
+    public static bool IsSupported(string path)
+    {
+        try
+        {
+            var root = Path.GetPathRoot(Path.GetFullPath(path));
+
+            if (string.IsNullOrEmpty(root) || root.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return new DriveInfo(root).DriveType == DriveType.Fixed;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Egy még nem törölt fájl/mappa AZONNALI, végleges törlése (Shift+Delete).</summary>
     public static void DeletePermanently(string path) =>
         ShellFileOperations.Delete(

@@ -41,6 +41,9 @@ public partial class MainWindow : FluentWindow
     /// <summary>A Beállítások ablak, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private SettingsWindow? _settingsWindow;
 
+    /// <summary>A beépített szerkesztő ablaka, amíg nyitva van — lásd <see cref="OpenInEditorAsync"/>.</summary>
+    private EditorWindow? _editorWindow;
+
     /// <summary>Az F3 (Megtekintés) előnézeti ablaka, amíg nyitva van — hogy ne nyíljon kettő.</summary>
     private FilePreviewWindow? _previewWindow;
 
@@ -149,6 +152,8 @@ public partial class MainWindow : FluentWindow
         // Részleteset.
         SyncViewModeVisuals(_viewModel.SelectedTab);
         ApplyDualPaneOrientation(_viewModel.DualPaneVertical);
+
+        PreviewMouseDown += OnWindowPreviewMouseDown;
 
         // A munkamenet mentése kilépéskor: a késleltetett beállítás-mentés
         // (JsonSettingsService) még sorban állhat, ezért itt kifejezetten
@@ -1183,6 +1188,42 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
+    /// Törlés indítása. Végleges törlésnél (Shift+Delete), és ha a hely nem
+    /// támogatja a Lomtárt (hálózati megosztás, pendrive), előbb rákérdez,
+    /// mint az Intéző — korábban mindkettő szó nélkül, visszavonhatatlanul
+    /// törölt.
+    /// </summary>
+    private async void RequestDelete(IReadOnlyList<string> paths, bool permanent)
+    {
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
+        var noRecycleBin = !permanent && paths.Any(p => !Pilaster.Shell.Recycle.RecycleBinService.IsSupported(p));
+
+        if (permanent || noRecycleBin)
+        {
+            var strings = TranslationSource.Instance;
+            var first = Path.GetFileName(Path.TrimEndingDirectorySeparator(paths[0])) is { Length: > 0 } name ? name : paths[0];
+            var message = (noRecycleBin, paths.Count == 1) switch
+            {
+                (true, true) => string.Format(strings["Delete_ConfirmNoRecycle"], first),
+                (true, false) => string.Format(strings["Delete_ConfirmNoRecycleMultiple"], paths.Count),
+                (false, true) => string.Format(strings["RecycleBin_ConfirmDelete"], first),
+                (false, false) => string.Format(strings["RecycleBin_ConfirmDeleteMultiple"], paths.Count),
+            };
+
+            if (!await ShowConfirmDialogAsync(strings["Cmd_DeletePermanently"], message, strings["Cmd_DeletePermanently"]))
+            {
+                return;
+            }
+        }
+
+        _viewModel.StartPaneDelete(paths, permanent);
+    }
+
+    /// <summary>
     /// Lomtár-elemek végleges törlése megerősítés után — a jobbklikk-menüből
     /// (<see cref="ShowRecycleBinItemMenu"/>) ÉS a Delete billentyűből
     /// (<see cref="OnFileListHostPreviewKeyDown"/>) egyaránt ide fut ki.
@@ -1452,7 +1493,7 @@ public partial class MainWindow : FluentWindow
                 }
             }, IsActive: allFavorite),
             new(shiftHeld ? "Cmd_DeletePermanently" : "Cmd_Delete", SymbolRegular.Delete24,
-                () => _viewModel.DeleteSelectionCommand.Execute((selectedPaths, shiftHeld))),
+                () => RequestDelete(selectedPaths, shiftHeld)),
         ];
 
         var tags = metadata.Tags
@@ -1509,23 +1550,40 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private async Task OpenInEditorAsync(string path)
     {
-        var editor = _services.GetRequiredService<EditorWindow>();
-
-        // Egyetlen példány: a fülei túlélik az ablak bezárását-újranyitását.
-        if (!editor.IsLoaded)
+        // Egyszerre egy szerkesztőablak. A fülei (EditorViewModel, singleton)
+        // túlélik a bezárást; maga az ablak viszont újra létrejön, mert egy
+        // bezárt WPF-ablakot nem lehet újra megjeleníteni — korábban a
+        // második megnyitás csendben elbukott.
+        if (_editorWindow is { } open)
         {
-            editor.Owner = this;
-            editor.Show();
+            if (open.WindowState == WindowState.Minimized)
+            {
+                open.WindowState = WindowState.Normal;
+            }
+
+            open.Activate();
         }
         else
         {
-            editor.Activate();
+            var editor = _services.GetRequiredService<EditorWindow>();
+            editor.Owner = this;
+            editor.Closed += (_, _) => _editorWindow = null;
+            _editorWindow = editor;
+            editor.Show();
         }
 
-        if (!await _services.GetRequiredService<EditorViewModel>().OpenAsync(path))
+        var editorViewModel = _services.GetRequiredService<EditorViewModel>();
+
+        if (!await editorViewModel.OpenAsync(path))
         {
             // Bináris tartalom: a szerkesztő nem nyitja meg — az F3 előnézet
-            // hexdumpja viszont igen (spec F2).
+            // hexdumpja viszont igen (spec F2). Ha a szerkesztőben nincs más
+            // fül, az üres ablakát nem hagyjuk az előnézet mögött.
+            if (editorViewModel.Documents.Count == 0)
+            {
+                _editorWindow?.Close();
+            }
+
             await ViewFileAsync(path);
         }
     }
@@ -1834,7 +1892,7 @@ public partial class MainWindow : FluentWindow
         _viewModel.CutSelectionCommand.Execute(GetSelectedFilePaths());
 
     private void OnDeleteItemClick(object sender, RoutedEventArgs e) =>
-        _viewModel.DeleteSelectionCommand.Execute((GetSelectedFilePaths(), false));
+        RequestDelete(GetSelectedFilePaths(), permanent: false);
 
     /// <summary>
     /// Ctrl+C/Ctrl+X/Ctrl+V/Delete/Shift+Delete — a fájllista területén
@@ -1887,7 +1945,7 @@ public partial class MainWindow : FluentWindow
 
             case System.Windows.Input.Key.Delete:
                 e.Handled = true;
-                _viewModel.DeleteSelectionCommand.Execute((GetSelectedFilePaths(), shift));
+                RequestDelete(GetSelectedFilePaths(), shift);
                 break;
         }
     }
@@ -1941,6 +1999,12 @@ public partial class MainWindow : FluentWindow
         {
             e.Handled = true;
             _viewModel.DualPaneEnabled = !_viewModel.DualPaneEnabled;
+            return;
+        }
+
+        if (HandleNavigationKey(e, ctrl, shift, alt))
+        {
+            e.Handled = true;
             return;
         }
 
@@ -2139,6 +2203,135 @@ public partial class MainWindow : FluentWindow
                 _viewModel.NextTabCommand.Execute(null);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Az Intézőben megszokott navigációs billentyűk, mindkét kiosztásban:
+    /// Alt+←/→/↑ (vissza/előre/fel), Ctrl+F (keresés), és egypaneles
+    /// nézetben Enter (megnyitás), Backspace (fel), F2 (átnevezés),
+    /// Alt+D / Ctrl+L (útvonalsáv), Ctrl+Shift+N (új mappa). A Beállítások
+    /// billentyűlistája korábban is ezeket ígérte, de egypaneles nézetben
+    /// egyik sem működött. Igaz, ha kezelte.
+    /// </summary>
+    private bool HandleNavigationKey(System.Windows.Input.KeyEventArgs e, bool ctrl, bool shift, bool alt)
+    {
+        var tab = _viewModel.DualPaneEnabled ? _viewModel.ActivePaneTab : _viewModel.SelectedTab;
+
+        if (tab is null)
+        {
+            return false;
+        }
+
+        if (alt && !ctrl && !shift)
+        {
+            switch (e.SystemKey)
+            {
+                case System.Windows.Input.Key.Left:
+                    _ = tab.GoBackCommand.ExecuteAsync(null);
+                    return true;
+
+                case System.Windows.Input.Key.Right:
+                    _ = tab.GoForwardCommand.ExecuteAsync(null);
+                    return true;
+
+                case System.Windows.Input.Key.Up:
+                    _ = tab.GoUpCommand.ExecuteAsync(null);
+                    return true;
+
+                case System.Windows.Input.Key.D when !_viewModel.DualPaneEnabled:
+                    tab.BeginEditPathCommand.Execute(null);
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (ctrl && !alt && e.Key == System.Windows.Input.Key.F)
+        {
+            QuickFilterBox.Focus();
+            QuickFilterBox.SelectAll();
+            return true;
+        }
+
+        // A többi csak az egypaneles listán: a panelek saját kezelője
+        // (FilePaneView) intézi az Entert és a Backspace-t, és egy fókuszban
+        // lévő gombtól sem szabad elvenni az Entert.
+        if (_viewModel.DualPaneEnabled || !FileListHost.IsKeyboardFocusWithin)
+        {
+            if (ctrl && !shift && !alt && e.Key == System.Windows.Input.Key.L
+                && !_viewModel.DualPaneEnabled && _settings.Current.Keymap != KeymapPreset.PilasterClassic)
+            {
+                tab.BeginEditPathCommand.Execute(null);
+                return true;
+            }
+
+            return false;
+        }
+
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.Enter when !ctrl && !shift && !alt:
+                OpenActiveSelection();
+                return true;
+
+            case System.Windows.Input.Key.Back when !ctrl && !shift && !alt:
+            case System.Windows.Input.Key.PageUp when ctrl:
+                _ = tab.GoUpCommand.ExecuteAsync(null);
+                return true;
+
+            case System.Windows.Input.Key.F2 when !ctrl && !shift && !alt:
+                RenameActiveSelection();
+                return true;
+
+            case System.Windows.Input.Key.L when ctrl && !shift && !alt && _settings.Current.Keymap != KeymapPreset.PilasterClassic:
+                tab.BeginEditPathCommand.Execute(null);
+                return true;
+
+            case System.Windows.Input.Key.N when ctrl && shift && !alt:
+                CreateFolderInActivePane();
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Enter: mappánál belép (a kurzor alatti elembe), fájloknál a
+    /// kijelölteket megnyitja a társított programmal — mint az Intézőben.
+    /// </summary>
+    private void OpenActiveSelection()
+    {
+        if (GetActiveList() is not { } list || GetFocusedItem(list) is not { } focused)
+        {
+            return;
+        }
+
+        if (focused.IsNavigable)
+        {
+            _ = OpenItemAsync(focused);
+            return;
+        }
+
+        // Egy elcsúszott Ctrl+A + Enter ne indítson el száz programot.
+        foreach (var item in list.SelectedItems.Cast<FileSystemItem>().Where(i => !i.IsNavigable && !i.IsRecycled).Take(15))
+        {
+            OpenWithShell(item.FullPath);
+        }
+    }
+
+    /// <summary>Az egér oldalsó (vissza/előre) gombjai, mint az Intézőben és a böngészőkben.</summary>
+    private void OnWindowPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton is not (System.Windows.Input.MouseButton.XButton1 or System.Windows.Input.MouseButton.XButton2)
+            || (_viewModel.DualPaneEnabled ? _viewModel.ActivePaneTab : _viewModel.SelectedTab) is not { } tab)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _ = e.ChangedButton == System.Windows.Input.MouseButton.XButton1
+            ? tab.GoBackCommand.ExecuteAsync(null)
+            : tab.GoForwardCommand.ExecuteAsync(null);
     }
 
     /// <summary>
@@ -2448,10 +2641,7 @@ public partial class MainWindow : FluentWindow
 
         var paths = list.SelectedItems.Cast<FileSystemItem>().Select(i => i.FullPath).ToList();
 
-        if (paths.Count > 0)
-        {
-            _viewModel.StartPaneDelete(paths, permanent);
-        }
+        RequestDelete(paths, permanent);
     }
 
     /// <summary>F2 — a fókuszban lévő elem helyben-átnevezése.</summary>
@@ -2688,6 +2878,11 @@ public partial class MainWindow : FluentWindow
             .Sum();
 
         tab.UpdateStatus(selected.Count, totalBytes);
+
+        // A kétpaneles nézet ebből állítja vissza a kijelölést — enélkül
+        // átváltáskor az állapotsor „1 kijelölve" maradt, a panelben pedig
+        // semmi sem volt kijelölve.
+        tab.SelectedPaths = [.. selected.Select(item => item.FullPath)];
 
         // A2 (v1.0.2): a kijelölésre indított, debounce-olt shell-előretöltés
         // — lásd ShellMenuPreloadCoordinator. Csak fájl-kijelölésre indul (a
@@ -3097,7 +3292,7 @@ public partial class MainWindow : FluentWindow
 
         if (target is { IsRecycleBin: true })
         {
-            _viewModel.StartPaneDelete(paths, permanent: false);
+            RequestDelete(paths, permanent: false);
             return;
         }
 
@@ -3155,24 +3350,71 @@ public partial class MainWindow : FluentWindow
             ? path
             : null;
 
-    /// <summary>Egy mappa önmagába vagy a saját almappájába nem húzható, és a már ott lévő elem sem.</summary>
-    private static bool IsValidDropInto(IEnumerable<string> paths, string folder)
+    private static bool IsValidDropInto(IEnumerable<string> paths, string folder) => FileDropHelper.IsValidDropInto(paths, folder);
+
+    /// <summary>A fájllista húzás alatti célsor-kiemelése — lásd <see cref="ResolveFileListDrop"/>.</summary>
+    private readonly FileDropHelper _fileListDrop = new();
+
+    private void OnFileListDragOver(object sender, DragEventArgs e)
     {
-        var target = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+        e.Handled = true;
 
-        foreach (var path in paths)
+        if (ResolveFileListDrop(e) is not { } drop)
         {
-            var source = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-
-            if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase)
-                || target.StartsWith(source + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Path.GetDirectoryName(source), target, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
+            _fileListDrop.Highlight(null);
+            e.Effects = DragDropEffects.None;
+            return;
         }
 
-        return true;
+        _fileListDrop.Highlight(drop.Row);
+        e.Effects = FileDropHelper.ToEffect(
+            FilePaneView.ResolveDropEffect(drop.Paths, drop.Folder, ToModifierKeys(e.KeyStates)),
+            e.AllowedEffects);
+    }
+
+    private void OnFileListDragLeave(object sender, DragEventArgs e) => _fileListDrop.Highlight(null);
+
+    /// <summary>
+    /// Fájlok ejtése a fájllistára — az Asztalról, az Intézőből vagy a lista
+    /// saját soraiból. Korábban az egypaneles listára egyáltalán nem lehetett
+    /// ejteni, csak a kétpaneles nézet paneljeire és az oldalsávra.
+    /// </summary>
+    private void OnFileListDrop(object sender, DragEventArgs e)
+    {
+        _fileListDrop.Highlight(null);
+
+        if (ResolveFileListDrop(e) is not { } drop)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        OnPaneFilesDropped(this, (drop.Paths, drop.Folder, FilePaneView.ResolveDropEffect(drop.Paths, drop.Folder, ToModifierKeys(e.KeyStates))));
+    }
+
+    /// <summary>
+    /// Az ejtés célja: egy mappa-sor fölött az a mappa, máshol a lista mappája —
+    /// oszlopos nézetben az adott oszlopé, egyébként az aktív fülé. A
+    /// Kezdőlapra és a Lomtárba nem lehet ejteni.
+    /// </summary>
+    private (string[] Paths, string Folder, System.Windows.Controls.ListBoxItem? Row)? ResolveFileListDrop(DragEventArgs e)
+    {
+        if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is not string[] { Length: > 0 } paths)
+        {
+            return null;
+        }
+
+        var hit = e.OriginalSource as DependencyObject;
+        var list = FileDropHelper.FindAncestor<ItemsControl>(hit);
+        var tab = list?.DataContext as TabViewModel ?? _viewModel.SelectedTab;
+
+        if (tab is not { IsHome: false, IsRecycleBin: false, CurrentPath: { } folder }
+            || FileDropHelper.ResolveTarget(hit, folder, paths) is not { } target)
+        {
+            return null;
+        }
+
+        return (paths, target.Folder, target.Row);
     }
 
     private static System.Windows.Input.ModifierKeys ToModifierKeys(DragDropKeyStates keys)

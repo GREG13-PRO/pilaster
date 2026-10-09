@@ -18,12 +18,12 @@ Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **colu
 
 ## Status
 
-**v1.1.4 — actively developed, daily-driver ready.** What already works:
+**v1.2.0 — actively developed, daily-driver ready.** What already works:
 
 - **Cloud drives (NextCloud, ownCloud, WebDAV)**: connect any WebDAV server from the sidebar's "Cloud drives" section — through Windows' own built-in WebDAV redirector, so once connected it behaves like any other network path (copy, tags, favorites, everything just works). Credentials are never stored in a Pilaster file; Windows' own Credential Manager handles them.
 - **Real Windows 11 icons in Quick Access**: Documents, Downloads, Pictures, Music, and Videos show their actual badged shell icon straight from `desktop.ini`, exactly as in Explorer — not a generic glyph.
 - **Recycle Bin navigates in place**, like any real folder — same Details/Grid/Columns view, breadcrumb, and tab title as Documents or Downloads, with Restore/Delete permanently on right-click and an Empty Recycle Bin toolbar button.
-- **Collapsible sidebar sections**: click a section header (Quick Access, Recent, Drives, …) to collapse or expand it, with an animated arrow — following Windows 11 Explorer's own grouped-sidebar convention.
+- **Collapsible sidebar sections**: click a section header (Quick Access, Drives, …) to collapse or expand it, with an animated arrow — following Windows 11 Explorer's own grouped-sidebar convention.
 - **Color themes**: a ready palette (blue, purple, green, red, orange, pink, teal, graphite) or a custom hex accent color, or automatically follow your own Windows accent color — applies to selections, the active sidebar item, buttons, and focus rings, in both light and dark themes, with contrast correction
 - **Animation levels**: Full / Reduced / Off in Settings, following Windows' own "reduce motion" system setting by default
 - **System integration** (optional, all OFF by default): open folders/drives in Pilaster, redirect Win+E, an "Open in Pilaster" right-click entry — each toggled individually, and turning it off restores Explorer's original behavior exactly (not just by deleting a registry key)
@@ -50,7 +50,7 @@ Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **colu
 - **A fully custom installer**, built from scratch in WPF with the same Fluent/Mica look and animations as the app itself — not a native Windows wizard. Ships as a ZIP (unzip, run `Pilaster.Setup.exe`) rather than a self-extracting `.exe`, matching the app's own no-single-file policy (see [Antivirus](docs/ANTIVIRUS.md))
 - **Automatic updates** from GitHub Releases: checks quietly on startup, shows a non-intrusive banner, downloads with one click, verifies with a checksum, and installs after a restart confirmation
 - **Theme**: light / dark / follow system, one-click toggle, animated, **saved**
-- Sidebar with Quick Access, drives (usage bar, free space), Favorites, and Tags — **every level** of the folder chain highlighted, not just the exact match
+- Sidebar with Quick Access, drives (usage bar, free space), Favorites, and Tags — the closest entry stays highlighted even deep inside a folder
 - Tabs, back/forward/up/refresh, a sliding transition on folder change
 - Details list and icon grid — both **fully virtualized**, with selection, a right-click menu (on an item AND on empty space alike: new folder/file, paste, refresh, sort) and **marquee (drag) selection**
 - **Paste from clipboard** — in an Explorer-compatible format, for both copy and cut
@@ -143,12 +143,13 @@ The `IFileSystemProvider` abstraction has been there from day one: the local dis
 | **v1.1.2** ✅ | Fixed: the window could open with its title bar above the visible screen on smaller/DPI-scaled displays |
 | **v1.1.3** ✅ | Fixed: misaligned installer wizard logos, plus a developer-only test-suite side effect |
 | **v1.1.4** ✅ | Fully custom WPF installer replacing Inno Setup — same Fluent/Mica look as the app, ships as a ZIP (no self-extracting exe) |
-| v1.2 | Instant search (NTFS MFT index), command palette, quick jump |
-| v1.3 | Workspaces, Shelf, bulk rename, duplicate finder |
-| v1.4 | Terminal, Git integration, archives as folders, rule engine |
-| v1.5 | Set as default file manager (full), disk map, folder sync |
-| v1.6 | Remote providers (FTP/SFTP/S3/WebDAV client-side), plugin SDK |
-| v1.7 | Polish, documentation, 30+ languages |
+| **v1.2.0** ✅ | Title-bar tabs, recursive search, new Pilaster context menu, drag & drop onto the file list and sidebar, Explorer shortcuts, splash screen and faster startup, safer copy/move/delete (permanent-delete confirmation, junction-safe moves) |
+| v1.3 | Instant search (NTFS MFT index), command palette, quick jump |
+| v1.4 | Workspaces, Shelf, bulk rename, duplicate finder |
+| v1.5 | Terminal, Git integration, archives as folders, rule engine |
+| v1.6 | Set as default file manager (full), disk map, folder sync |
+| v1.7 | Remote providers (FTP/SFTP/S3/WebDAV client-side), plugin SDK |
+| v1.8 | Polish, documentation, 30+ languages |
 
 ## Translating to another language
 

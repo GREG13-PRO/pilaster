@@ -654,6 +654,15 @@
   <data name="FileOp_SourceDeleteFailed" xml:space="preserve">
     <value>copied, but the original couldn't be removed ({0})</value>
   </data>
+  <data name="FileOp_LinkLoop" xml:space="preserve">
+    <value>skipped: this link points back to a folder that contains it</value>
+  </data>
+  <data name="Delete_ConfirmNoRecycle" xml:space="preserve">
+    <value>This location has no Recycle Bin, so "{0}" will be deleted permanently. This can't be undone.</value>
+  </data>
+  <data name="Delete_ConfirmNoRecycleMultiple" xml:space="preserve">
+    <value>This location has no Recycle Bin, so these {0} items will be deleted permanently. This can't be undone.</value>
+  </data>
 
   <data name="Cmd_Cancel" xml:space="preserve">
     <value>Cancel</value>
@@ -813,6 +822,12 @@
   </data>
   <data name="Keymap_UpHint" xml:space="preserve">
     <value>One level up.</value>
+  </data>
+  <data name="Keymap_EditPath" xml:space="preserve">
+    <value>Edit path</value>
+  </data>
+  <data name="Keymap_EditPathHint" xml:space="preserve">
+    <value>Type or paste a folder path into the address bar.</value>
   </data>
   <data name="Keymap_CloseTabHint" xml:space="preserve">
     <value>Closes the active tab (the last one stays).</value>
@@ -1446,5 +1461,14 @@
   </data>
   <data name="Transfer_InvalidTarget" xml:space="preserve">
     <value>You can't copy here — pick a real folder (Home isn't a folder).</value>
+  </data>
+  <data name="Settings_UpdatesHintStore" xml:space="preserve">
+    <value>Updates are installed automatically by the Microsoft Store.</value>
+  </data>
+  <data name="Settings_UpdatesHintWinget" xml:space="preserve">
+    <value>This copy was installed with winget, so winget updates it too: winget upgrade {0}</value>
+  </data>
+  <data name="BugReport_NotConfiguredStore" xml:space="preserve">
+    <value>Built-in bug reporting isn't available in this version. You can report bugs or ideas here: {0}</value>
   </data>
 </root>

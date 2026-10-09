@@ -40,6 +40,7 @@ public static class KeymapCatalog
             new(s["Cmd_Back"], "Alt+←", s["Keymap_BackHint"]),
             new(s["Cmd_Forward"], "Alt+→", s["Keymap_ForwardHint"]),
             new(s["Cmd_Up"], "Alt+↑", s["Keymap_UpHint"]),
+            new(s["Keymap_QuickFilter"], "Ctrl+F", s["Keymap_QuickFilterHint"]),
             new(s["Keymap_ToggleDualPane"], "F9", s["Keymap_ToggleDualPaneHint"]),
             new(s["Keymap_OpenItem"], "Enter", s["Keymap_OpenItemHint"]),
             new(s["Cmd_Up"], "Backspace / Ctrl+PgUp", s["Keymap_UpHint"]),
@@ -57,6 +58,7 @@ public static class KeymapCatalog
                 new(s["Cmd_Delete"], "Delete", s["Keymap_DeleteHint"]),
                 new(s["Cmd_DeletePermanently"], "Shift+Delete", s["Keymap_DeletePermanentHint"]),
                 new(s["Cmd_NewFolder"], "Ctrl+Shift+N", s["Keymap_NewFolderHint"]),
+                new(s["Keymap_EditPath"], "Alt+D / Ctrl+L", s["Keymap_EditPathHint"]),
                 .. shared,
             ];
         }
@@ -87,6 +89,7 @@ public static class KeymapCatalog
             new(s["Keymap_Rename"], "Shift+F6", s["Keymap_RenameHint"]),
             new(s["Keymap_InvertSelection"], "Num*", s["Keymap_InvertSelectionHint"]),
             new(s["Keymap_QuickFilter"], "Alt+F7", s["Keymap_QuickFilterHint"]),
+            new(s["Keymap_EditPath"], "Alt+D", s["Keymap_EditPathHint"]),
             .. shared,
         ];
     }

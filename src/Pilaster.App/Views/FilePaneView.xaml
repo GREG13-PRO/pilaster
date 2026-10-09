@@ -141,6 +141,15 @@
                                 Background="{DynamicResource AccentSelectionBrush}"
                                 CornerRadius="4"
                                 Opacity="0" />
+                            <!--  Fájlhúzás célmappája (lásd FileDropHelper): accent keret + kiemelés.  -->
+                            <Border
+                                x:Name="DropTarget"
+                                Margin="4,0"
+                                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{DynamicResource SystemAccentBrush}"
+                                BorderThickness="1.5"
+                                CornerRadius="4"
+                                Opacity="0" />
                             <Border Padding="{TemplateBinding Padding}">
                                 <GridViewRowPresenter VerticalAlignment="Center" Columns="{TemplateBinding GridView.ColumnCollection}" />
                             </Border>
@@ -186,6 +195,9 @@
                                 </MultiDataTrigger.Conditions>
                                 <Setter TargetName="Stripe" Property="Opacity" Value="1" />
                             </MultiDataTrigger>
+                            <Trigger Property="Tag" Value="DropTarget">
+                                <Setter TargetName="DropTarget" Property="Opacity" Value="1" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -253,7 +265,8 @@
         </DataTemplate>
 
         <DataTemplate x:Key="PaneNameDisplayTemplate" DataType="{x:Type fs:FileSystemItem}">
-            <StackPanel Orientation="Horizontal">
+            <!--  DockPanel, nem StackPanel: így a név a cella szélességéhez igazodva „…”-ra rövidül, nem csonkul el.  -->
+            <DockPanel LastChildFill="False">
                 <Grid
                     Width="18"
                     Height="18"
@@ -318,7 +331,7 @@
                     Foreground="{DynamicResource TokenDanger}"
                     Symbol="Heart24"
                     Visibility="{Binding IsFavorite, Converter={StaticResource BoolToVisibility}}" />
-            </StackPanel>
+            </DockPanel>
         </DataTemplate>
 
         <DataTemplate x:Key="PaneNameCellTemplate" DataType="{x:Type fs:FileSystemItem}">
@@ -612,6 +625,7 @@
                     ContextMenu="{StaticResource PaneEmptyContextMenu}"
                     ContextMenuOpening="OnListContextMenuOpening"
                     DragOver="OnListDragOver"
+                    DragLeave="OnListDragLeave"
                     Drop="OnListDrop"
                     GridViewColumnHeader.Click="OnPaneColumnHeaderClick"
                     ItemContainerStyle="{StaticResource PaneRowStyle}"

@@ -2,7 +2,7 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## v1.2.0 — 2026-10-09
 
 ### New
 
@@ -14,7 +14,8 @@ Follows [Semantic Versioning](https://semver.org/).
 - **New Pilaster context menu**: a header with the file's icon or rounded
   thumbnail, name, size and date; an icon bar (cut, copy, rename, favorite,
   delete); clickable tag chips; a short list below. Groups ("More options",
-  "Other apps", 7-Zip …) expand in place instead of opening sub-menus.
+  "Other apps", 7-Zip …) open as quick side sub-menus. It is now the default
+  menu; the native Windows menu can still be chosen in Settings.
 - **Copy / cut / paste feedback**: a small notification at the bottom of the
   file area.
 - **Drag files onto sidebar folders** (Documents, drives, cloud drives) to
@@ -30,8 +31,21 @@ Follows [Semantic Versioning](https://semver.org/).
   slower PCs (animations, glass effect and menu preloading off).
 - Glass effect strength slider; proper on/off.
 - Single instance: opening Pilaster again brings the running window forward.
+- **Splash screen and a faster start**: drive and cloud discovery, update
+  check and folder sizes now run after the first frame.
+- **Modern dialogs** in the app's Fluent style replace the old Windows
+  message boxes; ejecting a drive shows a small notification instead.
 - OneDrive, Dropbox, Nextcloud and other sync clients appear under cloud
   drives.
+- **Drop files onto the file list** from the desktop or File Explorer.
+  Dropping onto a folder row puts them into that folder, and the row lights
+  up while you hover. Works in the single-pane and the dual-pane view.
+- **Explorer shortcuts in the single-pane view**: Enter opens, F2 renames,
+  Backspace goes up, Alt+←/→/↑ go back/forward/up, Ctrl+F jumps to search,
+  Alt+D or Ctrl+L edits the path, Ctrl+Shift+N creates a folder. The mouse's
+  back/forward buttons work too.
+- Installed with winget? Then winget handles updates too
+  (`winget upgrade GREG13-PRO.Pilaster`).
 
 ### Changed
 
@@ -44,17 +58,44 @@ Follows [Semantic Versioning](https://semver.org/).
   themes and closes itself shortly after an operation finishes.
 - The context menu opens faster: it is prepared while the pointer rests on
   an item.
+- Shift+Delete asks before deleting permanently, and so does Delete on
+  drives without a Recycle Bin (USB sticks, network shares).
+- The sidebar highlights only the closest matching entry, so the drive is
+  no longer highlighted together with the folder.
+- Copying is faster: progress updates no longer slow the copy down.
 
 ### Fixed
 
 - Sidebar drive icons were black in dark mode / invisible after a theme
   switch.
+- Synced folders (Nextcloud, OneDrive) that carry only the System attribute
+  were hidden. Like Explorer, Pilaster now hides only Hidden+System items.
+- Right-clicking in the dual-pane view failed with an error.
+- Empty DVD drives and card readers no longer clutter the sidebar.
 - Light theme with strong transparency looked grey and blotchy.
 - Dual-pane column headers were misaligned and the Home list overlapped them.
 - Tag color swatch was clipped in Settings; support e-mail link was
   unreadable in dark mode.
 - Menus had square grey corners and double borders around sub-menus.
 - Discord bot: a second instance no longer logs in with the same token.
+- Moving a folder that contains a junction or symbolic link to another
+  drive deleted the files in the link's target. Links that point back into
+  their own folder are now skipped instead of looping.
+- Read-only files couldn't be overwritten or moved.
+- Pilaster Editor: saving removed the "hidden" attribute; the editor
+  couldn't be opened again after closing it; a binary file left an empty
+  editor window behind the preview.
+- Deleting many items froze the window, including the Cancel button.
+- Old searches kept running in the background while you typed.
+- Cancelled copy/move operations didn't refresh the lists and left the
+  conflict prompt on screen.
+- Long file names were cut off instead of ending in "…".
+- Switching to the dual-pane view kept a stale selection count in the
+  status bar.
+- The "Tags" sidebar header was misaligned and showed up with no tags; the
+  path box showed "pilaster:home" on Home; a white frame appeared around the
+  file list.
+
 ## v1.1.4 — 2026-09-05
 
 ### New — a completely custom installer

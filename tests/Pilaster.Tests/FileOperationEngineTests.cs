@@ -20,11 +20,31 @@ public sealed class FileOperationEngineTests : IDisposable
     {
         try
         {
+            // Az írásvédett fájlok a rekurzív törlést is megakasztanák.
+            foreach (var file in Directory.EnumerateFiles(_root, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 }))
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+            }
+
             Directory.Delete(_root, recursive: true);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
         }
+    }
+
+    /// <summary>Junction (mappahivatkozás) létrehozása — ehhez, a szimbolikus linkkel ellentétben, nem kell rendszergazdai jog.</summary>
+    private static void CreateJunction(string link, string target)
+    {
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+        })!;
+
+        process.WaitForExit();
+        Assert.True(Directory.Exists(link), "A junction nem jött létre.");
     }
 
     private string CreateFile(string relative, string content = "tartalom")
@@ -171,6 +191,75 @@ public sealed class FileOperationEngineTests : IDisposable
         await WaitForJobAsync(engine);
 
         Assert.Equal(stamp, File.GetLastWriteTimeUtc(Path.Combine(_root, "cel", "a.txt")));
+    }
+
+    [Fact]
+    public async Task IrasvedettCelfajlFelulirhato()
+    {
+        var source = CreateFile(@"forras\a.txt", "uj");
+        var dest = CreateFile(@"cel\a.txt", "regi");
+        File.SetAttributes(dest, FileAttributes.ReadOnly);
+        var engine = new FileOperationEngine();
+
+        engine.StartCopy([source], Path.Combine(_root, "cel"));
+        var job = await WaitForJobAsync(engine, FileConflictAction.Overwrite);
+
+        Assert.Equal(FileOperationState.Completed, job.State);
+        Assert.Equal("uj", File.ReadAllText(dest));
+    }
+
+    [Fact]
+    public async Task IrasvedettForrasAthelyezesnelIsTorlodik()
+    {
+        // Ütközés miatt a gyors File.Move elbukik, és a másolás+törlés útra vált.
+        var source = CreateFile(@"forras\a.txt", "uj");
+        File.SetAttributes(source, FileAttributes.ReadOnly);
+        CreateFile(@"cel\a.txt", "regi");
+        var engine = new FileOperationEngine();
+
+        engine.StartMove([source], Path.Combine(_root, "cel"));
+        var job = await WaitForJobAsync(engine, FileConflictAction.Overwrite);
+
+        Assert.Equal(FileOperationState.Completed, job.State);
+        Assert.False(File.Exists(source));
+        Assert.Equal("uj", File.ReadAllText(Path.Combine(_root, "cel", "a.txt")));
+    }
+
+    [Fact]
+    public async Task AthelyezesNemToroliAJunctionCeljanakFajljait()
+    {
+        // A meglévő célmappa miatt a gyors Directory.Move elbukik, és a motor
+        // fájlonként másol+töröl. A junctionön át korábban a link CÉLJÁBÓL
+        // is törölte a fájlokat.
+        var kulso = CreateFile(@"kulso\fontos.txt", "fontos");
+        var source = Path.Combine(_root, "forras", "adat");
+        CreateFile(@"forras\adat\a.txt", "a");
+        CreateJunction(Path.Combine(source, "link"), Path.GetDirectoryName(kulso)!);
+        Directory.CreateDirectory(Path.Combine(_root, "cel", "adat"));
+        var engine = new FileOperationEngine();
+
+        engine.StartMove([source], Path.Combine(_root, "cel"));
+        await WaitForJobAsync(engine);
+
+        Assert.Equal("fontos", File.ReadAllText(kulso));
+        Assert.Equal("fontos", File.ReadAllText(Path.Combine(_root, "cel", "adat", "link", "fontos.txt")));
+        Assert.False(Directory.Exists(Path.Combine(source, "link")));
+    }
+
+    [Fact]
+    public async Task KorbeMutatoJunctiontKihagyja()
+    {
+        var source = Path.Combine(_root, "forras");
+        CreateFile(@"forras\a.txt", "a");
+        CreateJunction(Path.Combine(source, "vissza"), source);
+        var engine = new FileOperationEngine();
+
+        engine.StartCopy([source], Path.Combine(_root, "cel"));
+        var job = await WaitForJobAsync(engine);
+
+        Assert.Equal(FileOperationState.CompletedWithErrors, job.State);
+        Assert.Equal("a", File.ReadAllText(Path.Combine(_root, "cel", "forras", "a.txt")));
+        Assert.False(Directory.Exists(Path.Combine(_root, "cel", "forras", "vissza", "vissza")));
     }
 
     [Theory]

@@ -82,9 +82,16 @@ public static class RecursiveSearch
                     AttributesToSkip = 0,
                 })
             {
+                // A megszakítást itt is figyelni kell, nem csak találatnál:
+                // ritka keresőszónál a bejárás percekig futhat egyetlen
+                // találat nélkül, és gépelés közben minden elavult keresés
+                // tovább pörgette volna a lemezt a háttérben.
                 ShouldIncludePredicate = (ref FileSystemEntry entry) =>
-                    IsVisible(entry.Attributes, options)
-                    && entry.FileName.Contains(query, StringComparison.CurrentCultureIgnoreCase),
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return IsVisible(entry.Attributes, options)
+                        && entry.FileName.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+                },
 
                 // Rejtett/rendszermappába csak akkor megyünk le, ha az elemei
                 // egyébként is látszanának; junctionbe/symlinkbe soha — azok
