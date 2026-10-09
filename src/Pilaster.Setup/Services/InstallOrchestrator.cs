@@ -49,7 +49,11 @@ public static class InstallOrchestrator
 
         if (session.EnableContextMenu)
         {
-            const string label = "Megnyitás Pilaster-ben";
+            // A Windows nyelvén — csendes (pl. winget-es) telepítésnél
+            // korábban angol rendszeren is magyar felirat került az Intézőbe.
+            var label = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "hu"
+                ? "Megnyitás Pilaster-ben"
+                : "Open in Pilaster";
             ShellIntegrationService.AddContextMenuEntry(exePath, label, exePath);
             ShellIntegrationService.AddContextMenuEntry(
                 ShellIntegrationService.BackgroundContextMenuVerbKey, "%V", exePath, label, exePath);

@@ -63,7 +63,19 @@ public partial class App : Application
         window.Show();
     }
 
-    private void RunSilently(SetupSession session)
+    /// <summary>
+    /// Csendes telepítés/eltávolítás (a beépített frissítő és a winget így hívja).
+    /// </summary>
+    /// <remarks>
+    /// <c>async void</c>, nem blokkoló várakozás: a másolás folytatásai
+    /// szándékosan a UI-szálra térnek vissza (a parancsikonok COM-objektumai
+    /// STA szálat kérnek, lásd PayloadCopier). Korábban itt
+    /// <c>GetAwaiter().GetResult()</c> blokkolta ugyanezt a szálat, így a
+    /// telepítő az első fájlnál örökre megakadt — a frissítés után a Pilaster
+    /// nem indult újra, a winget-es telepítés pedig sosem fejeződött be. Ablak
+    /// nélkül a Shutdown hívásáig fut tovább az alkalmazás.
+    /// </remarks>
+    private async void RunSilently(SetupSession session)
     {
         var exitCode = 0;
 
@@ -74,11 +86,11 @@ public partial class App : Application
 
             if (session.IsUninstall)
             {
-                InstallOrchestrator.UninstallAsync(session, progress, cts.Token).GetAwaiter().GetResult();
+                await InstallOrchestrator.UninstallAsync(session, progress, cts.Token);
             }
             else
             {
-                InstallOrchestrator.InstallAsync(session, progress, cts.Token).GetAwaiter().GetResult();
+                await InstallOrchestrator.InstallAsync(session, progress, cts.Token);
             }
         }
         catch (Exception)

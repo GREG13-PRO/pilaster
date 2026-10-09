@@ -2,6 +2,18 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## v1.2.1 — 2026-10-09
+
+### Fixed
+
+- **Updates and silent installs hung.** The installer's silent mode, used
+  by the built-in updater and by winget, stopped at the first file and
+  never finished: after "Update", Pilaster closed and didn't come back.
+  Silent uninstall hung the same way. If an update left Pilaster broken,
+  download the installer from this release and run it once.
+- Installer: a silent install added the Explorer right-click entry in
+  Hungarian on every system; it now follows the Windows display language.
+
 ## v1.2.0 — 2026-10-09
 
 ### New
