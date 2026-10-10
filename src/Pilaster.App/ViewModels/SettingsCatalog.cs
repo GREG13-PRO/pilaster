@@ -167,6 +167,7 @@ public static class SettingsCatalog
         new("integrations.terminal", Integrations, "Settings_Terminal", "Settings_TerminalHint", "terminál terminal powershell cmd wsl"),
         new("integrations.editor", Integrations, "Settings_ExternalEditor", "Settings_ExternalEditorHint", "szerkesztő editor külső external"),
         new("integrations.shell", Integrations, "Settings_ShellIntegration", "Settings_ShellIntegrationHint", "rendszerintegráció explorer win+e alapértelmezett default"),
+        new("integrations.filedialog", Integrations, "Settings_FileDialogCompanion", "Settings_FileDialogCompanionHint", "fájlablak megnyitás mentés feltöltés böngésző upload open save dialog"),
         new("integrations.bugreport", Integrations, "Settings_BugReport", "Settings_BugReportHint", "hibabejelentés bug report discord"),
 
         // Speciális

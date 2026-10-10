@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration a Pilaster kiadásaihoz. A SignPath
+  felületén (Project → Artifact configurations) kell feltölteni; a release
+  workflow (.github/workflows/release.yml) „to-sign" mappája ezt a
+  szerkezetet követi: app\ = a Pilaster, setup\ = a telepítő.
+
+  Csak a Pilaster saját fájljai kapnak aláírást; a .NET futtatókörnyezet és
+  a NuGet-csomagok DLL-jei a saját kiadójuk aláírását viselik. A
+  product-name megkötés kikényszeríti a „Pilaster" termékmetaadatot.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file-set>
+      <include path="app/Pilaster.exe" product-name="Pilaster" />
+      <include path="app/Pilaster*.dll" product-name="Pilaster" max-matches="unbounded" />
+      <include path="setup/Pilaster.Setup.exe" product-name="Pilaster" />
+      <include path="setup/Pilaster*.dll" product-name="Pilaster" max-matches="unbounded" />
+      <for-each>
+        <authenticode-sign />
+      </for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>

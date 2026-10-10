@@ -88,8 +88,11 @@ public class HardcodedColorTests
             "ViewModels/QuickAccessEditorViewModel.cs",
         ];
 
+        // Színkód csak 3, 4, 6 vagy 8 jegyű lehet (#RGB, #ARGB, #RRGGBB,
+        // #AARRGGBB) — így pl. a Win32 párbeszédablak-osztály („#32770") nem
+        // számít színnek.
         var pattern = new Regex(
-            @"Color\.FromRgb\(|Color\.FromArgb\(|new\s+SolidColorBrush\(|\bColors\.[A-Z]|""#[0-9A-Fa-f]{3,8}""");
+            @"Color\.FromRgb\(|Color\.FromArgb\(|new\s+SolidColorBrush\(|\bColors\.[A-Z]|""#(?:[0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})""");
 
         var offenders = SourceFiles("*.cs")
             .Where(file => !allowed.Any(a => Normalize(file).EndsWith(a, StringComparison.Ordinal)))

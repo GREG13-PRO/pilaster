@@ -91,6 +91,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _shellMenuTimeoutMs = current.ShellMenuTimeoutMs;
         _shellItemsInOwnSection = current.ShellItemsInOwnSection;
         _contextMenuPreloadEnabled = current.ContextMenuPreloadEnabled;
+        _fileDialogCompanionEnabled = current.FileDialogCompanionEnabled;
         _shellBlacklistText = string.Join(Environment.NewLine, current.ShellHandlerBlacklist);
         _editorFontFamily = current.EditorFontFamily;
         _editorFontSize = current.EditorFontSize;
@@ -527,6 +528,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnContextMenuPreloadEnabledChanged(bool value) => Persist(s => s.ContextMenuPreloadEnabled = value);
 
+    /// <summary>Pilaster-panel a Megnyitás/Mentés ablakok mellett — lásd <c>FileDialogCompanionService</c>.</summary>
+    [ObservableProperty]
+    private bool _fileDialogCompanionEnabled;
+
+    partial void OnFileDialogCompanionEnabledChanged(bool value) => Persist(s => s.FileDialogCompanionEnabled = value);
+
     /// <summary>A shell-bővítmény feketelista soronként — a mentés sorokra bontja.</summary>
     [ObservableProperty]
     private string _shellBlacklistText = string.Empty;
@@ -772,9 +779,18 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnWinERedirectEnabledChanged(bool value)
     {
-        if (_loaded)
+        if (!_loaded)
         {
-            _shellIntegration.SetWinERedirect(value);
+            return;
+        }
+
+        var (ok, error) = _shellIntegration.SetWinERedirect(value, ExecutablePath);
+        ShellIntegrationError = ok ? null : error;
+
+        if (!ok)
+        {
+            _winERedirectEnabled = !value;
+            OnPropertyChanged(nameof(WinERedirectEnabled));
         }
     }
 

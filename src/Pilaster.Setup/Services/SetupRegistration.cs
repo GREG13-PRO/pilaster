@@ -64,6 +64,10 @@ public static class SetupRegistration
         backupKey.SetValue("DirectoryCommand", directoryBackup.CommandValue ?? string.Empty);
         backupKey.SetValue("DriveExisted", driveBackup.Existed ? 1 : 0);
         backupKey.SetValue("DriveCommand", driveBackup.CommandValue ?? string.Empty);
+
+        // Az alapértelmezett ige (v1.2.2-től): a hiányát üres szöveg jelzi.
+        backupKey.SetValue("DirectoryDefaultVerb", directoryBackup.DefaultVerbValue ?? string.Empty);
+        backupKey.SetValue("DriveDefaultVerb", driveBackup.DefaultVerbValue ?? string.Empty);
     }
 
     public static (RegistryBackup Directory, RegistryBackup Drive)? LoadDefaultFileManagerBackup()
@@ -80,10 +84,23 @@ public static class SetupRegistration
         var driveExisted = (int)(backupKey.GetValue("DriveExisted") ?? 0) != 0;
         var driveCommand = backupKey.GetValue("DriveCommand") as string;
 
+        // Régebbi telepítő mentésében nincs alapértelmezett ige — ilyenkor a
+        // visszaállítás csak a saját „open" értékünket törli (lásd Restore).
+        var directoryDefaultVerb = backupKey.GetValue("DirectoryDefaultVerb") as string;
+        var driveDefaultVerb = backupKey.GetValue("DriveDefaultVerb") as string;
+
         var directoryBackup = new RegistryBackup(
-            Captured: true, Existed: directoryExisted, CommandValue: string.IsNullOrEmpty(directoryCommand) ? null : directoryCommand);
+            Captured: true,
+            Existed: directoryExisted,
+            CommandValue: string.IsNullOrEmpty(directoryCommand) ? null : directoryCommand,
+            DefaultVerbCaptured: directoryDefaultVerb is not null,
+            DefaultVerbValue: string.IsNullOrEmpty(directoryDefaultVerb) ? null : directoryDefaultVerb);
         var driveBackup = new RegistryBackup(
-            Captured: true, Existed: driveExisted, CommandValue: string.IsNullOrEmpty(driveCommand) ? null : driveCommand);
+            Captured: true,
+            Existed: driveExisted,
+            CommandValue: string.IsNullOrEmpty(driveCommand) ? null : driveCommand,
+            DefaultVerbCaptured: driveDefaultVerb is not null,
+            DefaultVerbValue: string.IsNullOrEmpty(driveDefaultVerb) ? null : driveDefaultVerb);
 
         return (directoryBackup, driveBackup);
     }

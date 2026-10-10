@@ -20,17 +20,49 @@ public sealed class FileOperationEngineTests : IDisposable
     {
         try
         {
-            // Az írásvédett fájlok a rekurzív törlést is megakasztanák.
-            foreach (var file in Directory.EnumerateFiles(_root, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 }))
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-            }
-
-            Directory.Delete(_root, recursive: true);
+            RemoveTree(_root);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
         }
+    }
+
+    /// <summary>
+    /// Törlés junctionök KÖVETÉSE nélkül: a linket magát törli, a célját nem
+    /// járja be. Az írásvédettséget is leveszi. Korábban a junction-tesztek
+    /// önmagára mutató linkje miatt a takarítás körbe futott, és a mappa a
+    /// Temp-ben maradt.
+    /// </summary>
+    private static void RemoveTree(string directory)
+    {
+        foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+        {
+            var attributes = File.GetAttributes(entry);
+
+            if (attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                if (attributes.HasFlag(FileAttributes.Directory))
+                {
+                    Directory.Delete(entry, recursive: false);
+                }
+                else
+                {
+                    File.Delete(entry);
+                }
+            }
+            else if (attributes.HasFlag(FileAttributes.Directory))
+            {
+                RemoveTree(entry);
+            }
+            else
+            {
+                File.SetAttributes(entry, FileAttributes.Normal);
+                File.Delete(entry);
+            }
+        }
+
+        File.SetAttributes(directory, FileAttributes.Directory);
+        Directory.Delete(directory, recursive: false);
     }
 
     /// <summary>Junction (mappahivatkozás) létrehozása — ehhez, a szimbolikus linkkel ellentétben, nem kell rendszergazdai jog.</summary>

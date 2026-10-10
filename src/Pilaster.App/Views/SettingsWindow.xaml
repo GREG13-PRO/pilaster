@@ -1486,6 +1486,23 @@
                     </Grid>
                 </Border>
 
+                <Border Style="{StaticResource CardStyle}" Tag="integrations.filedialog">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc Settings_FileDialogCompanion}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_FileDialogCompanionHint}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            IsChecked="{Binding FileDialogCompanionEnabled, Mode=TwoWay}" />
+                    </Grid>
+                </Border>
+
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <Grid>
@@ -1890,6 +1907,23 @@
                             Text="{Binding StatusMessage}"
                             Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsed}}" />
                     </StackPanel>
+                </Border>
+
+                <Border x:Name="AutoUpdateCheckCard" Style="{StaticResource CardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="{loc:Loc Settings_CheckForUpdates}" />
+                            <TextBlock Style="{StaticResource CaptionStyle}" Text="{loc:Loc Settings_CheckForUpdatesHint}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            IsChecked="{Binding CheckForUpdates, Mode=TwoWay}" />
+                    </Grid>
                 </Border>
                 </StackPanel>
 

@@ -321,10 +321,10 @@
     <value>Mappák és meghajtók dupla kattintásra a Pilaster-ben nyílnak meg, nem az Intézőben.</value>
   </data>
   <data name="ShellIntegration_WinE" xml:space="preserve">
-    <value>Win+E átirányítása</value>
+    <value>Win+E és a Fájlkezelő-ikon átirányítása</value>
   </data>
   <data name="ShellIntegration_WinEHint" xml:space="preserve">
-    <value>A Win+E billentyűkombináció a Pilastert nyitja meg. Csak addig hat, amíg a Pilaster fut.</value>
+    <value>A Win+E és a tálcán, illetve a Start menüben lévő Fájlkezelő-ikon az Intéző helyett a Pilastert nyitja meg, akkor is, ha a Pilaster épp nem fut.</value>
   </data>
   <data name="ShellIntegration_ContextMenu" xml:space="preserve">
     <value>Jobb klikk menü bejegyzés</value>
@@ -348,7 +348,7 @@
     <value>Ez módosítja, hogy a Windows mivel nyitja meg a mappákat és meghajtókat: mostantól a Pilaster indul az Intéző helyett, minden alkalmazásban. Bármikor visszavonható ugyanezzel a kapcsolóval, vagy a „Minden visszaállítása" gombbal.</value>
   </data>
   <data name="ShellIntegration_ConfirmWinE" xml:space="preserve">
-    <value>Ez elfogja a Win+E billentyűkombinációt, amíg a Pilaster fut, és az Intéző helyett a Pilastert nyitja meg vele. Bármikor visszavonható ugyanezzel a kapcsolóval.</value>
+    <value>A Win+E és a tálcán, illetve a Start menüben lévő Fájlkezelő-ikon ezután az Intéző helyett a Pilastert nyitja meg, akkor is, ha a Pilaster épp nem fut. Bármikor visszavonható ugyanezzel a kapcsolóval.</value>
   </data>
   <data name="ShellIntegration_ConfirmContextMenu" xml:space="preserve">
     <value>Ez egy „Megnyitás Pilaster-ben" bejegyzést ad a mappák jobbklikk-menüjéhez, a meglévők mellé. Bármikor visszavonható ugyanezzel a kapcsolóval.</value>
@@ -560,7 +560,7 @@
     <value>Frissítések</value>
   </data>
   <data name="Settings_UpdatesHint" xml:space="preserve">
-    <value>Induláskor automatikusan ellenőrizzük. Itt kézzel is megteheted.</value>
+    <value>Itt kézzel is megnézheted, van-e újabb verzió.</value>
   </data>
   <data name="Settings_CurrentVersion" xml:space="preserve">
     <value>Jelenlegi verzió:</value>
@@ -1470,5 +1470,26 @@
   </data>
   <data name="BugReport_NotConfiguredStore" xml:space="preserve">
     <value>A beépített hibabejelentés ebben a verzióban nem érhető el. Hibát vagy ötletet itt jelezhetsz: {0}</value>
+  </data>
+  <data name="Settings_FileDialogCompanion" xml:space="preserve">
+    <value>Pilaster-panel a Megnyitás és Mentés ablakok mellett</value>
+  </data>
+  <data name="Settings_FileDialogCompanionHint" xml:space="preserve">
+    <value>Ha felugrik egy Megnyitás vagy Mentés ablak (például fájlfeltöltéskor a böngészőben), mellette megjelenik egy Pilaster-panel a nyitott füleiddel és a gyorseléréssel. Egy kattintásra az ablak odaugrik.</value>
+  </data>
+  <data name="FileDialogCompanion_Subtitle" xml:space="preserve">
+    <value>Ugrás egy mappára</value>
+  </data>
+  <data name="FileDialogCompanion_OpenTabs" xml:space="preserve">
+    <value>Nyitva a Pilasterben</value>
+  </data>
+  <data name="FileDialogCompanion_Failed" xml:space="preserve">
+    <value>Ez az ablak nem engedte, hogy a Pilaster mappát váltson benne.</value>
+  </data>
+  <data name="Settings_CheckForUpdates" xml:space="preserve">
+    <value>Frissítések keresése induláskor</value>
+  </data>
+  <data name="Settings_CheckForUpdatesHint" xml:space="preserve">
+    <value>Induláskor a Pilaster megnézi a GitHubon, van-e újabb verzió. Személyes adatot nem küld.</value>
   </data>
 </root>

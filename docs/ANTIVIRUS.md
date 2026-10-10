@@ -17,7 +17,7 @@ Four things come together, and each one is suspicious to a heuristic on its own:
 
 **The installer itself follows the same rule.** Pilaster's own custom-built installer (replacing the earlier Inno Setup one) ships as a ZIP you unzip yourself, not a self-extracting `.exe` — the installer executable is a plain, multi-file, self-contained app, exactly like Pilaster itself. No runtime self-extraction anywhere in the download.
 
-What we **can't** do: sign the binary. Until there's a code-signing certificate, false positives will keep coming back from time to time. We're not going to sugarcoat that.
+**Code signing is on its way.** Pilaster has applied to the [SignPath Foundation](https://signpath.org)'s free code signing program for open-source projects, and the release workflow is ready to sign every build once that's approved (see the [code signing policy](https://greg13-pro.github.io/pilaster/code-signing.html)). Until then, releases are unsigned and false positives will keep coming back from time to time. We're not going to sugarcoat that.
 
 ## How to verify it yourself
 
@@ -43,6 +43,16 @@ dotnet publish src/Pilaster.App -c Release -r win-x64 --self-contained
 ```
 
 **4. VirusTotal.** Upload the file to [virustotal.com](https://www.virustotal.com). You'll typically see 1–3 engines out of 70 flag it, all with generic names (`Win32:Malware-gen`, `ML.Attribute.HighConfidence`, and similar) — these are machine-learning guesses, not identifications of a specific piece of malware.
+
+## If Pilaster starts slowly or stutters (AVG / Avast "Auto-Sandbox")
+
+AVG and Avast can run a new, unsigned program inside their sandbox without telling you. Pilaster then still works, but every file and registry access goes through the sandbox: it takes 20–30 seconds to start, animations stutter and everything opens slowly. You can confirm it in `C:\ProgramData\AVG\Antivirus\log\autosandbox.log` (or `C:\ProgramData\Avast Software\Avast\log\autosandbox.log`): look for a `Sandboxing` line next to `Pilaster.exe`.
+
+1. Close Pilaster.
+2. **AVG → Menu → Settings → General → Exceptions → Add Exception**, and add the install folder: `%LOCALAPPDATA%\Programs\Pilaster`.
+3. Start Pilaster again. It should open in a few seconds.
+
+Anything you changed in Pilaster while it ran in the sandbox may not have been saved: the sandbox keeps those writes to itself.
 
 ## If AVG quarantined it
 

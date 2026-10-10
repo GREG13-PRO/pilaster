@@ -80,6 +80,7 @@ public partial class App : Application
         services.AddSingleton<AccentColorService>();
         services.AddSingleton<AnimationService>();
         services.AddSingleton<ShellIntegrationCoordinator>();
+        services.AddSingleton<FileDialogCompanionService>();
         services.AddSingleton<Services.FileOperations.FileOperationEngine>();
         services.AddSingleton<GlassEffectService>();
         services.AddSingleton<QuickActionService>();
@@ -155,8 +156,10 @@ public partial class App : Application
         _services.GetRequiredService<AccentColorService>().ApplyInitial();
         _services.GetRequiredService<AnimationService>().ApplyInitial();
         _services.GetRequiredService<GlassEffectService>().ApplyInitial();
-        var shellIntegration = _services.GetRequiredService<ShellIntegrationCoordinator>();
-        shellIntegration.ApplyInitial();
+        if (Environment.ProcessPath is { } exePath && !isSelfTest)
+        {
+            _services.GetRequiredService<ShellIntegrationCoordinator>().ApplyInitial(exePath);
+        }
 
         ShellIconImage.Initialize(_services.GetRequiredService<IShellImageService>());
 
@@ -180,36 +183,36 @@ public partial class App : Application
         }
 
         var mainWindow = _services.GetRequiredService<MainWindow>();
-
-        // A Win+E hook (amíg a felhasználó bekapcsolta) így hozza előtérbe az
-        // ablakot — lásd ShellIntegrationCoordinator/WinEHookService. Csak
-        // addig működik, amíg ez a folyamat fut.
-        shellIntegration.ActivationRequested += (_, _) => ActivateMainWindow(mainWindow);
         mainWindow.Show();
 
-        // Más programok (jobbklikk-menü, parancssor) egy mappa útvonalával
-        // hívhatják meg az appot — lásd a "Mappák megnyitása ebben az appban"
-        // rendszerintegrációs kapcsolót. args[0] a saját exe útvonala, a
-        // tényleges paraméter az [1]-től kezdődik.
+        // Más programok (dupla kattintás egy mappán, jobbklikk „Megnyitás
+        // Pilaster-ben", parancssor) egy mappa útvonalával hívhatják meg az
+        // appot — lásd a "Mappák megnyitása ebben az appban" kapcsolót. A
+        // visszaállított munkamenet fülei megmaradnak, a mappa új fület kap.
         if (GetFolderArgument() is { } folderArgument)
         {
-            var vm = _services.GetRequiredService<MainWindowViewModel>();
+            OpenFolderFromOutside(folderArgument);
+        }
 
-            if (vm.SelectedTab is { } tab)
-            {
-                _ = tab.NavigateCommand.ExecuteAsync(folderArgument);
-            }
+        // Pilaster-panel a Megnyitás/Mentés ablakok mellett — a beállítás
+        // változására (Beállítások kapcsoló) azonnal indul vagy áll le.
+        if (!isSelfTest)
+        {
+            var companion = _services.GetRequiredService<FileDialogCompanionService>();
+            companion.Apply();
+            settings.Changed += (_, _) => Dispatcher.InvokeAsync(companion.Apply);
         }
 
         // Egy később indított második példány ide adja át az útvonalát: az
-        // ablak előtérbe jön, az útvonal pedig új fülön nyílik meg.
+        // ablak előtérbe jön, az útvonal pedig új fülön nyílik meg. Útvonal
+        // nélkül (Win+E, Start menü) csak az ablak jön előtérbe.
         _singleInstance?.StartListening(path => Dispatcher.InvokeAsync(() =>
         {
             ActivateMainWindow(mainWindow);
 
             if (path is not null && Directory.Exists(path))
             {
-                _services.GetRequiredService<MainWindowViewModel>().ActivePane.AddTab(path);
+                OpenFolderFromOutside(path);
             }
         }));
 
@@ -251,7 +254,9 @@ public partial class App : Application
         void StartDeferredWork()
         {
             FolderSizeService.Start();
-            if (!DemoMode.IsEnabled && !PackageInfo.IsPackaged && !PackageInfo.IsWingetInstall)
+            // A „Frissítések keresése induláskor" kapcsolót korábban figyelmen
+            // kívül hagyta: kikapcsolva is lekérdezte a GitHubot.
+            if (settings.Current.CheckForUpdates && !DemoMode.IsEnabled && !PackageInfo.IsPackaged && !PackageInfo.IsWingetInstall)
             {
                 _ = _services.GetRequiredService<UpdateViewModel>().CheckSilentlyAsync();
             }
@@ -1101,10 +1106,56 @@ public partial class App : Application
     /// A parancssorban átadott mappa (jobbklikk „Megnyitás Pilaster-ben",
     /// Intéző-kiváltás), ha van és létezik. <c>args[0]</c> a saját exe.
     /// </summary>
-    private static string? GetFolderArgument()
+    private static string? GetFolderArgument() => ParseFolderArgument(Environment.GetCommandLineArgs());
+
+    /// <summary>Lásd <see cref="GetFolderArgument"/>; <c>internal</c> a tesztek miatt.</summary>
+    /// <remarks>
+    /// A meghajtógyökér a <c>"%1"</c> parancssorban <c>"C:\"</c> alakban
+    /// érkezik, amit a Windows parancssor-értelmezése <c>C:"</c>-ra bont (a
+    /// <c>\"</c> idézőjel-escape). Enélkül egy meghajtó megnyitása a
+    /// Kezdőlapra esett vissza.
+    /// </remarks>
+    internal static string? ParseFolderArgument(IReadOnlyList<string> args)
     {
-        var args = Environment.GetCommandLineArgs();
-        return args.Length > 1 && Directory.Exists(args[1]) ? args[1] : null;
+        if (args.Count < 2)
+        {
+            return null;
+        }
+
+        var path = args[1].Trim().Trim('"');
+
+        if (path.Length == 2 && path[1] == ':')
+        {
+            path += Path.DirectorySeparatorChar;
+        }
+
+        return path.Length > 0 && Directory.Exists(path) ? path : null;
+    }
+
+    /// <summary>
+    /// Kívülről kért mappa megnyitása: ha egy fül már ott van, az lesz aktív;
+    /// egyetlen üres Kezdőlap-fül helyén nyílik meg; egyébként új fület kap.
+    /// </summary>
+    private void OpenFolderFromOutside(string path)
+    {
+        var pane = _services!.GetRequiredService<MainWindowViewModel>().ActivePane;
+        var normalized = Path.TrimEndingDirectorySeparator(path);
+
+        if (pane.Tabs.FirstOrDefault(t => t.CurrentPath is { } current
+            && string.Equals(Path.TrimEndingDirectorySeparator(current), normalized, StringComparison.OrdinalIgnoreCase)) is { } existing)
+        {
+            pane.ActiveTab = existing;
+            return;
+        }
+
+        if (pane.Tabs is [{ IsHome: true } onlyTab])
+        {
+            pane.ActiveTab = onlyTab;
+            _ = onlyTab.NavigateCommand.ExecuteAsync(path);
+            return;
+        }
+
+        pane.AddTab(path);
     }
 
     private static void ActivateMainWindow(Window window)

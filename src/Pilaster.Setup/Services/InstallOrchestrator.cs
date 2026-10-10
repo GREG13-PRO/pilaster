@@ -73,9 +73,16 @@ public static class InstallOrchestrator
 
         if (session.MakeDefaultFileManager)
         {
-            var directoryBackup = ShellIntegrationService.BackupDirectoryOpen();
-            var driveBackup = ShellIntegrationService.BackupDriveOpen();
-            SetupRegistration.SaveDefaultFileManagerBackup(directoryBackup, driveBackup);
+            // Frissítéskor a meglévő mentés marad: az már a Pilaster előtti
+            // állapot — egy új mentés a Pilasterre mutató átirányítást rögzítené
+            // „eredetiként".
+            if (SetupRegistration.LoadDefaultFileManagerBackup() is null)
+            {
+                var directoryBackup = ShellIntegrationService.BackupDirectoryOpen();
+                var driveBackup = ShellIntegrationService.BackupDriveOpen();
+                SetupRegistration.SaveDefaultFileManagerBackup(directoryBackup, driveBackup);
+            }
+
             ShellIntegrationService.SetFolderOpenCommand(exePath);
         }
 
@@ -138,6 +145,13 @@ public static class InstallOrchestrator
             ShellIntegrationService.RestoreDriveOpen(backup.Drive);
             SetupRegistration.RemoveDefaultFileManagerBackup();
         }
+
+        // A Pilaster Beállításaiban bekapcsolt átirányítások (mappák, Win+E)
+        // mentése nem itt, hanem a beállításfájlban él — ha a telepített
+        // programra mutatnak, a Windows alapértelmezésére állnak vissza.
+        // Enélkül eltávolítás után a mappák dupla kattintásra egy már nem
+        // létező programot kerestek.
+        ShellIntegrationService.RemoveRedirectsTo(installDir);
 
         // A cache/logok mindig törlődnek — ugyanaz a viselkedés, mint a
         // korábbi installer/Pilaster.iss [UninstallDelete] szakaszáé.

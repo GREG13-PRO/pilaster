@@ -17,6 +17,10 @@
     <ProjectReference Include="..\Pilaster.Core\Pilaster.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pilaster.Tests" />
+  </ItemGroup>
+
   <!--
     A meghajtó-kiadás (DeviceIoControl-alapú kötetzárolás/leválasztás) és a
     lemezikon-kinyerés (autorun.inf ICON=) kézzel írt P/Invoke-kal rendkívül

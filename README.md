@@ -18,7 +18,7 @@ Windows 11's Explorer is slow, and it's missing macOS Finder's best idea: **colu
 
 ## Status
 
-**v1.2.1 — actively developed, daily-driver ready.** What already works:
+**v1.2.2 — actively developed, daily-driver ready.** What already works:
 
 - **Cloud drives (NextCloud, ownCloud, WebDAV)**: connect any WebDAV server from the sidebar's "Cloud drives" section — through Windows' own built-in WebDAV redirector, so once connected it behaves like any other network path (copy, tags, favorites, everything just works). Credentials are never stored in a Pilaster file; Windows' own Credential Manager handles them.
 - **Real Windows 11 icons in Quick Access**: Documents, Downloads, Pictures, Music, and Videos show their actual badged shell icon straight from `desktop.ini`, exactly as in Explorer — not a generic glyph.

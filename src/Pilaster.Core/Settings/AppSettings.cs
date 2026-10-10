@@ -75,7 +75,20 @@ public sealed class ShellIntegrationSettings
 
     public string? DriveBackupValue { get; set; }
 
-    /// <summary>Win+E ezt az appot nyissa meg — csak addig hat, amíg a Pilaster fut.</summary>
+    /// <summary>A <c>Directory\shell</c> korábbi alapértelmezett igéje mentve van-e (v1.2.2-től).</summary>
+    public bool DirectoryDefaultVerbCaptured { get; set; }
+
+    public string? DirectoryDefaultVerbValue { get; set; }
+
+    /// <summary>A <c>Drive\shell</c> korábbi alapértelmezett igéje mentve van-e (v1.2.2-től).</summary>
+    public bool DriveDefaultVerbCaptured { get; set; }
+
+    public string? DriveDefaultVerbValue { get; set; }
+
+    /// <summary>
+    /// A Win+E és az Intéző „Új ablak" parancsa ezt az appot nyissa meg.
+    /// v1.2.2-től registry-alapú, tehát akkor is hat, ha a Pilaster nem fut.
+    /// </summary>
     public bool WinERedirectEnabled { get; set; }
 
     /// <summary>„Megnyitás Pilaster-ben" bejegyzés mappák jobbklikk-menüjében.</summary>
@@ -359,6 +372,12 @@ public sealed class AppSettings
     /// megosztott STA-sorral épült.
     /// </summary>
     public bool ContextMenuPreloadEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Pilaster-panel a Windows Megnyitás/Mentés ablakai (pl. a böngésző
+    /// feltöltő ablaka) mellett, a nyitott fülek és a gyorselérés mappáival.
+    /// </summary>
+    public bool FileDialogCompanionEnabled { get; set; }
 
     // ---------- Szerkesztő ----------
 

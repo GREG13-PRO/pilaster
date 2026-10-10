@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilaster — Code Signing Policy</title>
+<meta name="description" content="How Pilaster release builds are built and code-signed, who approves signing, and what Pilaster sends over the network.">
+<link rel="icon" type="image/png" href="assets/brand/png/icon-32.png">
+<style>
+  :root {
+    --bg: #0b0a09;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --text: #f3ede4;
+    --text-dim: #c9bfb1;
+    --text-faint: #8f8577;
+    --accent: #e0a458;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #faf6ef;
+      --panel: rgba(32, 20, 8, 0.04);
+      --panel-border: rgba(32, 20, 8, 0.10);
+      --text: #241a0f;
+      --text-dim: #55483a;
+      --text-faint: #8a7a67;
+      --accent: #9c672c;
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px 20px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  header img { width: 40px; height: 40px; }
+  h1 { font-size: 1.9rem; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 1.15rem; margin: 2em 0 0.4em; }
+  p, li { color: var(--text-dim); }
+  ul { padding-left: 1.2em; }
+  a { color: var(--accent); }
+  .meta { color: var(--text-faint); font-size: 0.9rem; margin: 0 0 28px; }
+  .lang { display: flex; gap: 8px; margin-bottom: 28px; }
+  .lang a {
+    text-decoration: none; padding: 4px 12px; border-radius: 8px;
+    border: 1px solid var(--panel-border); background: var(--panel); color: var(--text);
+    font-size: 0.9rem;
+  }
+  .summary {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 16px 20px; margin: 0 0 8px;
+  }
+  .summary p { margin: 0; color: var(--text); }
+  section + section { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--panel-border); }
+  code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="assets/brand/png/icon-48.png" alt="">
+    <h1>Pilaster</h1>
+  </header>
+  <nav class="lang"><a href="#en">English</a><a href="#hu">Magyar</a></nav>
+
+  <section id="en" lang="en">
+    <h1>Code signing policy</h1>
+    <p class="meta">Last updated: October 10, 2026</p>
+
+    <div class="summary"><p>Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a>.</p></div>
+    <p>Status: Pilaster has applied to the SignPath Foundation's free code signing program for open-source projects. Releases are signed from the first version after approval; earlier releases are not signed.</p>
+
+    <h2>What is signed</h2>
+    <p>The Windows release builds: <code>Pilaster.exe</code>, the installer <code>Pilaster.Setup.exe</code> and Pilaster's own libraries (<code>Pilaster.*.dll</code>). They are built, packaged and submitted for signing by <a href="https://github.com/GREG13-PRO/pilaster/blob/main/.github/workflows/release.yml">GitHub Actions</a>, directly from the source code in <a href="https://github.com/GREG13-PRO/pilaster">this repository</a>. Nothing is built or signed on a personal computer. Third-party libraries, such as the .NET runtime files, keep their own publisher's signature.</p>
+
+    <h2>Team roles</h2>
+    <ul>
+      <li>Committers and reviewers: <a href="https://github.com/GREG13-PRO">GREG13-PRO</a></li>
+      <li>Approvers: <a href="https://github.com/GREG13-PRO">GREG13-PRO</a></li>
+    </ul>
+    <p>Every signing request is approved by hand by an approver. All team members use multi-factor authentication for GitHub and SignPath.</p>
+
+    <h2>Privacy</h2>
+    <p>Pilaster doesn't collect or transfer personal data. It makes no network connections unless you ask for one, with a single exception: at startup it asks GitHub (<code>api.github.com</code>) whether a newer version is available. That request contains no personal data, and you can turn it off in Settings → Updates. A bug report is sent only when you write one and click Send. Details: <a href="privacy.html">privacy policy</a>.</p>
+  </section>
+
+  <section id="hu" lang="hu">
+    <h1>Kódaláírási szabályzat</h1>
+    <p class="meta">Utolsó frissítés: 2026. október 10.</p>
+
+    <div class="summary"><p>Az ingyenes kódaláírást a <a href="https://about.signpath.io">SignPath.io</a> biztosítja, a tanúsítványt a <a href="https://signpath.org">SignPath Foundation</a> adja ki.</p></div>
+    <p>Állapot: a Pilaster jelentkezett a SignPath Foundation nyílt forrású projekteknek szóló, ingyenes kódaláírási programjába. A jóváhagyás utáni első verziótól kezdve a kiadások alá vannak írva; a korábbiak nem.</p>
+
+    <h2>Mi van aláírva</h2>
+    <p>A Windows-kiadások: a <code>Pilaster.exe</code>, a <code>Pilaster.Setup.exe</code> telepítő és a Pilaster saját könyvtárai (<code>Pilaster.*.dll</code>). Ezeket a <a href="https://github.com/GREG13-PRO/pilaster/blob/main/.github/workflows/release.yml">GitHub Actions</a> fordítja, csomagolja és küldi aláírásra, közvetlenül <a href="https://github.com/GREG13-PRO/pilaster">ennek a tárolónak</a> a forráskódjából. Személyes számítógépen semmi nem készül és nem kerül aláírásra. A külső könyvtárak, például a .NET futtatókörnyezet fájljai, a saját kiadójuk aláírását viselik.</p>
+
+    <h2>Szerepkörök</h2>
+    <ul>
+      <li>Fejlesztők és ellenőrzők: <a href="https://github.com/GREG13-PRO">GREG13-PRO</a></li>
+      <li>Jóváhagyók: <a href="https://github.com/GREG13-PRO">GREG13-PRO</a></li>
+    </ul>
+    <p>Minden aláírási kérést egy jóváhagyó kézzel hagy jóvá. A csapat minden tagja kétlépcsős azonosítást használ a GitHubon és a SignPathon.</p>
+
+    <h2>Adatvédelem</h2>
+    <p>A Pilaster nem gyűjt és nem továbbít személyes adatot. Hálózati kapcsolatot csak akkor létesít, ha kéred, egyetlen kivétellel: induláskor megkérdezi a GitHubot (<code>api.github.com</code>), van-e újabb verzió. Ez a kérés nem tartalmaz személyes adatot, és a Beállítások → Frissítések alatt kikapcsolható. Hibabejelentés csak akkor megy el, ha megírod és a Küldés gombra kattintasz. Részletek: <a href="privacy.html">adatvédelmi nyilatkozat</a>.</p>
+  </section>
+</main>
+</body>
+</html>

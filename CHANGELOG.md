@@ -2,6 +2,43 @@
 
 Follows [Semantic Versioning](https://semver.org/).
 
+## v1.2.2 — 2026-10-10
+
+### New
+
+- **Pilaster panel next to Open and Save windows** (optional): when a file
+  window comes up, for example when you upload a file in your browser, a
+  Pilaster panel docks beside it with the folders of your open tabs and
+  Quick Access. One click takes the window there. It doesn't replace or
+  modify the other program's window; turn it on in Settings → Integrations.
+
+### Fixed — Pilaster as the default file manager
+
+- **"Open folders in this app" didn't work on Windows 11**: double-clicking a
+  folder or drive still opened File Explorer, because Windows 11 has no
+  default verb for folders. Pilaster now sets it, and restores the previous
+  state exactly when you turn the option off.
+- **Win+E redirect works without Pilaster running**, and it now also covers
+  the File Explorer icon on the taskbar and in Start. It is set in the
+  registry instead of a keyboard hook, which only worked while Pilaster ran
+  and could slow down typing in every app while Pilaster was busy.
+- Opening a drive from outside (for example `C:\`) landed on Home instead
+  of the drive.
+- A folder opened from outside gets its own tab next to your restored tabs
+  instead of replacing the current one; a folder that is already open in a
+  tab is brought to front.
+- Uninstalling Pilaster now removes its folder and Win+E redirects, so
+  folders open in File Explorer again afterwards.
+
+### Fixed
+
+- The "Check for updates at startup" setting was ignored: Pilaster asked
+  GitHub for updates even with it turned off. It works now, and the switch
+  is shown in Settings → Updates.
+- Pilaster has applied for free code signing from the SignPath Foundation;
+  the release workflow signs the builds once that is approved. See the
+  [code signing policy](https://greg13-pro.github.io/pilaster/code-signing.html).
+
 ## v1.2.1 — 2026-10-09
 
 ### Fixed

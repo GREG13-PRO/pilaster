@@ -77,6 +77,58 @@ jobs:
           -p:Version=${{ steps.version.outputs.version }}
           -o setup-publish/${{ matrix.runtime }}
 
+      # Kódaláírás a SignPath Foundationnél (ingyenes nyílt forrású
+      # projekteknek, lásd docs/code-signing.html). Csak ha a tároló be van
+      # állítva hozzá — Settings → Secrets: SIGNPATH_API_TOKEN; Variables:
+      # SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG
+      # (és opcionálisan SIGNPATH_ARTIFACT_CONFIGURATION_SLUG). Addig a kiadás
+      # aláíratlan, pontosan úgy, mint eddig. Az aláírandó fájlok listája:
+      # .signpath/artifact-configuration.xml.
+      - name: Aláírandó fájlok összegyűjtése
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        shell: pwsh
+        run: |
+          $rid = '${{ matrix.runtime }}'
+          New-Item -ItemType Directory -Force -Path to-sign | Out-Null
+          Copy-Item "publish/$rid" "to-sign/app" -Recurse
+          Copy-Item "setup-publish/$rid" "to-sign/setup" -Recurse
+
+      - name: Aláíratlan csomag feltöltése
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.runtime }}
+          path: to-sign/
+
+      # A kérést a jóváhagyó a SignPath felületén hagyja jóvá; addig vár.
+      - name: Aláírás (SignPath)
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: SignPath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      - name: Aláírt fájlok visszamásolása és ellenőrzése
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        shell: pwsh
+        run: |
+          $rid = '${{ matrix.runtime }}'
+          Copy-Item "signed/app/*" "publish/$rid" -Recurse -Force
+          Copy-Item "signed/setup/*" "setup-publish/$rid" -Recurse -Force
+          foreach ($file in "publish/$rid/Pilaster.exe", "setup-publish/$rid/Pilaster.Setup.exe") {
+            $signature = Get-AuthenticodeSignature $file
+            if ($signature.Status -ne 'Valid') { throw "$file nincs érvényesen aláírva: $($signature.Status)" }
+            "$file — $($signature.SignerCertificate.Subject)"
+          }
+
       - name: Telepítő ZIP összeállítása
         shell: pwsh
         run: |

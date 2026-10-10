@@ -38,11 +38,13 @@ public partial class SettingsWindow : FluentWindow
             FolderOpenCard.Visibility = Visibility.Collapsed;
             ContextMenuEntryCard.Visibility = Visibility.Collapsed;
             UpdateCheckPanel.Visibility = Visibility.Collapsed;
+            AutoUpdateCheckCard.Visibility = Visibility.Collapsed;
             UpdatesHintText.Text = Pilaster.App.Localization.TranslationSource.Instance["Settings_UpdatesHintStore"];
         }
         else if (Pilaster.App.Services.PackageInfo.IsWingetInstall)
         {
             UpdateCheckPanel.Visibility = Visibility.Collapsed;
+            AutoUpdateCheckCard.Visibility = Visibility.Collapsed;
             UpdatesHintText.Text = string.Format(
                 Pilaster.App.Localization.TranslationSource.Instance["Settings_UpdatesHintWinget"],
                 Pilaster.App.Services.PackageInfo.WingetPackageId);
